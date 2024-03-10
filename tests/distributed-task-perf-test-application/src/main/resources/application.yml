@@ -1,0 +1,71 @@
+spring:
+  profiles:
+    include:
+      - dtf-perf-test
+  datasource:
+    url: jdbc:postgresql://localhost:5432/distributed-task
+    username: distributed-task
+    password: distributed-task
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 20
+      data-source-properties:
+        rewriteBatchedStatements: true
+        useConfigs: maxPerformance
+      validation-timeout: 10000
+      keepalive-time: 60000
+      connection-timeout: 10000
+  application:
+    name: test-app
+
+management:
+  health:
+    db:
+      enabled: false
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: '*'
+
+distributed-task:
+  enabled: true
+  common:
+    app-name: dtf-perf-test-app
+    registry:
+      update-initial-delay-ms: 5000
+      update-fixed-delay-ms: 5000
+      max-inactivity-interval-ms: 16000
+      cache-expiration-ms: 5000
+    planner:
+      watchdog-initial-delay-ms: 5000
+      watchdog-fixed-delay-ms: 5000
+      max-parallel-tasks-in-cluster-default: 100
+      batch-size: 100
+      polling-delay:
+        0: 500
+        1: 10
+      new-batch-size: 100
+      deleted-batch-size: 100
+    worker-manager:
+      max-parallel-tasks-in-node: 100
+      manage-delay:
+        0: 500
+        1: 10
+
+  task-properties-group:
+    default-properties:
+      execution-guarantees: AT_LEAST_ONCE
+      dlt-enabled: true
+      retry:
+        backoff:
+          initial-delay: PT10S
+          delay-period: PT10S
+          max-retries: 1000
+          max-delay: PT5M
+      max-parallel-in-cluster: 100
+      timeout: PT5M

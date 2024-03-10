@@ -1,0 +1,190 @@
+databaseChangeLog:
+  - changeSet:
+      id: stress-test-init
+      author: CherkovskiyAndrey
+      context: ddl
+      changes:
+        - createTable:
+            tableName: dtf_perf_test_run
+            columns:
+              - column:
+                  name: id
+                  type: int8
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: dtf_perf_test_run_pk
+              - column:
+                  name: name
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: created_at
+                  type: timestamp without timezone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: affinity_group
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: total_pipelines
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: total_affinities
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: total_task_on_first_level
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: total_task_on_second_level
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: task_duration_ms
+                  type: int8
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: dtf_perf_test_summary
+            columns:
+              - column:
+                  name: id
+                  type: int8
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: dtf_perf_test_summary_pk
+              - column:
+                  name: test_run_id
+                  type: int8
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_dtf_perf_test_run
+                    references: dtf_perf_test_run(id)
+                    deleteCascade: true
+                    validateForeignKey: true
+              - column:
+                  name: completed_at
+                  type: timestamp without timezone
+                  constraints:
+                    nullable: true
+              - column:
+                  name: test_id
+                  type: int8
+                  constraints:
+                    nullable: false
+              - column:
+                  name: affinity
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: number
+                  type: int8
+                  constraints:
+                    nullable: false
+              - column:
+                  name: state
+                  type: character varying(50)
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: dtf_perf_test_intermediate_result
+            columns:
+              - column:
+                  name: id
+                  type: int8
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: dtf_perf_test_intermediate_result_pk
+              - column:
+                  name: affinity_group
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: affinity
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: hierarchy
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: number
+                  type: int8
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: dtf_failed_task_result
+            columns:
+              - column:
+                  name: id
+                  type: int8
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: dtf_failed_task_result_pk
+              - column:
+                  name: run_id
+                  type: int8
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_dtf_perf_test_run
+                    references: dtf_perf_test_run(id)
+                    deleteCascade: true
+                    validateForeignKey: true
+              - column:
+                  name: summary_id
+                  type: int8
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_dtf_perf_test_summary
+                    references: dtf_perf_test_summary(id)
+                    deleteCascade: true
+                    validateForeignKey: true
+              - column:
+                  name: perf_test_error_type
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: hierarchy
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: task_id
+                  type: uuid
+                  constraints:
+                    nullable: true
+              - column:
+                  name: real_number
+                  type: int8
+                  constraints:
+                    nullable: true
+
+        - sql:
+            sql: "CREATE UNIQUE INDEX dtf_perf_test_intermediate_result_idx 
+                  ON dtf_perf_test_intermediate_result(affinity_group, affinity, hierarchy)"

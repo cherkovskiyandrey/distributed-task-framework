@@ -1,0 +1,26 @@
+rootProject.name = 'distributed-task-framework'
+
+//Core
+include ':distributed-task-library'
+include ':distributed-task-spring-boot-autoconfigure'
+include ':distributed-task-spring-boot-starter'
+
+//Perf test
+include ':distributed-task-perf-test-library'
+include ':distributed-task-perf-test-spring-boot-autoconfigure'
+include ':distributed-task-perf-test-spring-boot-starter'
+include ':distributed-task-perf-test-application'
+
+//Examples
+include ':distributed-task-test-application'
+
+
+//Examples
+project(':distributed-task-test-application').projectDir = new File('examples/distributed-task-test-application')
+
+
+//Perf test
+project(':distributed-task-perf-test-library').projectDir = new File('tests/distributed-task-perf-test-library')
+project(':distributed-task-perf-test-spring-boot-autoconfigure').projectDir = new File('tests/distributed-task-perf-test-spring-boot-autoconfigure')
+project(':distributed-task-perf-test-spring-boot-starter').projectDir = new File('tests/distributed-task-perf-test-spring-boot-starter')
+project(':distributed-task-perf-test-application').projectDir = new File('tests/distributed-task-perf-test-application')

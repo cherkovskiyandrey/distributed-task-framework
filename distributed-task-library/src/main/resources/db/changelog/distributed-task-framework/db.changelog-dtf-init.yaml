@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: '1'
+      author: Cherkovskiy Andrey
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: db/changelog/distributed-task-framework/sql/001_dtf_init.up.sql
+            encoding: UTF8
+      rollback:
+        - sqlFile:
+            dbms: postgresql
+            path: db/changelog/distributed-task-framework/sql/001_dtf_init.down.sql
+            encoding: UTF8

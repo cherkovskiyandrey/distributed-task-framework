@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.distributed_task_framework.perf_test.autoconfigure.DtfPerfTestAutoconfigure

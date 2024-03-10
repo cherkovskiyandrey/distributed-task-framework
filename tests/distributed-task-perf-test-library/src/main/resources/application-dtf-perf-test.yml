@@ -1,0 +1,8 @@
+#distributed-task:
+#  task-properties-group:
+#    task-properties:
+#      STRESS_TEST_CHILD_TASK_LEVEL_ONE:
+#        max-parallel-in-cluster: 50
+#
+#      STRESS_TEST_CHILD_TASK_LEVEL_TWO:
+#        max-parallel-in-cluster: 100

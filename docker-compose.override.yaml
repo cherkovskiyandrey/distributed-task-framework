@@ -1,0 +1,14 @@
+version: '3.5'
+
+services:
+
+  distributed-task-postgresql:
+    ports:
+      - "5432:5432"
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgresql:/var/lib/postgresql/data
+
+volumes:
+  postgresql:

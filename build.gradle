@@ -1,0 +1,114 @@
+plugins {
+    id 'org.springframework.boot' version '2.7.14'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'org.ajoberstar.grgit' version "1.7.2"
+}
+
+
+var libs = subprojects.findAll { !it.name.contains('application') }
+var apps = subprojects.findAll { it.name.contains('application') }
+
+configure(subprojects) { project ->
+    group = 'com.distributed_task_framework'
+    version = '0.0.1-SNAPSHOT'
+
+    ext {
+        lombokVersion = '1.18.28'
+        mapstructVersion = '1.5.5.Final'
+        lombokMapstructBindingVersion = '0.2.0'
+        springDataJdbcVersion = '2.4.0'
+        guavaVersion = '31.0.1-jre'
+        testcontainersVersion = '1.19.6'
+        cronUtilsVersion = '9.1.6'
+        caffeineVersion = '3.0.5'
+    }
+
+    apply plugin: 'maven-publish'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'java-library'
+    apply plugin: 'java'
+
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+
+    configurations {
+        compileOnly {
+            extendsFrom annotationProcessor
+        }
+    }
+
+    dependencies {
+        compileOnly "org.projectlombok:lombok:${lombokVersion}"
+
+        implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+        implementation 'com.fasterxml.jackson.core:jackson-databind'
+        implementation "com.google.guava:guava:${guavaVersion}"
+        implementation 'org.apache.commons:commons-lang3'
+
+        annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+        annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+        annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
+
+        testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        withSourcesJar()
+    }
+}
+
+configure(libs) { project ->
+
+    apply plugin: 'org.ajoberstar.grgit'
+
+    bootJar {
+        enabled = false
+    }
+
+    jar {
+        enabled = true
+    }
+
+    build {
+        finalizedBy publishToMavenLocal
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+        }
+    }
+
+    test {
+        maxHeapSize = "2048m"
+    }
+}
+
+configure(apps) { project ->
+    bootJar {
+        enabled = true
+    }
+
+    jar {
+        enabled = true
+    }
+}
+
+task publish {
+    dependsOn libs.publish
+}
+
+task build {
+    dependsOn subprojects.build
+}
