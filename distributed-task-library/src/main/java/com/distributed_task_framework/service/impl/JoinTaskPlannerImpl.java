@@ -74,11 +74,7 @@ public class JoinTaskPlannerImpl extends AbstractPlannerImpl {
         return true;
     }
 
-
-    //TODO: potential optimisation: has a dedicated table like active_join_task:
-    // | join_task_id | active_tasks_to_join |
-    // and when task is completing it remove from row from taskLinkRepository and decrement active_tasks_to_join
-    // planner look after active_join_task and plan those whose active_tasks_to_join = 0
+    //TODO: think about optimisation
     @Override
     int processInLoop() {
         List<UUID> joinTaskExecutionIds = taskLinkManager.getReadyToPlanJoinTasks(

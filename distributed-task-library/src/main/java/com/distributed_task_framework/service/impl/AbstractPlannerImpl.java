@@ -213,12 +213,10 @@ public abstract class AbstractPlannerImpl implements PlannerService {
         try {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-long beginTime = System.currentTimeMillis();
                     int taskNumber = planningTime.recordCallable(() -> inTransaction() ?
                             transactionTemplate.execute(status -> processInLoop()) :
                             processInLoop()
                     );
-//log.info("planningLoop(): \"{}\" time={}", name(), Duration.ofMillis(System.currentTimeMillis() - beginTime));
 
                     if (taskNumber > 0) {
                         plannedTaskCounter.increment(taskNumber);

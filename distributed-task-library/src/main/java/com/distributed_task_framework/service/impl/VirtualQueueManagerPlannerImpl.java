@@ -104,11 +104,6 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
     }
 
     @Override
-    protected boolean inTransaction() {
-        return false;
-    }
-
-    @Override
     public EnumSet<Capabilities> capabilities() {
         return EnumSet.of(Capabilities.VIRTUAL_QUEUE_MANAGER_PLANNER_V1);
     }

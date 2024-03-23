@@ -10,18 +10,18 @@
     <appender name="file" class="ch.qos.logback.core.FileAppender">
         <file>perf-test.log</file>
         <append>true</append>
+        <immediateFlush>false</immediateFlush>
+        <bufferSize>256KB</bufferSize>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-<!--        <logger name="impl.service.com.distributed_task_framework.PartitionTrackerImpl" level="debug"/>-->
-<!--    <logger name="impl.service.com.distributed_task_framework.VirtualQueueManagerPlannerImpl" level="debug"/>-->
-<!--    <logger name="impl.service.com.distributed_task_framework.VirtualQueueBaseFairTaskPlannerImpl" level="debug"/>-->
-<!--    <logger name="com.distributed_task_framework.service.impl.FairGeneralTaskPlannerImpl" level="debug"/>-->
+    <logger name="com.distributed_task_framework.service.impl.WorkerManagerImpl" level="debug"/>
+    <logger name="com.distributed_task_framework.service.impl.VirtualQueueBaseFairTaskPlannerImpl" level="debug"/>
 
     <root level="info">
-        <appender-ref ref="stdout"/>
+<!--        <appender-ref ref="stdout"/>-->
         <appender-ref ref="file"/>
     </root>
 </configuration>

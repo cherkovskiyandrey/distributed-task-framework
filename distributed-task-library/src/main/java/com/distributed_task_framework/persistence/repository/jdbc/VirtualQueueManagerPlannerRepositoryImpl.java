@@ -277,7 +277,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
             to_ready as (
                 SELECT id, 'READY'::_____dtf_virtual_queue_type AS target_virtual_queue FROM new_portion
                 EXCEPT
-                SELECT id, 'READY'::_____dtf_virtual_queue_type as target_virtual_queue FROM to_park -- set READY as hack
+                SELECT id, 'READY'::_____dtf_virtual_queue_type as target_virtual_queue FROM to_park
             ),
             patched_new AS (
                 SELECT id, target_virtual_queue from to_park

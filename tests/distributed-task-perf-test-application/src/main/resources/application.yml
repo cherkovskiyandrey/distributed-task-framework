@@ -3,12 +3,17 @@ spring:
     include:
       - dtf-perf-test
   datasource:
-    url: jdbc:postgresql://localhost:5432/distributed-task
-    username: distributed-task
-    password: distributed-task
+#    url: jdbc:postgresql://localhost:5432/distributed-task
+#    username: distributed-task
+#    password: distributed-task
+#    real dev2 collection-manager
+    url: jdbc:postgresql://10.10.1.154:7432/collectionmanageraudiodb
+    username: collectionaudiomanager
+    password: jBEPwRZHm2ORStOaFu
+
     hikari:
       minimum-idle: 10
-      maximum-pool-size: 20
+      maximum-pool-size: 230
       data-source-properties:
         rewriteBatchedStatements: true
         useConfigs: maxPerformance
@@ -44,17 +49,18 @@ distributed-task:
     planner:
       watchdog-initial-delay-ms: 5000
       watchdog-fixed-delay-ms: 5000
-      max-parallel-tasks-in-cluster-default: 100
-      batch-size: 100
+#      max-parallel-tasks-in-cluster-default: 100
+      batch-size: 200
       polling-delay:
-        0: 500
+        0: 10
         1: 10
-      new-batch-size: 100
-      deleted-batch-size: 100
+      new-batch-size: 200
+      deleted-batch-size: 200
+      plan-factor: 3.0
     worker-manager:
-      max-parallel-tasks-in-node: 100
+      max-parallel-tasks-in-node: 200
       manage-delay:
-        0: 500
+        0: 10
         1: 10
 
   task-properties-group:
@@ -67,5 +73,5 @@ distributed-task:
           delay-period: PT10S
           max-retries: 1000
           max-delay: PT5M
-      max-parallel-in-cluster: 100
+#      max-parallel-in-cluster: 100
       timeout: PT5M

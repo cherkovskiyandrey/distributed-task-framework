@@ -145,7 +145,7 @@ public class WorkerManagerImpl implements WorkerManager {
                 @SuppressWarnings("DataFlowIssue")
                 int taskNumber = getManageTimer().record(this::manageTasks);
                 getManagedTasks().increment(taskNumber);
-                log.debug("manageLoop(): {}", taskNumber);
+                log.trace("manageLoop(): {}", taskNumber);
                 try {
                     sleep(taskNumber);
                 } catch (InterruptedException e) {
@@ -188,6 +188,12 @@ public class WorkerManagerImpl implements WorkerManager {
                 activeTasks.keySet(),
                 freeCapacity
         );
+        var starvation = freeCapacity - newTasks.size();
+        log.debug("manageTasks(): starvation = {}", starvation);
+        if (starvation > 0) {
+            getStarvationTasks().increment(starvation);
+        }
+
         List<TaskEntity> unknownTasks = Lists.newArrayList();
         for (TaskEntity taskEntity : newTasks) {
             log.info("startNewTasks(): task=[{}] has been started, details=[{}]", taskEntity.getId(), taskEntity);
@@ -341,6 +347,10 @@ public class WorkerManagerImpl implements WorkerManager {
 
     private Counter getManagedTasks() {
         return metricHelper.counter("workerManager", "managed");
+    }
+
+    private Counter getStarvationTasks() {
+        return metricHelper.counter("workerManager", "starvation");
     }
 
     private Counter getExpiredTasksCounter(TaskEntity taskEntity) {

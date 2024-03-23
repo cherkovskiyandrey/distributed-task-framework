@@ -53,7 +53,6 @@ public class CommonSettings {
                 .watchdogInitialDelayMs(5000)
                 .watchdogFixedDelayMs(5000)
                 .maxParallelTasksInClusterDefault(PlannerSettings.UNLIMITED_PARALLEL_TASKS)
-                .fetchFactor(2.F) //current tasks + the same with same affinity group and affinity
                 .planFactor(2.F) //twice bigger than free capacity
                 .batchSize(1000)
                 .newBatchSize(300)
@@ -159,11 +158,6 @@ public class CommonSettings {
          * Range from 0.0-1.0
          */
         Double nodeCpuLoadingLimit;
-        /**
-         * Used to calculate batch size base on current free capacity.
-         * Usually allow to take into account dependent tasks.
-         */
-        Float fetchFactor;
         /**
          * Used to plan bigger than capacity in this factor times.
          * In order to reduce potential delay between planner loop steps.

@@ -10,6 +10,7 @@ import com.distributed_task_framework.model.PartitionStat;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
 import lombok.AccessLevel;
@@ -62,6 +63,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     Timer taskNameAndAffinityGroupsFromNewStatTimer;
     Timer batchRouteTimer;
     Timer loadTasksToPlanTimer;
+    Counter starvationCapacity;
 
     public VirtualQueueBaseFairTaskPlannerImpl(CommonSettings commonSettings,
                                                PlannerRepository plannerRepository,
@@ -98,6 +100,10 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         );
         this.loadTasksToPlanTimer = metricHelper.timer(
                 List.of("planner", "vqb", "loadTasksToPlanTimer", "time"),
+                commonTags
+        );
+        this.starvationCapacity = metricHelper.counter(
+                List.of("planner", "vqb", "starvation"),
                 commonTags
         );
     }
@@ -162,11 +168,11 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
             return 0;
         }
 
-        var activeTaskNameAndAffinityGroups = partitionTracker.getAll().stream()
+        var activePartitions = partitionTracker.getAll().stream()
                 .filter(entity -> availableTaskNames.contains(entity.getTaskName()))
                 .collect(Collectors.toSet());
-        if (activeTaskNameAndAffinityGroups.isEmpty()) {
-            log.debug("processInLoop(): activeTaskNameAndAffinityGroups are empty");
+        if (activePartitions.isEmpty()) {
+            log.debug("processInLoop(): activePartitions are empty");
             return 0;
         }
 
@@ -191,11 +197,18 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                 taskNameAndAffinityGroupsFromNewStatTimer.record(() ->
                         taskRepository.findPartitionStatToPlan(
                                 knownNodes,
-                                activeTaskNameAndAffinityGroups,
+                                activePartitions,
                                 clusterCapacity
                         )
                 )
         );
+
+        long newTasks = partitionStats.stream().mapToInt(PartitionStat::getNumber).sum();
+        var starvation = clusterCapacity - newTasks;
+        log.debug("processInLoop(): starvation = {}, clusterCapacity={}, newTasks={}", starvation, clusterCapacity, newTasks);
+        if (starvation > 0) {
+            starvationCapacity.increment(starvation);
+        }
 
         Set<String> taskNamesToPlan = partitionStats.stream()
                 .map(PartitionStat::getTaskName)
@@ -237,20 +250,22 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                 )
         );
         if (unplannedActualTasks.isEmpty()) {
-            log.debug("planTaskFromActiveQueue(): there isn't unplanned tasks");
+            log.debug("processInLoop(): there isn't unplanned tasks");
             return 0;
         }
 
-        log.info("planTaskFromActiveQueue(): batchRouteMap=[{}]", batchRouteMap);
+        log.info("processInLoop(): batchRouteMap=[{}]", batchRouteMap);
         Collection<ShortTaskEntity> plannedTasks = assignNodeToTasks(
                 unplannedActualTasks,
                 batchRouteMap.getTaskNameNodeQuota()
         );
         plannedTasks = sort(plannedTasks); //to prevent deadlocks during split brain
-        taskRepository.updateAll(plannedTasks);
-        virtualQueueStatHelper.updatePlannedTasks(plannedTasks);
+        taskRepository.updateAll(plannedTasks); //todo: has to return plannedTasks
+
+        //todo: just to try. Looks like potentially takes a lot of time for 500 elements and more
+        //virtualQueueStatHelper.updatePlannedTasks(plannedTasks);
         log.info(
-                "planTaskFromActiveQueue(): unplannedActualTasks=[{}], plannedTasks=[{}]",
+                "processInLoop(): unplannedActualTasks=[{}], plannedTasks=[{}]",
                 toIdList(unplannedActualTasks),
                 toIdList(plannedTasks)
         );
@@ -346,23 +361,20 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                                                        List<NodeTaskActivity> nodeTaskActivities) {
         List<NodeCapacity> result = Lists.newArrayList();
         int maxParallelTasksInNode = commonSettings.getWorkerManagerSettings().getMaxParallelTasksInNode();
+        float planFactor = commonSettings.getPlannerSettings().getPlanFactor();
+        maxParallelTasksInNode *= planFactor;
         for (var entry : availableTaskByNode.entrySet()) {
             UUID node = entry.getKey();
             Set<String> supportedTasks = entry.getValue();
             NodeCapacity nodeCapacity = new NodeCapacity(node, supportedTasks, maxParallelTasksInNode);
             result.add(nodeCapacity);
             for (var nodeTaskActivity : nodeTaskActivities) {
-                int busyTaskNumber = nodeTaskActivity.getNumber();
                 if (node.equals(nodeTaskActivity.getNode())) {
+                    int busyTaskNumber = nodeTaskActivity.getNumber();
                     nodeCapacity.busy(busyTaskNumber);
                 }
             }
         }
-
-        Float planFactor = commonSettings.getPlannerSettings().getPlanFactor();
-        return result.stream()
-                .filter(nodeCapacity -> nodeCapacity.getFreeCapacity() > 0)
-                .peek(nodeCapacity -> nodeCapacity.setFreeCapacity((int) (nodeCapacity.getFreeCapacity() * planFactor)))
-                .toList();
+        return result;
     }
 }

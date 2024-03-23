@@ -64,7 +64,6 @@ public class DistributedTaskProperties {
         Duration affinityGroupScannerTimeOverlap;
         Duration partitionTrackingTimeWindow;
         Double nodeCpuLoadingLimit;
-        Float fetchFactor;
         Float planFactor;
         @Builder.Default
         Map<Integer, Integer> pollingDelay = Maps.newHashMap();
