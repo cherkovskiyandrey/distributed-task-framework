@@ -23,8 +23,8 @@ import com.distributed_task_framework.autoconfigure.annotation.TaskFixedRetryPol
 import com.distributed_task_framework.autoconfigure.annotation.TaskSchedule;
 import com.distributed_task_framework.autoconfigure.annotation.TaskTimeout;
 
-import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.Nullable;
+import jakarta.annotation.PostConstruct;
 import java.lang.annotation.Annotation;
 import java.time.Duration;
 import java.util.Collection;

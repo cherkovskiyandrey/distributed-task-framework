@@ -7,7 +7,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.service.internal.BatcheableLocalCommand;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.util.List;
 
 @Value(staticConstructor = "of")

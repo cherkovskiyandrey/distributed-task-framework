@@ -21,7 +21,7 @@ import com.distributed_task_framework.perf_test.persistence.repository.FailedTas
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;
 import com.distributed_task_framework.perf_test.tasks.dto.PerfTestResultDto;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;

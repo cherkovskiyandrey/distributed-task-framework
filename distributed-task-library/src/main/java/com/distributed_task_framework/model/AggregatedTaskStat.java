@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)

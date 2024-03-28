@@ -1,7 +1,7 @@
 plugins {
-    id 'org.springframework.boot' version '2.7.14'
-    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
-    id 'org.ajoberstar.grgit' version "1.7.2"
+    id 'org.springframework.boot' version '3.1.2'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.ajoberstar.grgit' version "5.2.2"
 }
 
 
@@ -13,10 +13,10 @@ configure(subprojects) { project ->
     version = '0.0.1-SNAPSHOT'
 
     ext {
-        lombokVersion = '1.18.28'
+        lombokVersion = '1.18.30'
         mapstructVersion = '1.5.5.Final'
         lombokMapstructBindingVersion = '0.2.0'
-        springDataJdbcVersion = '2.4.0'
+        springDataJdbcVersion = '3.1.2'
         guavaVersion = '31.0.1-jre'
         testcontainersVersion = '1.19.6'
         cronUtilsVersion = '9.1.6'

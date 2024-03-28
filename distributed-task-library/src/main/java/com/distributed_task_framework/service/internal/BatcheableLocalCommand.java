@@ -1,6 +1,6 @@
 package com.distributed_task_framework.service.internal;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public interface BatcheableLocalCommand<BATCH_TYPE extends LocalCommand> extends LocalCommand {
 

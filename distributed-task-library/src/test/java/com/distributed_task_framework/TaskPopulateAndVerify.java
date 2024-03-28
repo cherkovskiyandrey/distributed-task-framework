@@ -17,7 +17,7 @@ import org.assertj.core.api.Assertions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;

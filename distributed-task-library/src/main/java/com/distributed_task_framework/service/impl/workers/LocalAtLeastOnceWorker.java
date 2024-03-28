@@ -42,7 +42,7 @@ import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;

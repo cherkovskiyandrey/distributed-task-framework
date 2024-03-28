@@ -5,7 +5,7 @@ import lombok.Value;
 import lombok.extern.jackson.Jacksonized;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestState;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;

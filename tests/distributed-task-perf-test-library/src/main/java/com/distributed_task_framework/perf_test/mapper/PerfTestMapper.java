@@ -23,6 +23,7 @@ import java.util.Map;
 public interface PerfTestMapper {
 
     @Mapping(target = "createdAt", expression = "java(LocalDateTime.now())")
+    @Mapping(target = "id", ignore = true)
     PerfTestRun toRun(PerfTestGeneratedSpecDto specDto);
 
     @Mapping(target = "summaryStates", source = "summaryStates")
