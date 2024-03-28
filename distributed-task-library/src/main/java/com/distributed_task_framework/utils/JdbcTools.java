@@ -2,7 +2,7 @@ package com.distributed_task_framework.utils;
 
 import lombok.experimental.UtilityClass;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;

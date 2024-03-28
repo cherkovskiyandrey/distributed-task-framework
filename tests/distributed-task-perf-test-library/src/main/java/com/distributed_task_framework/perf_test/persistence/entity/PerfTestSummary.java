@@ -10,7 +10,7 @@ import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
 
 @Table("dtf_perf_test_summary")

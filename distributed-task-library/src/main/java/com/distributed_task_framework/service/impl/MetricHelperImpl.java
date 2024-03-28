@@ -15,7 +15,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.service.internal.MetricHelper;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.util.List;
 import java.util.function.Supplier;
 

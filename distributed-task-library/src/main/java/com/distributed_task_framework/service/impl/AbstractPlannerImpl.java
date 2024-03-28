@@ -21,8 +21,8 @@ import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.settings.CommonSettings;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;

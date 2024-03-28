@@ -12,7 +12,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Table;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 

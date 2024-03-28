@@ -29,8 +29,8 @@ import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
