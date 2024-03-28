@@ -30,7 +30,7 @@ import org.springframework.data.util.Pair;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;

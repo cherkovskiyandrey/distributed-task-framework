@@ -3,7 +3,7 @@ package com.distributed_task_framework.model;
 import lombok.Getter;
 import lombok.Setter;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.util.Set;
 import java.util.UUID;
 

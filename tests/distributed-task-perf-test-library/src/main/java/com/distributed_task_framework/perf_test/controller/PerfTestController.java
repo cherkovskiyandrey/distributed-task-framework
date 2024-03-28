@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.distributed_task_framework.perf_test.service.PerfTestService;
 import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("api/dtf/perf-test")

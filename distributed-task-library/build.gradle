@@ -3,7 +3,7 @@ dependencies {
     implementation 'org.springframework:spring-tx'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    api "javax.annotation:javax.annotation-api"
+    api "jakarta.annotation:jakarta.annotation-api"
     implementation "com.cronutils:cron-utils:${cronUtilsVersion}"
     api "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
     api "org.springframework.boot:spring-boot-starter-cache"

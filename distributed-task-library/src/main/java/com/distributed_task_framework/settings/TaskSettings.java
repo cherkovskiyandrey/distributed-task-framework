@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Value;
 import org.springframework.util.StringUtils;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import java.time.Duration;
 
 /**
