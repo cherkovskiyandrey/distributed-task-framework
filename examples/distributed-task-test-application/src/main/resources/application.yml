@@ -31,9 +31,7 @@ distributed-task:
       max-parallel-tasks-in-cluster-default: 100
       batch-size: 100
       polling-delay:
-        0: 1000
-        100: 500
-        1000: 250
+        0: 100
 #      force-fair-general-task-planner: true
     worker-manager:
       max-parallel-tasks-in-node: 100
@@ -63,7 +61,7 @@ distributed-task:
     task-properties:
       CRON_TEST_TASK_DEF:
         execution-guarantees: EXACTLY_ONCE
-        cron: '0 * * * * *'
+#        cron: '0 * * * * *'
         dlt-enabled: false
         retry:
           # or backoff or retry with fixed delay

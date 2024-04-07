@@ -1,5 +1,6 @@
 package com.distributed_task_framework.test_service.tasks;
 
+import com.distributed_task_framework.autoconfigure.annotation.TaskSchedule;
 import com.distributed_task_framework.test_service.tasks.dto.ComplexMessageDto;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;

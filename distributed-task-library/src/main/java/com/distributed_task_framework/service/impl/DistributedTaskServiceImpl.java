@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
@@ -300,5 +301,15 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     @Override
     public void rescheduleDltTasks(Collection<DltTask<?>> dltTasks) {
         throw new UnsupportedOperationException("");
+    }
+
+    @Override
+    public void waitCompletion(TaskId taskId) throws TimeoutException {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletion(UUID workflowId) throws TimeoutException {
+        throw new UnsupportedOperationException("Isn't supported yet");
     }
 }

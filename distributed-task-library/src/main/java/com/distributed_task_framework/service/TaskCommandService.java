@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 public interface TaskCommandService {
 
@@ -238,4 +239,48 @@ public interface TaskCommandService {
      * @return
      */
     boolean cancelWorkflowImmediately(UUID workflowId);
+
+    //todo: implement
+
+    /**
+     * Wait until task referenced by taskId is completed.
+     * Return immediately in case task is already completed.
+     *
+     * @param taskId
+     * @throws java.util.concurrent.TimeoutException when default timeout is reached and task is still in progress
+     */
+    void waitCompletion(TaskId taskId) throws TimeoutException;
+
+    /**
+     * Wait until task referenced by taskId is completed.
+     * Return immediately in case task is already completed.
+     *
+     * @param taskId
+     * @throws java.util.concurrent.TimeoutException when default timeout is reached and task is still in progress
+     */
+    default void waitCompletion(TaskId taskId, Duration timeout) throws TimeoutException {
+        throw new UnsupportedOperationException();
+    }
+
+    //todo: implement
+
+    /**
+     * Wait until workflow referenced by workflowId is completed.
+     * Return immediately in case all tasks are already completed.
+     *
+     * @param workflowId
+     * @throws java.util.concurrent.TimeoutException when default timeout is reached and task is still in progress
+     */
+    void waitCompletion(UUID workflowId) throws TimeoutException;
+
+    /**
+     * Wait until workflow referenced by workflowId is completed.
+     * Return immediately in case all tasks are already completed.
+     *
+     * @param workflowId
+     * @throws java.util.concurrent.TimeoutException when default timeout is reached and task is still in progress
+     */
+    default void waitCompletion(UUID workflowId, Duration timeout) throws TimeoutException {
+        throw new UnsupportedOperationException();
+    }
 }

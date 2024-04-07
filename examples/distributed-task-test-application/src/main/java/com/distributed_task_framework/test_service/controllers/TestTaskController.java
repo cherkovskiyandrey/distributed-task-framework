@@ -1,4 +1,4 @@
-package com.distributed_task_framework.test_service.controller;
+package com.distributed_task_framework.test_service.controllers;
 
 import com.distributed_task_framework.test_service.tasks.PrivateTaskDefinitions;
 import io.swagger.v3.oas.annotations.Operation;

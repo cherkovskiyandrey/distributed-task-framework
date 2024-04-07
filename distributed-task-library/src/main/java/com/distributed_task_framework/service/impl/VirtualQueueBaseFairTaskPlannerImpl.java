@@ -59,7 +59,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     Clock clock;
     List<Tag> commonTags;
     Timer currentAssignedTaskStatTimer;
-    Timer taskNameAndAffinityGroupsFromNewStatTimer;
+    Timer partitionsFromNewStatTimer;
     Timer batchRouteTimer;
     Timer loadTasksToPlanTimer;
 
@@ -88,8 +88,8 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                 List.of("planner", "vqb", "currentAssignedTaskStat", "time"),
                 commonTags
         );
-        this.taskNameAndAffinityGroupsFromNewStatTimer = metricHelper.timer(
-                List.of("planner", "vqb", "taskNameAndAffinityGroupsFromNewStat", "time"),
+        this.partitionsFromNewStatTimer = metricHelper.timer(
+                List.of("planner", "vqb", "partitionsFromNewStatTimerStat", "time"),
                 commonTags
         );
         this.batchRouteTimer = metricHelper.timer(
@@ -162,11 +162,11 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
             return 0;
         }
 
-        var activeTaskNameAndAffinityGroups = partitionTracker.getAll().stream()
+        var activePartitions = partitionTracker.getAll().stream()
                 .filter(entity -> availableTaskNames.contains(entity.getTaskName()))
                 .collect(Collectors.toSet());
-        if (activeTaskNameAndAffinityGroups.isEmpty()) {
-            log.debug("processInLoop(): activeTaskNameAndAffinityGroups are empty");
+        if (activePartitions.isEmpty()) {
+            log.debug("processInLoop(): activePartitions are empty");
             return 0;
         }
 
@@ -188,10 +188,10 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                 .mapToInt(NodeCapacity::getFreeCapacity)
                 .sum();
         Set<PartitionStat> partitionStats = Objects.requireNonNull(
-                taskNameAndAffinityGroupsFromNewStatTimer.record(() ->
+                partitionsFromNewStatTimer.record(() ->
                         taskRepository.findPartitionStatToPlan(
                                 knownNodes,
-                                activeTaskNameAndAffinityGroups,
+                                activePartitions,
                                 clusterCapacity
                         )
                 )

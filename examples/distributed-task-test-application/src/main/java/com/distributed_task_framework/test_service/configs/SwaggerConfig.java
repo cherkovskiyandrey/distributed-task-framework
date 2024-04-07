@@ -1,4 +1,4 @@
-package com.distributed_task_framework.test_service.config;
+package com.distributed_task_framework.test_service.configs;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;

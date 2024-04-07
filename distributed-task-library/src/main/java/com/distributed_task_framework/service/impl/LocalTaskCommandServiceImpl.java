@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -661,6 +662,16 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
 
     @Override
     public boolean cancelWorkflowImmediately(UUID workflowId) {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletion(TaskId taskId) throws TimeoutException {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletion(UUID workflowId) throws TimeoutException {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 

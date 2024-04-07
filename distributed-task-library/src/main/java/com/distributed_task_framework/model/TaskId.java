@@ -18,4 +18,5 @@ public class TaskId {
     String appName;
     String taskName;
     UUID id;
+    UUID workflowId;
 }

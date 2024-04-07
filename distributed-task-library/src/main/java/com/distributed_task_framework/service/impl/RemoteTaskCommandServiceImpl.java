@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -102,7 +103,8 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
                 taskDef.getAppName(),
                 taskDef.getTaskName(),
                 //we generate remote task id locally
-                UUID.randomUUID()
+                UUID.randomUUID(),
+                executionContext.getWorkflowId()
         );
         executionContext = executionContext.toBuilder()
                 .currentTaskId(taskId)
@@ -277,6 +279,16 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public boolean cancelWorkflowImmediately(UUID workflowId) {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletion(TaskId taskId) throws TimeoutException {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletion(UUID workflowId) throws TimeoutException {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 
