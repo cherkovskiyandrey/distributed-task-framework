@@ -327,8 +327,7 @@ public class DistributedTaskAutoconfigure {
     }
 
 
-    @Bean("dtfInternal")
-    public ObjectMapper objectMapper() {
+    private ObjectMapper createObjectMapper() {
         var objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         //in order to easily add new properties to the task message and be tolerant during rolling out
@@ -340,8 +339,8 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    public TaskSerializer taskSerializer(@Qualifier("dtfInternal") ObjectMapper objectMapper) {
-        return new JsonTaskSerializerImpl(objectMapper);
+    public TaskSerializer taskSerializer() {
+        return new JsonTaskSerializerImpl(createObjectMapper());
     }
 
     @Bean
