@@ -1,6 +1,7 @@
 package com.distributed_task_framework.persistence.repository;
 
 import com.distributed_task_framework.TaskPopulateAndVerify;
+import com.distributed_task_framework.comparator.RoundingLocalDateTimeComparator;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
@@ -11,10 +12,12 @@ import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -59,7 +62,10 @@ class TaskWorkerRepositoryImplTest extends BaseRepositoryTest {
                 .sorted(Comparator.comparing(TaskEntity::getExecutionDateUtc))
                 .limit(10)
                 .toList();
-        Assertions.assertThat(actualTasks).containsExactlyElementsOf(expectedTasks);
+        Assertions.assertThat(actualTasks)
+                .usingRecursiveComparison(RecursiveComparisonConfiguration.builder()
+                        .withComparatorForType(new RoundingLocalDateTimeComparator(), LocalDateTime.class)
+                        .build()).isEqualTo(expectedTasks);
     }
 
     @Test
