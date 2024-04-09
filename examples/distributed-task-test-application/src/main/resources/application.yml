@@ -20,7 +20,9 @@ distributed-task:
   common:
     app-name: local-test-app
     registry:
-      update-initial-delay-ms: 5000
+      # High value of initial delay causes foreign key constraint violation when task tried to register,
+      # but current node is not yet saved in DB.
+      update-initial-delay-ms: 0
       update-fixed-delay-ms: 5000
       max-inactivity-interval-ms: 16000
       cache-expiration-ms: 5000
