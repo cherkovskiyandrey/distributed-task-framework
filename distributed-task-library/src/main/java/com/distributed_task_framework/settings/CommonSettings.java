@@ -35,7 +35,7 @@ public class CommonSettings {
 
     private static RegistrySettings createDefaultRegistrySettings() {
         return RegistrySettings.builder()
-                .updateInitialDelayMs(5000)
+                .updateInitialDelayMs(0)
                 .updateFixedDelayMs(4000)
                 .maxInactivityIntervalMs(20000)
                 .cacheExpirationMs(2000)
@@ -106,7 +106,7 @@ public class CommonSettings {
                 .watchdogFixedDelayMs(5000)
                 .batchSize(100)
                 .connectionTimeout(Duration.ofSeconds(5))
-                .responceTimeout(Duration.ofSeconds(10))
+                .responseTimeout(Duration.ofSeconds(10))
                 .readTimeout(Duration.ofSeconds(5))
                 .writeTimeout(Duration.ofSeconds(30))
                 .manageDelay(ImmutableRangeMap.<Integer, Integer>builder()
@@ -281,7 +281,7 @@ public class CommonSettings {
          * Specifies the maximum duration allowed between each network-level
          * read operation while reading a given response from remote app.
          */
-        Duration responceTimeout;
+        Duration responseTimeout;
         /**
          * The connection is closed when there is no inbound traffic during this time from remote app.
          */
