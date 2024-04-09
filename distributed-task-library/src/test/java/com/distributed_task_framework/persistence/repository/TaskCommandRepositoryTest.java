@@ -1,6 +1,7 @@
 package com.distributed_task_framework.persistence.repository;
 
 import com.distributed_task_framework.TaskPopulateAndVerify;
+import com.distributed_task_framework.comparator.RoundingLocalDateTimeComparator;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
@@ -226,6 +227,7 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
                         .withIgnoredFields("version")
                         .build()
                 )
+                .withComparatorForType(new RoundingLocalDateTimeComparator(), LocalDateTime.class)
                 .isEqualTo(taskEntity);
     }
 }
