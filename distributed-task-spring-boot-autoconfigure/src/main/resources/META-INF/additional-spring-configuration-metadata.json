@@ -1,0 +1,197 @@
+{
+  "groups": [
+    {
+      "name": "distributed-task.common",
+      "description": "Common settings."
+    }
+  ],
+  "properties": [
+    {
+      "name": "distributed-task.enabled",
+      "type": "java.lang.Boolean",
+      "description": "If true, DTF will not be started.",
+      "defaultValue": "false"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.retry.retry-mode",
+      "defaultValue": "BACKOFF"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.retry.fixed.delay",
+      "defaultValue": "PT10S"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.retry.fixed.max-number",
+      "defaultValue": "6"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.retry.backoff.initial-delay",
+      "defaultValue": "PT10S"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.retry.backoff.delay-period",
+      "defaultValue": "PT10S"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.retry.backoff.max-retries",
+      "defaultValue": "32"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.retry.backoff.max-delay",
+      "defaultValue": "PT1H"
+    },
+    {
+      "name": "distributed-task.common.registry.update-initial-delay-ms",
+      "defaultValue": "0"
+    },
+    {
+      "name": "distributed-task.common.registry.update-fixed-delay-ms",
+      "defaultValue": "4000"
+    },
+    {
+      "name": "distributed-task.common.registry.max-inactivity-interval-ms",
+      "defaultValue": "20000"
+    },
+    {
+      "name": "distributed-task.common.registry.cache-expiration-ms",
+      "defaultValue": "2000"
+    },
+    {
+      "name": "distributed-task.common.registry.cpu-calculating-time-window",
+      "defaultValue": "PT5M"
+    },
+    {
+      "name": "distributed-task.common.planner.watchdog-initial-delay-ms",
+      "defaultValue": "5000"
+    },
+    {
+      "name": "distributed-task.common.planner.watchdog-fixed-delay-ms",
+      "defaultValue": "5000"
+    },
+    {
+      "name": "distributed-task.common.planner.max-parallel-tasks-in-cluster-default",
+      "defaultValue": "-1"
+    },
+    {
+      "name": "distributed-task.common.planner.batch-size",
+      "defaultValue": "1000"
+    },
+    {
+      "name": "distributed-task.common.planner.new-batch-size",
+      "defaultValue": "300"
+    },
+    {
+      "name": "distributed-task.common.planner.deleted-batch-size",
+      "defaultValue": "300"
+    },
+    {
+      "name": "distributed-task.common.planner.affinity-group-scanner-time-overlap",
+      "defaultValue": "PT1M"
+    },
+    {
+      "name": "distributed-task.common.planner.partition-tracking-time-window",
+      "defaultValue": "PT1M"
+    },
+    {
+      "name": "distributed-task.common.planner.node-cpu-loading-limit",
+      "defaultValue": "0.95"
+    },
+    {
+      "name": "distributed-task.common.planner.fetch-factor",
+      "defaultValue": "2.0"
+    },
+    {
+      "name": "distributed-task.common.planner.plan-factor",
+      "defaultValue": "2.0"
+    },
+    {
+      "name": "distributed-task.common.worker-manager.max-parallel-tasks-in-node",
+      "defaultValue": "100"
+    },
+    {
+      "name": "distributed-task.common.statistics.calc-initial-delay-ms",
+      "defaultValue": "10000"
+    },
+    {
+      "name": "distributed-task.common.statistics.calc-fixed-delay-ms",
+      "defaultValue": "10000"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.watchdog-fixed-delay-ms",
+      "defaultValue": "5000"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.watchdog-initial-delay-ms",
+      "defaultValue": "5000"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.batch-size",
+      "defaultValue": "100"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.connection-timeout",
+      "defaultValue": "PT5S"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.response-timeout",
+      "defaultValue": "PT10S"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.read-timeout",
+      "defaultValue": "PT5S"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.write-timeout",
+      "defaultValue": "PT30S"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.execution-guarantees",
+      "defaultValue": "AT_LEAST_ONCE"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.dlt-enabled",
+      "defaultValue": "true"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.max-parallel-in-cluster",
+      "defaultValue": "-1"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.timeout",
+      "defaultValue": "0"
+    }
+
+  ],
+  "hints": [
+    {
+      "name": "distributed-task.task-properties-group.default-properties.retry.retry-mode",
+      "values": [
+        {
+          "value": "OFF",
+          "description": "Disables retries."
+        },
+        {
+          "value": "FIXED",
+          "description": "Fixed interval retries."
+        },
+        {
+          "value": "BACKOFF",
+          "description": "Retries with increasing delay between attempts."
+        }
+      ]
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.execution-guarantees",
+      "values": [
+        {
+          "value": "AT_LEAST_ONCE",
+          "description": "Task might be executed more than once."
+        },
+        {
+          "value": "EXACTLY_ONCE",
+          "description": "Task will be marked as completed only if transaction succeeds. It spans transaction to task logic."
+        }
+      ]
+    }
+  ]
+}

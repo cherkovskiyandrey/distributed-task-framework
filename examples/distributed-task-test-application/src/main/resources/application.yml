@@ -54,6 +54,7 @@ distributed-task:
       execution-guarantees: AT_LEAST_ONCE
       dlt-enabled: true
       retry:
+        retry-mode: BACKOFF
         backoff:
           initial-delay: PT10S
           delay-period: PT5S
