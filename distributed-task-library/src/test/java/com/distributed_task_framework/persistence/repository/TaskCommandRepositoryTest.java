@@ -37,6 +37,7 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.READY);
         var toReschedule = originalTaskEntity.toBuilder()
                 .executionDateUtc(LocalDateTime.now(clock))
+                .failures(2)
                 .assignedWorker(UUID.randomUUID())
                 .build();
 
@@ -87,6 +88,7 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.READY);
         var toReschedule = originalTaskEntity.toBuilder()
                 .version(10L)
+                .failures(2)
                 .executionDateUtc(LocalDateTime.now(clock))
                 .assignedWorker(UUID.randomUUID())
                 .build();
@@ -220,6 +222,7 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
     }
 
     private void verifyInRepository(TaskEntity taskEntity) {
+        //noinspection AssertBetweenInconvertibleTypes
         Assertions.assertThat(taskRepository.find(taskEntity.getId()))
                 .isPresent()
                 .get()

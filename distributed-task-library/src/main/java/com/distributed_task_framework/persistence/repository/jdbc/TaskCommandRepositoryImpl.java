@@ -35,7 +35,8 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
                 assigned_worker = ?,
                 last_assigned_date_utc = ?,
                 execution_date_utc = ?,
-                virtual_queue = ?::_____dtf_virtual_queue_type
+                virtual_queue = ?::_____dtf_virtual_queue_type,
+                failures = ?
             WHERE
             (
                 _____dtf_tasks.id = ?
@@ -105,7 +106,8 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
                 assigned_worker = ?,
                 last_assigned_date_utc = ?,
                 execution_date_utc = ?,
-                virtual_queue = ?::_____dtf_virtual_queue_type
+                virtual_queue = ?::_____dtf_virtual_queue_type,
+                failures = ?
             WHERE
             (
                 _____dtf_tasks.id = ?
@@ -158,29 +160,33 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
     }
 
     private Object[] toArrayOfParamsToReschedule(TaskEntity taskEntity) {
-        Object[] result = new Object[6];
-        result[0] = taskEntity.getAssignedWorker();
-        result[1] = taskEntity.getLastAssignedDateUtc();
-        result[2] = taskEntity.getExecutionDateUtc();
-        result[3] = JdbcTools.asString(taskEntity.getVirtualQueue());
-        result[4] = taskEntity.getId();
-        result[5] = taskEntity.getVersion();
-        return result;
+        return toParamArray(
+                taskEntity.getAssignedWorker(),
+                taskEntity.getLastAssignedDateUtc(),
+                taskEntity.getExecutionDateUtc(),
+                JdbcTools.asString(taskEntity.getVirtualQueue()),
+                taskEntity.getFailures(),
+                taskEntity.getId(),
+                taskEntity.getVersion()
+        );
     }
 
     private Object[] toArrayOfParamsIgnoreVersionToRescheduleAll(TaskEntity taskEntity) {
-        Object[] result = new Object[5];
-        result[0] = taskEntity.getAssignedWorker();
-        result[1] = taskEntity.getLastAssignedDateUtc();
-        result[2] = taskEntity.getExecutionDateUtc();
-        result[3] = JdbcTools.asString(taskEntity.getVirtualQueue());
-        result[4] = taskEntity.getId();
-        return result;
+        return toParamArray(
+                taskEntity.getAssignedWorker(),
+                taskEntity.getLastAssignedDateUtc(),
+                taskEntity.getExecutionDateUtc(),
+                JdbcTools.asString(taskEntity.getVirtualQueue()),
+                taskEntity.getFailures(),
+                taskEntity.getId()
+        );
     }
 
     private Object[] toArrayOfParamsToCancel(UUID taskId) {
-        Object[] result = new Object[1];
-        result[0] = taskId;
-        return result;
+        return toParamArray(taskId);
+    }
+
+    private static Object[] toParamArray(Object... values) {
+        return values;
     }
 }
