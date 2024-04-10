@@ -3,9 +3,11 @@ package com.distributed_task_framework.test_service.services.impl;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.test_service.models.SagaBuilderContext;
 import com.distributed_task_framework.test_service.models.SagaContext;
 import com.distributed_task_framework.test_service.models.SagaRevert;
+import com.distributed_task_framework.test_service.models.SagaRevertContext;
 import com.distributed_task_framework.test_service.models.SagaRevertInputOnly;
 import com.distributed_task_framework.test_service.models.SagaRevertWithParentInput;
 import com.distributed_task_framework.test_service.models.SagaRevertWithParentInputOnly;
@@ -13,13 +15,13 @@ import com.distributed_task_framework.test_service.services.SagaFlow;
 import com.distributed_task_framework.test_service.services.SagaFlowBuilder;
 import com.distributed_task_framework.test_service.services.SagaFlowBuilderWithoutInput;
 import com.distributed_task_framework.test_service.services.SagaRegister;
+import jakarta.annotation.Nullable;
 import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.Value;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -33,15 +35,23 @@ public class SagaFlowBuilderImpl<PARENT_INPUT> implements SagaFlowBuilder<PARENT
     DistributedTaskService distributedTaskService;
     SagaRegister sagaRegister;
     SagaHelper sagaHelper;
+    TaskSerializer taskSerializer;
     Function<SagaBuilderContext, TaskId> prevHandler;
 
+    @SneakyThrows
     @Override
     public <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(BiFunction<PARENT_INPUT, INPUT, OUTPUT> operation,
                                                            Consumer<SagaRevertWithParentInput<PARENT_INPUT, INPUT, OUTPUT>> revertOperation,
                                                            INPUT input) {
-        TaskDef<SagaContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
-        TaskDef<SagaContext> revertSagaMethodTaskDef = sagaRegister.resolve(revertOperation);
-        var handler = buildChainedSagaHandler(sagaMethodTaskDef, revertSagaMethodTaskDef, input);
+        TaskDef<SagaContext> sagaMethodTaskDef = sagaRegister.resolve(operation, SagaContext.class);
+        TaskDef<SagaRevertContext> sagaRevertMethodTaskDef = sagaRegister.resolve(revertOperation, SagaRevertContext.class);
+
+        var sagaRevert = SagaRevertWithParentInputOnly.builder()
+                .input(input)
+                .build();
+        byte[] sagaRevertSerialized = taskSerializer.writeValue(sagaRevert);
+
+        var handler = buildChainedSagaHandler(sagaMethodTaskDef, sagaRevertMethodTaskDef, sagaRevertSerialized, input);
 
         return wrapToSagaFlowBuilder(handler);
     }
@@ -74,7 +84,8 @@ public class SagaFlowBuilderImpl<PARENT_INPUT> implements SagaFlowBuilder<PARENT
 
     @SuppressWarnings("Convert2Lambda")
     private <INPUT> Function<SagaBuilderContext, TaskId> buildChainedSagaHandler(TaskDef<SagaContext> operationTaskDef,
-                                                                                 @Nullable TaskDef<SagaContext> revertSagaMethodTaskDef, //todo: implement
+                                                                                 @Nullable TaskDef<SagaRevertContext> sagaRevertMethodTaskDef,
+                                                                                 @Nullable byte[] sagaRevertSerialized,
                                                                                  @Nullable INPUT input) {
         return new Function<>() {
 
@@ -86,7 +97,12 @@ public class SagaFlowBuilderImpl<PARENT_INPUT> implements SagaFlowBuilder<PARENT
                         .build();
 
                 TaskId parentTaskId = prevHandler.apply(parentSagaContext);
-                var executionContext = sagaHelper.buildContextFor(sagaBuilderContext, input);
+                var executionContext = sagaHelper.buildContextFor(
+                        sagaBuilderContext,
+                        sagaRevertMethodTaskDef,
+                        sagaRevertSerialized,
+                        input
+                );
 
                 return distributedTaskService.scheduleJoin(
                         operationTaskDef,

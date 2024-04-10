@@ -1,41 +1,32 @@
 package com.distributed_task_framework.test_service.services.impl;
 
-import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.test_service.annotations.SagaMethod;
-import com.distributed_task_framework.test_service.exceptions.SagaException;
+import com.distributed_task_framework.test_service.annotations.SagaRevertMethod;
 import com.distributed_task_framework.test_service.exceptions.SagaMethodDuplicateException;
 import com.distributed_task_framework.test_service.exceptions.SagaMethodResolvingException;
 import com.distributed_task_framework.test_service.exceptions.SagaTaskNotFoundException;
 import com.distributed_task_framework.test_service.models.SagaContext;
+import com.distributed_task_framework.test_service.models.SagaRevertContext;
 import com.distributed_task_framework.test_service.services.SagaContextDiscovery;
 import com.distributed_task_framework.test_service.services.SagaRegister;
 import com.distributed_task_framework.test_service.utils.ReflectionHelper;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.google.common.collect.Maps;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
 
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.lang.reflect.Parameter;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -48,12 +39,16 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     private static final String TASK_PREFIX = "_____SAGA";
+    private static final String TASK_REVERT_PREFIX = "_____SAGA_REVERT";
     private static final String TASK_NAME_DELIMITER = "_";
 
     Map<String, TaskDef<SagaContext>> methodToTask = Maps.newHashMap();
+    Map<String, TaskDef<SagaRevertContext>> revertMethodToTask = Maps.newHashMap();
+    Map<TaskDef<SagaRevertContext>, Method> revertTaskToMethod = Maps.newHashMap();
     DistributedTaskService distributedTaskService;
     SagaContextDiscovery sagaContextDiscovery;
     TaskSerializer taskSerializer;
+    SagaHelper sagaHelper;
 
     @Override
     public <IN, OUT> TaskDef<SagaContext> resolve(Function<IN, OUT> operation) {
@@ -130,8 +125,27 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
         );
     }
 
+
+    private static String revertTaskNameFor(SagaRevertMethod sagaRevertMethodAnnotation) {
+        String name = sagaRevertMethodAnnotation.name();
+        String version = "" + sagaRevertMethodAnnotation.version();
+
+        return String.join(TASK_NAME_DELIMITER,
+                TASK_REVERT_PREFIX,
+                name,
+                version
+        );
+    }
+
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        registerSagaMethodIfExists(bean);
+        registerSagaRevertMethodIfExists(bean);
+
+        return bean;
+    }
+
+    private void registerSagaMethodIfExists(Object bean) {
         Arrays.stream(ReflectionUtils.getAllDeclaredMethods(bean.getClass()))
                 .filter(method -> ReflectionHelper.findAnnotation(method, SagaMethod.class).isPresent())
                 .forEach(method -> {
@@ -145,90 +159,43 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                     methodToTask.put(taskName, taskDef);
                     sagaContextDiscovery.registerMethod(method.toString(), sagaMethodAnnotation);
 
-                    distributedTaskService.registerTask(
-                            new Task<SagaContext>() {
-                                @Override
-                                public TaskDef<SagaContext> getDef() {
-                                    return taskDef;
-                                }
-
-                                // (sagaRootContext.getTarget()), because it is valid only in node created the flow
-                                @Override
-                                public void execute(ExecutionContext<SagaContext> executionContext) throws Exception {
-                                    SagaContext sagaRootContext = executionContext.getInputMessageOrThrow();
-
-                                    byte[] rootArgument = sagaRootContext.getSerializedArg();
-                                    byte[] parentArgument = executionContext.getInputJoinTaskMessages().stream()
-                                            .map(SagaContext::getSerializedArg)
-                                            .filter(Objects::nonNull)
-                                            .findFirst()
-                                            .orElse(null);
-                                    byte[] singleArgument = ObjectUtils.firstNonNull(rootArgument, parentArgument);
-
-                                    var argTotal = method.getParameters().length;
-                                    Object result = switch (argTotal) {
-                                        case 0 -> ReflectionUtils.invokeMethod(method, bean);
-                                        case 1 -> ReflectionUtils.invokeMethod(
-                                                method,
-                                                bean,
-                                                toMethodArgTypedObject(singleArgument, method.getParameters()[0])
-                                        );
-                                        case 2 -> ReflectionUtils.invokeMethod(
-                                                method,
-                                                bean,
-                                                toMethodArgTypedObject(parentArgument, method.getParameters()[0]),
-                                                toMethodArgTypedObject(rootArgument, method.getParameters()[1])
-                                        );
-                                        default -> throw new SagaException(
-                                                "Unexpected number of arguments: expected < 3, but passed %s".formatted(argTotal)
-                                        );
-                                    };
-
-                                    TaskDef<SagaContext> nextOperationTask = sagaRootContext.getNextOperationTaskDef();
-                                    if (nextOperationTask == null) {
-                                        return; //last task in sequence
-                                    }
-
-                                    var nextTaskJoinMessage = distributedTaskService.getJoinMessagesFromBranch(nextOperationTask)
-                                            .get(0); //we get only next level task
-                                    nextTaskJoinMessage = nextTaskJoinMessage.toBuilder()
-                                            .message(SagaContext.builder()
-                                                    .serializedArg(result != null ? taskSerializer.writeValue(result) : null)
-                                                    .build()
-                                            )
-                                            .build();
-                                    distributedTaskService.setJoinMessageToBranch(nextTaskJoinMessage);
-                                }
-
-                                @Override
-                                public boolean onFailureWithResult(FailedExecutionContext<SagaContext> failedExecutionContext) {
-                                    //todo: invoke current revertHandler + think about revert DAG
-
-                                    Throwable throwable = failedExecutionContext.getError();
-                                    boolean isNoRetryException = Arrays.stream(sagaMethodAnnotation.noRetryFor())
-                                            .map(thrCls -> ExceptionUtils.throwableOfType(throwable, thrCls))
-                                            .anyMatch(Objects::nonNull);
-
-                                    if (isNoRetryException) {
-                                        log.warn("onFailureWithResult(): isNoRetryException=[{}]", throwable.toString());
-                                        return true;
-                                    }
-
-                                    //todo: log + logic
-                                    return false;
-                                }
-                            }
-                    );
+                    //todo: consider creating of prototype bean
+                    SagaTask sagaTask = SagaTask.builder()
+                            .distributedTaskService(distributedTaskService)
+                            .taskSerializer(taskSerializer)
+                            .sagaHelper(sagaHelper)
+                            .revertTaskToMethod(revertTaskToMethod)
+                            .taskDef(taskDef)
+                            .method(method)
+                            .bean(bean)
+                            .sagaMethodAnnotation(sagaMethodAnnotation)
+                            .build();
+                    distributedTaskService.registerTask(sagaTask);
                 });
-
-        return bean;
     }
 
-    private Object toMethodArgTypedObject(@Nullable byte[] argument, Parameter parameter) throws IOException {
-        if (argument == null) {
-            return null;
-        }
-        JavaType javaType = TypeFactory.defaultInstance().constructType(parameter.getParameterizedType());
-        return taskSerializer.readValue(argument, javaType);
+    private void registerSagaRevertMethodIfExists(Object bean) {
+        Arrays.stream(ReflectionUtils.getAllDeclaredMethods(bean.getClass()))
+                .filter(method -> ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).isPresent())
+                .forEach(method -> {
+                    @SuppressWarnings("OptionalGetWithoutIsPresent")
+                    SagaRevertMethod sagaRevertMethodAnnotation = ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).get();
+                    var revertTaskName = revertTaskNameFor(sagaRevertMethodAnnotation);
+                    var taskDef = TaskDef.privateTaskDef(revertTaskName, SagaRevertContext.class);
+                    if (revertMethodToTask.containsKey(revertTaskName)) {
+                        throw new SagaMethodDuplicateException(revertTaskName);
+                    }
+                    revertMethodToTask.put(revertTaskName, taskDef);
+                    sagaContextDiscovery.registerMethod(method.toString(), sagaRevertMethodAnnotation);
+
+                    //todo: consider creating of prototype bean
+                    SagaRevertTask sagaRevertTask = SagaRevertTask.builder()
+                            .sagaHelper(sagaHelper)
+                            .taskDef(taskDef)
+                            .method(method)
+                            .bean(bean)
+                            .build();
+                    distributedTaskService.registerTask(sagaRevertTask);
+                });
     }
 }

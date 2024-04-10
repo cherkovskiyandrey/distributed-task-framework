@@ -6,6 +6,7 @@ import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.test_service.models.SagaBuilderContext;
 import com.distributed_task_framework.test_service.models.SagaContext;
 import com.distributed_task_framework.test_service.models.SagaRevert;
+import com.distributed_task_framework.test_service.models.SagaRevertContext;
 import com.distributed_task_framework.test_service.models.SagaRevertInputOnly;
 import com.distributed_task_framework.test_service.models.SagaTrackId;
 import com.distributed_task_framework.test_service.services.SagaFlow;
@@ -14,6 +15,7 @@ import com.distributed_task_framework.test_service.services.SagaFlowBuilderWitho
 import com.distributed_task_framework.test_service.services.SagaFlowWithoutResult;
 import com.distributed_task_framework.test_service.services.SagaProcessor;
 import com.distributed_task_framework.test_service.services.SagaRegister;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -21,7 +23,6 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -33,10 +34,15 @@ import java.util.function.Function;
  * 4. Ability to register unrecoverable exceptions, with lead no to retry task (+)
  * 5. AffinityGroup + affinity (+)
  * 6. Revert pipeline (-)
+ * 6.1 todo: now it will not work, because DTF doesn't allow to create tasks form exception
+ *     //          ^^^^ - fixed, need to be covered by tests (-)
+ * 6.2 todo: creating tasks to use join approach is uncorrected, because it doesn't prevent to run all next pipeline of tasks in case
+ *      when rollback is handled (-)
  * 7. if method is marked as @Transactional - use EXACTLY_ONCE GUARANTIES (-)
  * 8. Ability to set default and custom retry settings (maybe via task settings ?) (-)
  * 9. Ability to wait for task completion (-)
  * 10. Ability to wait task result (-)
+ * 11. Think about exactly once for remote http call (-)
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -47,20 +53,21 @@ public class SagaProcessorImpl implements SagaProcessor {
     DistributedTaskService distributedTaskService;
     SagaHelper sagaHelper;
 
+    @SneakyThrows
     @Override
     public <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> registerToRun(Function<INPUT, OUTPUT> operation,
                                                                  Consumer<SagaRevert<INPUT, OUTPUT>> revertOperation,
                                                                  INPUT input) {
-        TaskDef<SagaContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
-        TaskDef<SagaContext> revertSagaMethodTaskDef = sagaRegister.resolve(revertOperation);
-        var startHandler = buildStartHandler(sagaMethodTaskDef, revertSagaMethodTaskDef, input);
+        TaskDef<SagaContext> sagaMethodTaskDef = sagaRegister.resolve(operation, SagaContext.class);
+        TaskDef<SagaRevertContext> sagaRevertMethodTaskDef = sagaRegister.resolve(revertOperation, SagaRevertContext.class);
+        var startHandler = buildStartHandler(sagaMethodTaskDef, sagaRevertMethodTaskDef, input);
 
         return wrapToSagaFlowBuilder(startHandler);
     }
 
     @Override
     public <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> registerToRun(Function<INPUT, OUTPUT> operation, INPUT input) {
-        TaskDef<SagaContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
+        TaskDef<SagaContext> sagaMethodTaskDef = sagaRegister.resolve(operation, SagaContext.class);
         var startHandler = buildStartHandler(sagaMethodTaskDef, null, input);
 
         return wrapToSagaFlowBuilder(startHandler);
@@ -68,14 +75,18 @@ public class SagaProcessorImpl implements SagaProcessor {
 
     @SuppressWarnings("Convert2Lambda")
     private Function<SagaBuilderContext, TaskId> buildStartHandler(TaskDef<SagaContext> sagaMethodTaskDef,
-                                                                   @Nullable TaskDef<SagaContext> revertSagaMethodRef, //todo: revert operations!
+                                                                   @Nullable TaskDef<SagaRevertContext> sagaRevertMethodRef,
                                                                    @Nullable Object object) {
         return new Function<>() {
 
             @SneakyThrows
             @Override
             public TaskId apply(SagaBuilderContext sagaBuilderContext) {
-                var executionContext = sagaHelper.buildContextFor(sagaBuilderContext, object);
+                var executionContext = sagaHelper.buildContextFor(
+                        sagaBuilderContext,
+                        sagaRevertMethodRef,
+                        object
+                );
 
                 return distributedTaskService.schedule(
                         sagaMethodTaskDef,

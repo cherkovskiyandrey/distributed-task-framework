@@ -9,13 +9,13 @@ import javax.annotation.Nullable;
 @Value
 @Builder(toBuilder = true)
 @Jacksonized
-public class SagaRevertWithParentInput<PARENT_INPUT, INPUT, OUTPUT> {
+public class SagaRevertInternalInput {
     @Nullable
-    PARENT_INPUT parentInput;
+    Object parentInput;
     @Nullable
-    INPUT input;
+    Object input;
     @Nullable
-    OUTPUT output;
+    Object output;
     @Nullable
     Throwable throwable;
 }

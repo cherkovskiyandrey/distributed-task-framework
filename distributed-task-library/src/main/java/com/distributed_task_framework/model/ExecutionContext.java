@@ -169,4 +169,15 @@ public class ExecutionContext<T> {
         }
         return inputMessage;
     }
+
+    /**
+     * Return whether this context has affinityGroup and affinity.
+     *
+     * @return true if this context has affinityGroup and affinity.
+     */
+    @JsonIgnore
+    public boolean hasAffinity() {
+        return org.apache.commons.lang3.StringUtils.isNotBlank(affinityGroup)
+                && org.apache.commons.lang3.StringUtils.isNotBlank(affinity);
+    }
 }

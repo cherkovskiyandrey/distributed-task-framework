@@ -1,11 +1,11 @@
 package com.distributed_task_framework.test_service.models;
 
 import com.distributed_task_framework.model.TaskDef;
+import jakarta.annotation.Nullable;
 import lombok.Builder;
 import lombok.Value;
 import org.apache.commons.lang3.StringUtils;
 
-import javax.annotation.Nullable;
 
 @Value
 @Builder(toBuilder = true)

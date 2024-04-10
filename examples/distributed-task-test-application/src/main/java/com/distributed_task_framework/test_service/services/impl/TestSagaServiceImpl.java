@@ -1,6 +1,7 @@
 package com.distributed_task_framework.test_service.services.impl;
 
 import com.distributed_task_framework.test_service.annotations.SagaMethod;
+import com.distributed_task_framework.test_service.annotations.SagaRevertMethod;
 import com.distributed_task_framework.test_service.models.RemoteOneDto;
 import com.distributed_task_framework.test_service.models.RemoteTwoDto;
 import com.distributed_task_framework.test_service.models.SagaRevert;
@@ -151,7 +152,7 @@ public class TestSagaServiceImpl implements TestSagaService {
     }
 
     @Transactional
-    @SagaMethod(name = "deleteLocal")
+    @SagaRevertMethod(name = "deleteLocal")
     public void deleteLocal(SagaRevert<TestDataDto, SagaRevertableDto<TestDataEntity>> sagaRevert) {
         if (sagaRevert.getThrowable() instanceof OptimisticLockingFailureException) {
             log.warn("deleteLocal(): data has been changed");
@@ -189,7 +190,7 @@ public class TestSagaServiceImpl implements TestSagaService {
         return remoteServiceOne.create(remoteOneDto);
     }
 
-    @SagaMethod(name = "deleteOnRemoteServiceOne")
+    @SagaRevertMethod(name = "deleteOnRemoteServiceOne")
     public void deleteOnRemoteServiceOne(SagaRevertWithParentInput<SagaRevertableDto<TestDataEntity>, TestDataDto, RemoteOneDto> revertWithParentInput) {
         if (revertWithParentInput.getOutput() != null) {
             remoteServiceOne.delete(revertWithParentInput.getOutput().getRemoteOneId());
@@ -206,15 +207,13 @@ public class TestSagaServiceImpl implements TestSagaService {
         return remoteServiceTwo.create(remoteTwoDto);
     }
 
-    @SagaMethod(name = "deleteOnRemoteServiceTwo")
+    @SagaRevertMethod(name = "deleteOnRemoteServiceTwo")
     public void deleteOnRemoteServiceTwo(SagaRevertWithParentInput<RemoteOneDto, TestDataDto, RemoteTwoDto> sagaRevertWithParentInput) {
         if (sagaRevertWithParentInput.getOutput() != null) {
             remoteServiceTwo.delete(sagaRevertWithParentInput.getOutput().getRemoteTwoId());
         }
     }
 
-
-    //todo: throw exception for second inserting. Why?
     @SagaMethod(name = "saveAudit")
     public Audit saveAudit(RemoteTwoDto remoteTwoDto) {
         return auditRepository.save(Audit.builder()

@@ -1,5 +1,11 @@
 package com.distributed_task_framework.model;
 
+import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
+import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.service.impl.local_commands.SaveCommand;
+import com.distributed_task_framework.service.internal.LocalCommand;
+import com.distributed_task_framework.service.internal.TaskRegistryService;
+import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -8,12 +14,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 import org.springframework.lang.Nullable;
-import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
-import com.distributed_task_framework.persistence.entity.TaskEntity;
-import com.distributed_task_framework.service.impl.local_commands.SaveCommand;
-import com.distributed_task_framework.service.internal.LocalCommand;
-import com.distributed_task_framework.service.internal.TaskRegistryService;
-import com.distributed_task_framework.settings.TaskSettings;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.Collection;

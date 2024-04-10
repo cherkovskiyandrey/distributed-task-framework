@@ -34,9 +34,10 @@ public class SagaContextDiscoveryImpl implements SagaContextDiscovery {
     public Object aroundCallSagaElement(ProceedingJoinPoint pjp) throws Throwable {
         if (isRequest()) {
             var sig = pjp.getSignature().toLongString();
-            methodSignature.set(sig);
             SagaMethod sagaMethodAnnotation = Optional.ofNullable(registeredMethods.get(sig))
                     .orElseThrow(() -> new SagaMethodNotFoundException(sig));
+
+            methodSignature.set(sig);
             sagaMethodRef.set(sagaMethodAnnotation);
 
             return null;

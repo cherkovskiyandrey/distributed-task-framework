@@ -1,14 +1,14 @@
 package com.distributed_task_framework.test_service.services;
 
-import com.distributed_task_framework.test_service.annotations.SagaMethod;
+import java.lang.annotation.Annotation;
 
 public interface SagaContextDiscovery {
 
-    void registerMethod(String methodName, SagaMethod sagaMethodAnnotation);
+    <SAGA_METHOD extends Annotation> void registerMethod(String methodName, SAGA_METHOD sagaMethod);
 
-    void beginDetection();
+    <SAGA_METHOD extends Annotation> void beginDetection(Class<SAGA_METHOD> sagaMethodClass);
 
-    SagaMethod getSagaMethod();
+    <SAGA_METHOD extends Annotation> SAGA_METHOD getSagaMethod();
 
     void completeDetection();
 }

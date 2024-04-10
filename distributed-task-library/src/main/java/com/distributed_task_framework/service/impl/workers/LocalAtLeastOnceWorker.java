@@ -1,5 +1,7 @@
 package com.distributed_task_framework.service.impl.workers;
 
+import com.distributed_task_framework.exception.BatchUpdateException;
+import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
@@ -7,8 +9,21 @@ import com.distributed_task_framework.model.JoinTaskMessageContainer;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.model.WorkerContext;
+import com.distributed_task_framework.persistence.entity.DltEntity;
+import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.repository.DltRepository;
+import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
+import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.CronService;
+import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.InternalTaskCommandService;
+import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.TaskLinkManager;
+import com.distributed_task_framework.service.internal.TaskWorker;
+import com.distributed_task_framework.service.internal.WorkerContextManager;
+import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.utils.CommandHelper;
 import com.fasterxml.jackson.databind.JavaType;
@@ -17,6 +32,7 @@ import com.google.common.collect.Sets;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -26,23 +42,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import com.distributed_task_framework.exception.BatchUpdateException;
-import com.distributed_task_framework.exception.OptimisticLockException;
-import com.distributed_task_framework.persistence.entity.DltEntity;
-import com.distributed_task_framework.persistence.entity.TaskEntity;
-import com.distributed_task_framework.persistence.repository.DltRepository;
-import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
-import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.InternalTaskCommandService;
-import com.distributed_task_framework.service.internal.MetricHelper;
-import com.distributed_task_framework.service.internal.TaskLinkManager;
-import com.distributed_task_framework.service.internal.TaskWorker;
-import com.distributed_task_framework.service.internal.WorkerContextManager;
-import com.distributed_task_framework.settings.CommonSettings;
-import com.distributed_task_framework.settings.TaskSettings;
 
-import jakarta.annotation.Nullable;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -130,6 +130,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                         taskEntity
                 );
                 List<T> inputJoinTaskMessages = readJoinTaskMessagesSilent(taskEntity, task.getDef().getInputMessageType());
+                cleanContext();
 
                 hasToInterruptRetrying = task.onFailureWithResult(FailedExecutionContext.<T>builder()
                         .workflowId(taskEntity.getWorkflowId())
@@ -191,6 +192,18 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         }
     }
 
+    private void cleanContext() {
+        workerContextManager.getCurrentContext()
+                .map(workerContext -> WorkerContext.builder()
+                        .workflowId(workerContext.getWorkflowId())
+                        .workflowName(workerContext.getWorkflowName())
+                        .currentTaskId(workerContext.getCurrentTaskId())
+                        .taskSettings(workerContext.getTaskSettings())
+                        .taskEntity(workerContext.getTaskEntity())
+                        .build())
+                .ifPresent(workerContextManager::setCurrentContext);
+    }
+
     private String reasonMessage(boolean hasToInterruptRetrying) {
         return hasToInterruptRetrying ? "has been interrupted to retry" : "exceed all attempts";
     }
@@ -198,7 +211,13 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     private void finalizeFailedTaskSilently(TaskEntity taskEntity, TaskSettings taskSettings) {
         try {
             new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-                taskLinkManager.markLinksAsCompleted(taskEntity.getId());
+
+                WorkerContext currentContext = workerContextManager.getCurrentContext()
+                        .orElseThrow(() -> new IllegalStateException("Context hasn't been set"));
+
+                handlePostponedCommands(currentContext);
+                handleLinks(currentContext);
+
                 if (taskSettings.isDltEnabled()) {
                     DltEntity dltEntity = taskMapper.mapToDlt(taskEntity);
                     dltRepository.save(dltEntity);
