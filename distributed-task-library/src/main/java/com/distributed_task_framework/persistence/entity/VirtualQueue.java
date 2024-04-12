@@ -2,7 +2,7 @@ package com.distributed_task_framework.persistence.entity;
 
 public enum VirtualQueue {
     /**
-     * All newcomer tasks all into this queue.
+     * All newcomer tasks fall into this queue.
      * Exception: task with the same affinityGroup + affinity is created from parent task.
      */
     NEW,

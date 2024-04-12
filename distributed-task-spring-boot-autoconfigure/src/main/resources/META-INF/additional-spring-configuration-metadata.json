@@ -3,6 +3,11 @@
     {
       "name": "distributed-task.common",
       "description": "Common settings."
+    },
+    {
+      "name": "distributed-task",
+      "description": "DTF settings.",
+      "type": "com.distributed_task_framework.autoconfigure.DistributedTaskProperties"
     }
   ],
   "properties": [
@@ -38,6 +43,34 @@
     },
     {
       "name": "distributed-task.task-properties-group.default-properties.retry.backoff.max-delay",
+      "defaultValue": "PT1H"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.retry.retry-mode",
+      "defaultValue": "BACKOFF"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.retry.fixed.delay",
+      "defaultValue": "PT10S"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.retry.fixed.max-number",
+      "defaultValue": "6"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.retry.backoff.initial-delay",
+      "defaultValue": "PT10S"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.retry.backoff.delay-period",
+      "defaultValue": "PT10S"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.retry.backoff.max-retries",
+      "defaultValue": "32"
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.retry.backoff.max-delay",
       "defaultValue": "PT1H"
     },
     {
