@@ -32,6 +32,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -314,6 +315,32 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
                         throw new RuntimeException(e);
                     }
                 }, "input message");
+    }
+
+    @Test
+    void shouldSetAttemptNumberInExecutionContext() {
+        //when
+        TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
+        TaskSettings taskSettings = defaultTaskSettings.toBuilder()
+                .build();
+        AtomicInteger receivedAttempts = new AtomicInteger(0);
+        Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
+            receivedAttempts.set(m.getExecutionAttempt());
+            throw new RuntimeException();
+        });
+        mockedTask = Mockito.spy(mockedTask);
+
+        setFixedTime();
+        RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
+        TaskEntity taskEntity = saveNewTaskEntity(5);
+
+        //do
+        getTaskWorker().execute(taskEntity, registeredTask);
+
+        //verify
+        assertThat(receivedAttempts.get()).isEqualTo(6);
+
+        verifyLastAttemptTaskOnFailure(mockedTask, taskEntity);
     }
 
     /**

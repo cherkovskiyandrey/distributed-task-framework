@@ -139,6 +139,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                         .error(exception)
                         .failures(currentFailures)
                         .isLastAttempt(nextTryDateTime.isEmpty())
+                        .executionAttempt(currentFailures)
                         .build()
                 );
             } catch (Exception innerException) {
@@ -337,6 +338,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                     .currentTaskId(taskId)
                     .inputMessage(inputMessage)
                     .inputJoinTaskMessages(inputJoinTaskMessages)
+                    .executionAttempt(taskEntity.getFailures() + 1)
                     .build();
 
             task.execute(executionContext);

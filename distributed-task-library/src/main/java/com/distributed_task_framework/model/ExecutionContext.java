@@ -75,6 +75,11 @@ public class ExecutionContext<T> {
     @Builder.Default
     List<T> inputJoinTaskMessages = List.of();
 
+    /**
+     * Execution attempt of this task.
+     */
+    int executionAttempt;
+
     public static <T> ExecutionContext<T> empty() {
         return ExecutionContext.<T>builder()
                 .workflowId(UUID.randomUUID())
