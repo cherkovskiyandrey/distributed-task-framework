@@ -59,7 +59,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     Clock clock;
     List<Tag> commonTags;
     Timer currentAssignedTaskStatTimer;
-    Timer taskNameAndAffinityGroupsFromNewStatTimer;
+    Timer partitionsFromNewStatTimer;
     Timer batchRouteTimer;
     Timer loadTasksToPlanTimer;
 
@@ -88,8 +88,8 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                 List.of("planner", "vqb", "currentAssignedTaskStat", "time"),
                 commonTags
         );
-        this.taskNameAndAffinityGroupsFromNewStatTimer = metricHelper.timer(
-                List.of("planner", "vqb", "taskNameAndAffinityGroupsFromNewStat", "time"),
+        this.partitionsFromNewStatTimer = metricHelper.timer(
+                List.of("planner", "vqb", "partitionsFromNewStatTimer", "time"),
                 commonTags
         );
         this.batchRouteTimer = metricHelper.timer(
@@ -188,7 +188,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                 .mapToInt(NodeCapacity::getFreeCapacity)
                 .sum();
         Set<PartitionStat> partitionStats = Objects.requireNonNull(
-                taskNameAndAffinityGroupsFromNewStatTimer.record(() ->
+                partitionsFromNewStatTimer.record(() ->
                         taskRepository.findPartitionStatToPlan(
                                 knownNodes,
                                 activeTaskNameAndAffinityGroups,

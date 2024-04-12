@@ -59,6 +59,7 @@ public class JoinTaskStatHelper {
                     .addAll(commonTags)
                     .add(metricHelper.buildAffinityGroupTag(affinityAndTaskName.getAffinityGroup()))
                     .add(Tag.of("task_name", affinityAndTaskName.getTaskName()))
+                    .add(Tag.of("worker_id", "undefined"))
                     .build();
 
             metricHelper.counter(counterName, tags).increment(entry.getValue());

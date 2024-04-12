@@ -4,10 +4,19 @@ import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.test_service.tasks.dto.ComplexMessageDto;
 import com.distributed_task_framework.test_service.tasks.dto.JoinTaskLevelOne;
 import com.distributed_task_framework.test_service.tasks.dto.JoinTaskLevelTwoDto;
+import com.distributed_task_framework.test_service.tasks.mapreduce.dto.MapReduceDto;
 import com.distributed_task_framework.test_service.tasks.dto.SimpleMessageDto;
+import com.distributed_task_framework.test_service.tasks.mapreduce.dto.MapDto;
+import com.distributed_task_framework.test_service.tasks.mapreduce.dto.ReduceDto;
 
 //common shared definition of tasks related to one workflow
 public interface PrivateTaskDefinitions {
+    // Map/Reduce job example
+    String MAP_REDUCE_AFFINITY_GROUP = "MAP_REDUCE_AFFINITY_GROUP";
+
+    TaskDef<MapReduceDto> MAP_REDUCE_PARENT_TASK = TaskDef.privateTaskDef("MAP_REDUCE_PARENT_TASK", MapReduceDto.class);
+    TaskDef<MapDto> MAP_TASK = TaskDef.privateTaskDef("MAP_TASK", MapDto.class);
+    TaskDef<ReduceDto> REDUCE_TASK = TaskDef.privateTaskDef("REDUCE_TASK", ReduceDto.class);
 
     //---- Example of simple task flow ------
     TaskDef<SimpleMessageDto> SIMPLE_CONSOLE_OUTPUT_TASK_DEF = TaskDef.privateTaskDef("SIMPLE_CONSOLE_OUTPUT", SimpleMessageDto.class);
