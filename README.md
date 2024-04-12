@@ -39,6 +39,8 @@ A lightweight task processor based on database only. Supports horizontal scaling
   * [Samples](#samples)
   * [Perf test results](#perf-test-results)
   * [How it works?](#how-it-works)
+  * [License](#license)
+  * [Disclaimer](#disclaimer)
 <!-- TOC -->
 ## Introduction
 ### Architecture
