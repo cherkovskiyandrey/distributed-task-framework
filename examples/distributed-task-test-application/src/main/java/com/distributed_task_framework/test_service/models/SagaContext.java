@@ -1,24 +1,31 @@
 package com.distributed_task_framework.test_service.models;
 
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.test_service.utils.SagaSchemaArguments;
 import jakarta.annotation.Nullable;
 import lombok.Builder;
-import lombok.Singular;
+import lombok.ToString;
 import lombok.Value;
 import lombok.extern.jackson.Jacksonized;
-
-import java.util.List;
 
 @Value
 @Builder(toBuilder = true)
 @Jacksonized
 public class SagaContext {
+    @ToString.Exclude
     @Nullable
-    byte[] serializedArg;
+    byte[] serializedInput;
+    @ToString.Exclude
     @Nullable
-    TaskDef<SagaContext> nextOperationTaskDef;
+    byte[] serializedOutput;
+    TaskDef<SagaPipelineContext> sagaMethodTaskDef;
+    SagaSchemaArguments operationSagaSchemaArguments;
+
     @Nullable
-    SagaRevertBuilderContext currentSagaRevertBuilderContext;
-    @Singular
-    List<SagaRevertBuilderContext> sagaRevertBuilderContexts;
+    TaskDef<SagaPipelineContext> sagaRevertMethodTaskDef;
+    @ToString.Exclude
+    @Nullable
+    Throwable throwable;
+    @Nullable
+    SagaSchemaArguments revertOperationSagaSchemaArguments;
 }

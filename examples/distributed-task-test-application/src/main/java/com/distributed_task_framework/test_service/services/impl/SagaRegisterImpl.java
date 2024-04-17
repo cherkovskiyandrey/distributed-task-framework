@@ -2,16 +2,16 @@ package com.distributed_task_framework.test_service.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
-import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.test_service.annotations.SagaMethod;
 import com.distributed_task_framework.test_service.annotations.SagaRevertMethod;
 import com.distributed_task_framework.test_service.exceptions.SagaMethodDuplicateException;
 import com.distributed_task_framework.test_service.exceptions.SagaMethodResolvingException;
 import com.distributed_task_framework.test_service.exceptions.SagaTaskNotFoundException;
-import com.distributed_task_framework.test_service.models.SagaContext;
-import com.distributed_task_framework.test_service.models.SagaRevertContext;
+import com.distributed_task_framework.test_service.models.SagaPipelineContext;
+import com.distributed_task_framework.test_service.services.BiConsumerWithThrowableArg;
 import com.distributed_task_framework.test_service.services.SagaContextDiscovery;
 import com.distributed_task_framework.test_service.services.SagaRegister;
+import com.distributed_task_framework.test_service.services.ThreeConsumerWithThrowableArg;
 import com.distributed_task_framework.test_service.utils.ReflectionHelper;
 import com.google.common.collect.Maps;
 import lombok.AccessLevel;
@@ -19,11 +19,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
 
-import java.lang.reflect.Method;
+import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
@@ -42,55 +43,59 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     private static final String TASK_REVERT_PREFIX = "_____SAGA_REVERT";
     private static final String TASK_NAME_DELIMITER = "_";
 
-    Map<String, TaskDef<SagaContext>> methodToTask = Maps.newHashMap();
-    Map<String, TaskDef<SagaRevertContext>> revertMethodToTask = Maps.newHashMap();
-    Map<TaskDef<SagaRevertContext>, Method> revertTaskToMethod = Maps.newHashMap();
+    Map<String, TaskDef<SagaPipelineContext>> methodToTask = Maps.newHashMap();
+    Map<String, TaskDef<SagaPipelineContext>> revertMethodToTask = Maps.newHashMap();
     DistributedTaskService distributedTaskService;
     SagaContextDiscovery sagaContextDiscovery;
-    TaskSerializer taskSerializer;
     SagaHelper sagaHelper;
+    ObjectProvider<SagaTask> sagaTaskObjectProvider;
+    ObjectProvider<SagaRevertTask> sagaRevertTaskObjectProvider;
 
     @Override
-    public <IN, OUT> TaskDef<SagaContext> resolve(Function<IN, OUT> operation) {
-        SagaMethod sagaMethod = sagaMethodByFunction(operation);
+    public <IN, OUT> TaskDef<SagaPipelineContext> resolve(Function<IN, OUT> operation) {
+        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.apply(null), SagaMethod.class, operation);
         return resolveByMethodRef(sagaMethod);
     }
 
     @Override
-    public <IN> TaskDef<SagaContext> resolve(Consumer<IN> operation) {
-        SagaMethod sagaMethod = sagaMethodByConsumer(operation);
+    public <IN> TaskDef<SagaPipelineContext> resolve(Consumer<IN> operation) {
+        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.accept(null), SagaMethod.class, operation);
         return resolveByMethodRef(sagaMethod);
     }
 
     @Override
-    public <T, U, R> TaskDef<SagaContext> resolve(BiFunction<T, U, R> operation) {
-        SagaMethod sagaMethod = sagaMethodByBiFunction(operation);
+    public <T, U, R> TaskDef<SagaPipelineContext> resolve(BiFunction<T, U, R> operation) {
+        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.apply(null, null), SagaMethod.class, operation);
         return resolveByMethodRef(sagaMethod);
     }
 
-    private TaskDef<SagaContext> resolveByMethodRef(SagaMethod sagaMethod) {
-        var taskName = taskNameFor(sagaMethod);
-        var operationTask = methodToTask.get(taskName);
-        if (operationTask == null) {
-            throw new SagaTaskNotFoundException(taskName);
-        }
-        return operationTask;
+    @Override
+    public <PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
+            BiConsumerWithThrowableArg<PARENT_INPUT, OUTPUT> revertOperation) {
+        SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
+                () -> revertOperation.apply(null, null, null),
+                SagaRevertMethod.class,
+                revertOperation
+        );
+        return resolveByMethodRef(sagaRevertMethod);
     }
 
-    private <T, R> SagaMethod sagaMethodByFunction(Function<T, R> function) {
-        return sagaMethodByRunnable(() -> function.apply(null), function);
+    @Override
+    public <INPUT, PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
+            ThreeConsumerWithThrowableArg<PARENT_INPUT, INPUT, OUTPUT> revertOperation) {
+        SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
+                () -> revertOperation.apply(null, null, null, null),
+                SagaRevertMethod.class,
+                revertOperation
+        );
+        return resolveByMethodRef(sagaRevertMethod);
     }
 
-    private <T> SagaMethod sagaMethodByConsumer(Consumer<T> consumer) {
-        return sagaMethodByRunnable(() -> consumer.accept(null), consumer);
-    }
-
-    private <T, U, R> SagaMethod sagaMethodByBiFunction(BiFunction<T, U, R> biFunction) {
-        return sagaMethodByRunnable(() -> biFunction.apply(null, null), biFunction);
-    }
-
-    private SagaMethod sagaMethodByRunnable(Runnable runnable, Object methodRef) {
-        sagaContextDiscovery.beginDetection();
+    //todo: check that all arguments have been passed to!!!
+    private <A extends Annotation> A sagaMethodByRunnable(Runnable runnable,
+                                                          Class<? extends A> annotationCls,
+                                                          Object methodRef) {
+        sagaContextDiscovery.beginDetection(annotationCls);
         try {
             runnable.run();
             return sagaContextDiscovery.getSagaMethod();
@@ -99,6 +104,24 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
         } finally {
             sagaContextDiscovery.completeDetection();
         }
+    }
+
+    private TaskDef<SagaPipelineContext> resolveByMethodRef(SagaMethod sagaMethod) {
+        var taskName = taskNameFor(sagaMethod);
+        var operationTask = methodToTask.get(taskName);
+        if (operationTask == null) {
+            throw new SagaTaskNotFoundException(taskName);
+        }
+        return operationTask;
+    }
+
+    private TaskDef<SagaPipelineContext> resolveByMethodRef(SagaRevertMethod sagaRevertMethod) {
+        var taskName = revertTaskNameFor(sagaRevertMethod);
+        var revertOperationTask = revertMethodToTask.get(taskName);
+        if (revertOperationTask == null) {
+            throw new SagaTaskNotFoundException(taskName);
+        }
+        return revertOperationTask;
     }
 
     private static String taskNameFor(SagaMethod sagaMethodAnnotation) {
@@ -125,7 +148,6 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
         );
     }
 
-
     private static String revertTaskNameFor(SagaRevertMethod sagaRevertMethodAnnotation) {
         String name = sagaRevertMethodAnnotation.name();
         String version = "" + sagaRevertMethodAnnotation.version();
@@ -141,7 +163,6 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         registerSagaMethodIfExists(bean);
         registerSagaRevertMethodIfExists(bean);
-
         return bean;
     }
 
@@ -152,24 +173,20 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                     @SuppressWarnings("OptionalGetWithoutIsPresent")
                     SagaMethod sagaMethodAnnotation = ReflectionHelper.findAnnotation(method, SagaMethod.class).get();
                     var taskName = taskNameFor(sagaMethodAnnotation);
-                    var taskDef = TaskDef.privateTaskDef(taskName, SagaContext.class);
                     if (methodToTask.containsKey(taskName)) {
                         throw new SagaMethodDuplicateException(taskName);
                     }
+
+                    var taskDef = TaskDef.privateTaskDef(taskName, SagaPipelineContext.class);
                     methodToTask.put(taskName, taskDef);
                     sagaContextDiscovery.registerMethod(method.toString(), sagaMethodAnnotation);
 
-                    //todo: consider creating of prototype bean
-                    SagaTask sagaTask = SagaTask.builder()
-                            .distributedTaskService(distributedTaskService)
-                            .taskSerializer(taskSerializer)
-                            .sagaHelper(sagaHelper)
-                            .revertTaskToMethod(revertTaskToMethod)
-                            .taskDef(taskDef)
-                            .method(method)
-                            .bean(bean)
-                            .sagaMethodAnnotation(sagaMethodAnnotation)
-                            .build();
+                    SagaTask sagaTask = sagaTaskObjectProvider.getObject(
+                            taskDef,
+                            method,
+                            bean,
+                            sagaMethodAnnotation
+                    );
                     distributedTaskService.registerTask(sagaTask);
                 });
     }
@@ -181,20 +198,18 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                     @SuppressWarnings("OptionalGetWithoutIsPresent")
                     SagaRevertMethod sagaRevertMethodAnnotation = ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).get();
                     var revertTaskName = revertTaskNameFor(sagaRevertMethodAnnotation);
-                    var taskDef = TaskDef.privateTaskDef(revertTaskName, SagaRevertContext.class);
+                    var taskDef = TaskDef.privateTaskDef(revertTaskName, SagaPipelineContext.class);
                     if (revertMethodToTask.containsKey(revertTaskName)) {
                         throw new SagaMethodDuplicateException(revertTaskName);
                     }
                     revertMethodToTask.put(revertTaskName, taskDef);
                     sagaContextDiscovery.registerMethod(method.toString(), sagaRevertMethodAnnotation);
 
-                    //todo: consider creating of prototype bean
-                    SagaRevertTask sagaRevertTask = SagaRevertTask.builder()
-                            .sagaHelper(sagaHelper)
-                            .taskDef(taskDef)
-                            .method(method)
-                            .bean(bean)
-                            .build();
+                    SagaRevertTask sagaRevertTask = sagaRevertTaskObjectProvider.getObject(
+                            taskDef,
+                            method,
+                            bean
+                    );
                     distributedTaskService.registerTask(sagaRevertTask);
                 });
     }

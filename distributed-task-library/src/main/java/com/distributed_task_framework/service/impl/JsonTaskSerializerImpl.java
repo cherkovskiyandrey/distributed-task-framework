@@ -26,6 +26,9 @@ public class JsonTaskSerializerImpl implements TaskSerializer {
 
     @Override
     public <T> byte[] writeValue(T dto) throws IOException {
+        if (dto == null) {
+            return null;
+        }
         return objectMapper.writeValueAsBytes(dto);
     }
 }

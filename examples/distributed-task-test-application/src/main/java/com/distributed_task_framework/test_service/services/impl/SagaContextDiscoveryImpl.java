@@ -1,6 +1,6 @@
 package com.distributed_task_framework.test_service.services.impl;
 
-import com.distributed_task_framework.test_service.annotations.SagaMethod;
+import com.distributed_task_framework.test_service.exceptions.SagaException;
 import com.distributed_task_framework.test_service.exceptions.SagaMethodNotFoundException;
 import com.distributed_task_framework.test_service.services.SagaContextDiscovery;
 import com.google.common.collect.Maps;
@@ -13,6 +13,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 
+import java.lang.annotation.Annotation;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentMap;
 
@@ -21,24 +22,34 @@ import java.util.concurrent.ConcurrentMap;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaContextDiscoveryImpl implements SagaContextDiscovery {
-    ConcurrentMap<String, SagaMethod> registeredMethods = Maps.newConcurrentMap();
-    ThreadLocal<Boolean> requested = new ThreadLocal<>();
+    ConcurrentMap<String, Annotation> registeredMethods = Maps.newConcurrentMap();
+    ThreadLocal<Class<? extends Annotation>> request = new ThreadLocal<>();
     ThreadLocal<String> methodSignature = new ThreadLocal<>();
-    ThreadLocal<SagaMethod> sagaMethodRef = new ThreadLocal<>();
+    ThreadLocal<Annotation> sagaMethodRef = new ThreadLocal<>();
 
     @Pointcut("@annotation(com.distributed_task_framework.test_service.annotations.SagaMethod)")
     public void methodWithSagaElement() {
     }
 
-    @Around("methodWithSagaElement()")
+    @Pointcut("@annotation(com.distributed_task_framework.test_service.annotations.SagaRevertMethod)")
+    public void methodWithSagaRevertElement() {
+    }
+
+    @Around("methodWithSagaElement() || methodWithSagaRevertElement()")
     public Object aroundCallSagaElement(ProceedingJoinPoint pjp) throws Throwable {
         if (isRequest()) {
             var sig = pjp.getSignature().toLongString();
-            SagaMethod sagaMethodAnnotation = Optional.ofNullable(registeredMethods.get(sig))
-                    .orElseThrow(() -> new SagaMethodNotFoundException(sig));
-
+            Annotation annotation = Optional.ofNullable(registeredMethods.get(sig))
+                    .filter(ann -> request.get().equals(ann.getClass()))
+                    .orElseThrow(() -> new SagaMethodNotFoundException(
+                                    "Method=[%s] isn't marked as [%s]".formatted(
+                                            request.get(),
+                                            sig
+                                    )
+                            )
+                    );
             methodSignature.set(sig);
-            sagaMethodRef.set(sagaMethodAnnotation);
+            sagaMethodRef.set(annotation);
 
             return null;
         }
@@ -46,33 +57,34 @@ public class SagaContextDiscoveryImpl implements SagaContextDiscovery {
     }
 
     @Override
-    public void registerMethod(String methodName, SagaMethod sagaMethodAnnotation) {
-        registeredMethods.put(methodName, sagaMethodAnnotation);
+    public <SAGA_METHOD extends Annotation> void registerMethod(String methodName, SAGA_METHOD sagaMethod) {
+        registeredMethods.put(methodName, sagaMethod);
     }
 
     @Override
-    public void beginDetection() {
+    public <SAGA_METHOD extends Annotation> void beginDetection(Class<SAGA_METHOD> sagaMethodClass) {
         sagaMethodRef.set(null);
         methodSignature.set(null);
-        requested.set(true);
+        request.set(sagaMethodClass);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public SagaMethod getSagaMethod() {
+    public <SAGA_METHOD extends Annotation> SAGA_METHOD getSagaMethod() {
         if (!isRequest() || sagaMethodRef.get() == null) {
-            throw new SagaMethodNotFoundException(methodSignature.get());
+            throw new SagaException("Unexpected call for method=[%s]".formatted(methodSignature.get()));
         }
-        return sagaMethodRef.get();
+        return (SAGA_METHOD) sagaMethodRef.get();
     }
 
     @Override
     public void completeDetection() {
         sagaMethodRef.set(null);
         methodSignature.set(null);
-        requested.set(false);
+        request.set(null);
     }
 
     private boolean isRequest() {
-        return Boolean.TRUE.equals(requested.get());
+        return request.get() != null;
     }
 }

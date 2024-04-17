@@ -1,7 +1,5 @@
 package com.distributed_task_framework.test_service.services;
 
-import com.distributed_task_framework.test_service.models.SagaRevert;
-import com.distributed_task_framework.test_service.models.SagaRevertInputOnly;
 import com.distributed_task_framework.test_service.models.SagaTrackId;
 
 import java.util.Optional;
@@ -22,7 +20,7 @@ public interface SagaProcessor {
      */
     <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> registerToRun(
             Function<INPUT, OUTPUT> operation,
-            Consumer<SagaRevert<INPUT, OUTPUT>> revertOperation,
+            BiConsumerWithThrowableArg<INPUT, OUTPUT> revertOperation,
             INPUT input
     );
 
@@ -52,7 +50,7 @@ public interface SagaProcessor {
      */
     <INPUT> SagaFlowBuilderWithoutInput registerToConsume(
             Consumer<INPUT> operation,
-            Consumer<SagaRevertInputOnly<INPUT>> revertOperation,
+            ConsumerWithThrowableArg<INPUT> revertOperation,
             INPUT input
     );
 

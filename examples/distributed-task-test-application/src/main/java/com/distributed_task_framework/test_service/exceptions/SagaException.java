@@ -4,4 +4,8 @@ public class SagaException extends RuntimeException {
     public SagaException(String message) {
         super(message);
     }
+
+    public SagaException(Exception e) {
+        super(e);
+    }
 }

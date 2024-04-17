@@ -1,8 +1,5 @@
 package com.distributed_task_framework.test_service.services;
 
-import com.distributed_task_framework.test_service.models.SagaRevert;
-import com.distributed_task_framework.test_service.models.SagaRevertInputOnly;
-
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -19,7 +16,7 @@ public interface SagaFlowBuilderWithoutInput {
      */
     <INPUT> SagaFlowBuilderWithoutInput thenConsume(
             Consumer<INPUT> operation,
-            Consumer<SagaRevertInputOnly<INPUT>> revertOperation,
+            ConsumerWithThrowableArg<INPUT> revertOperation,
             INPUT input
     );
 
@@ -47,7 +44,7 @@ public interface SagaFlowBuilderWithoutInput {
      */
     <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
             Function<INPUT, OUTPUT> operation,
-            Consumer<SagaRevert<INPUT, OUTPUT>> revertOperation,
+            BiConsumerWithThrowableArg<INPUT, OUTPUT> revertOperation,
             INPUT input
     );
 

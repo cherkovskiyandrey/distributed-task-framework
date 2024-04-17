@@ -1,16 +1,11 @@
 package com.distributed_task_framework.test_service.services;
 
-import com.distributed_task_framework.test_service.models.SagaRevert;
-import com.distributed_task_framework.test_service.models.SagaRevertInputOnly;
-import com.distributed_task_framework.test_service.models.SagaRevertWithParentInput;
-import com.distributed_task_framework.test_service.models.SagaRevertWithParentInputOnly;
-
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public interface SagaFlowBuilder<PARENT_INPUT> {
+public interface SagaFlowBuilder<PARENT_OUTPUT> {
 
     /**
      * Allow to set next operation in current saga.
@@ -23,8 +18,8 @@ public interface SagaFlowBuilder<PARENT_INPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
-            BiFunction<PARENT_INPUT, INPUT, OUTPUT> operation,
-            Consumer<SagaRevertWithParentInput<PARENT_INPUT, INPUT, OUTPUT>> revertOperation,
+            BiFunction<PARENT_OUTPUT, INPUT, OUTPUT> operation,
+            ThreeConsumerWithThrowableArg<PARENT_OUTPUT, INPUT, OUTPUT> revertOperation,
             INPUT input
     );
 
@@ -38,7 +33,7 @@ public interface SagaFlowBuilder<PARENT_INPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
-            BiFunction<PARENT_INPUT, INPUT, OUTPUT> operation,
+            BiFunction<PARENT_OUTPUT, INPUT, OUTPUT> operation,
             INPUT input
     );
 
@@ -51,8 +46,8 @@ public interface SagaFlowBuilder<PARENT_INPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
-            Function<PARENT_INPUT, OUTPUT> operation,
-            Consumer<SagaRevert<PARENT_INPUT, OUTPUT>> revertOperation
+            Function<PARENT_OUTPUT, OUTPUT> operation,
+            BiConsumerWithThrowableArg<PARENT_OUTPUT, OUTPUT> revertOperation
     );
 
     /**
@@ -63,7 +58,7 @@ public interface SagaFlowBuilder<PARENT_INPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
-            Function<PARENT_INPUT, OUTPUT> operation
+            Function<PARENT_OUTPUT, OUTPUT> operation
     );
 
     /**
@@ -76,8 +71,8 @@ public interface SagaFlowBuilder<PARENT_INPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT> SagaFlowBuilderWithoutInput thenConsume(
-            BiConsumer<PARENT_INPUT, INPUT> operation,
-            Consumer<SagaRevertWithParentInputOnly<PARENT_INPUT, INPUT>> revertOperation,
+            BiConsumer<PARENT_OUTPUT, INPUT> operation,
+            BiConsumerWithThrowableArg<PARENT_OUTPUT, INPUT> revertOperation,
             INPUT input
     );
 
@@ -90,7 +85,7 @@ public interface SagaFlowBuilder<PARENT_INPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT> SagaFlowBuilderWithoutInput thenConsume(
-            BiConsumer<PARENT_INPUT, INPUT> operation,
+            BiConsumer<PARENT_OUTPUT, INPUT> operation,
             INPUT input
     );
 
@@ -102,8 +97,8 @@ public interface SagaFlowBuilder<PARENT_INPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput thenConsume(
-            Consumer<PARENT_INPUT> operation,
-            Consumer<SagaRevertInputOnly<PARENT_INPUT>> revertOperation
+            Consumer<PARENT_OUTPUT> operation,
+            ConsumerWithThrowableArg<PARENT_OUTPUT> revertOperation
     );
 
     /**
@@ -113,10 +108,10 @@ public interface SagaFlowBuilder<PARENT_INPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput thenConsume(
-            Consumer<PARENT_INPUT> operation
+            Consumer<PARENT_OUTPUT> operation
     );
 
-    SagaFlow<PARENT_INPUT> start();
+    SagaFlow<PARENT_OUTPUT> start();
 
-    SagaFlow<PARENT_INPUT> startWithAffinity(String affinityGroup, String affinity);
+    SagaFlow<PARENT_OUTPUT> startWithAffinity(String affinityGroup, String affinity);
 }

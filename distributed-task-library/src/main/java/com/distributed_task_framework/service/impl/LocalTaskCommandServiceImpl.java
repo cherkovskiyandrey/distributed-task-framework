@@ -183,7 +183,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
 
         String taskName = taskDef.getTaskName();
         Optional<T> inputMessageOpt = executionContext.getInputMessageOpt();
-        byte[] messageBytes = inputMessageOpt.isPresent() ? taskSerializer.writeValue(inputMessageOpt.get()) : null;
+        byte[] messageBytes = taskSerializer.writeValue(inputMessageOpt.orElse(null));
         LocalDateTime now = LocalDateTime.now(clock);
 
         TaskEntity taskEntity = TaskEntity.builder()
@@ -325,7 +325,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
             }
 
             Optional<T> inputMessageOpt = executionContext.getInputMessageOpt();
-            byte[] messageBytes = inputMessageOpt.isPresent() ? taskSerializer.writeValue(inputMessageOpt.get()) : null;
+            byte[] messageBytes = taskSerializer.writeValue(inputMessageOpt.orElse(null));
 
             final LocalDateTime executionDateUtc;
             String cron = registeredTask.getTaskSettings().getCron();

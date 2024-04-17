@@ -1,6 +1,7 @@
 package com.distributed_task_framework.test_service.services;
 
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.test_service.models.SagaPipelineContext;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -8,9 +9,17 @@ import java.util.function.Function;
 
 public interface SagaRegister {
 
-    <IN, OUT, CONTEXT> TaskDef<CONTEXT> resolve(Function<IN, OUT> operation, Class<CONTEXT> contextClass);
+    <IN, OUT> TaskDef<SagaPipelineContext> resolve(Function<IN, OUT> operation);
 
-    <IN, CONTEXT> TaskDef<CONTEXT> resolve(Consumer<IN> operation, Class<CONTEXT> contextClass);
+    <IN> TaskDef<SagaPipelineContext> resolve(Consumer<IN> operation);
 
-    <T, U, R, CONTEXT> TaskDef<CONTEXT> resolve(BiFunction<T, U, R> operation, Class<CONTEXT> contextClass);
+    <T, U, R> TaskDef<SagaPipelineContext> resolve(BiFunction<T, U, R> operation);
+
+    <PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
+            BiConsumerWithThrowableArg<PARENT_INPUT, OUTPUT> revertOperation
+    );
+
+    <INPUT, PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
+            ThreeConsumerWithThrowableArg<PARENT_INPUT, INPUT, OUTPUT> revertOperation
+    );
 }

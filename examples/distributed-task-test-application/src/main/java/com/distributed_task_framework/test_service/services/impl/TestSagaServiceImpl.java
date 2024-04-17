@@ -4,8 +4,6 @@ import com.distributed_task_framework.test_service.annotations.SagaMethod;
 import com.distributed_task_framework.test_service.annotations.SagaRevertMethod;
 import com.distributed_task_framework.test_service.models.RemoteOneDto;
 import com.distributed_task_framework.test_service.models.RemoteTwoDto;
-import com.distributed_task_framework.test_service.models.SagaRevert;
-import com.distributed_task_framework.test_service.models.SagaRevertWithParentInput;
 import com.distributed_task_framework.test_service.models.SagaRevertableDto;
 import com.distributed_task_framework.test_service.models.SagaTrackId;
 import com.distributed_task_framework.test_service.models.TestDataDto;
@@ -18,6 +16,7 @@ import com.distributed_task_framework.test_service.services.RemoteServiceTwo;
 import com.distributed_task_framework.test_service.services.SagaFlow;
 import com.distributed_task_framework.test_service.services.SagaProcessor;
 import com.distributed_task_framework.test_service.services.TestSagaService;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -119,17 +118,17 @@ public class TestSagaServiceImpl implements TestSagaService {
         return sagaProcessor
                 .registerToRun(
                         s -> testSagaService.createLocal(s),
-                        sr -> testSagaService.deleteLocal(sr),
+                        (in, out, thr) -> testSagaService.deleteLocal(in, out, thr),
                         testDataDto
                 )
                 .thenRun(
                         (r, s) -> testSagaService.createOnRemoteServiceOne(r, s),
-                        sr -> testSagaService.deleteOnRemoteServiceOne(sr),
+                        (p, in, out, thr) -> testSagaService.deleteOnRemoteServiceOne(p, in, out, thr),
                         testDataDto
                 )
                 .thenRun(
                         (r, s) -> testSagaService.createOnRemoteServiceTwo(r, s),
-                        sr -> testSagaService.deleteOnRemoteServiceTwo(sr),
+                        (p, in, out, thr) -> testSagaService.deleteOnRemoteServiceTwo(p, in, out, thr),
                         testDataDto
                 )
                 .thenRun(r -> testSagaService.saveAudit(r))
@@ -153,13 +152,15 @@ public class TestSagaServiceImpl implements TestSagaService {
 
     @Transactional
     @SagaRevertMethod(name = "deleteLocal")
-    public void deleteLocal(SagaRevert<TestDataDto, SagaRevertableDto<TestDataEntity>> sagaRevert) {
-        if (sagaRevert.getThrowable() instanceof OptimisticLockingFailureException) {
+    public void deleteLocal(TestDataDto input,
+                            @Nullable SagaRevertableDto<TestDataEntity> output,
+                            @Nullable Throwable throwable) {
+        if (throwable instanceof OptimisticLockingFailureException) {
             log.warn("deleteLocal(): data has been changed");
             return;
         }
-        if (sagaRevert.getOutput() != null && sagaRevert.getOutput().getPrevValue() != null) {
-            TestDataEntity prevTestData = sagaRevert.getOutput().getPrevValue();
+        if (output != null && output.getPrevValue() != null) {
+            TestDataEntity prevTestData = output.getPrevValue();
             prevTestData = prevTestData
                     .toBuilder()
                     .version(prevTestData.getVersion() + 1) // we upped version in createLocal
@@ -191,9 +192,12 @@ public class TestSagaServiceImpl implements TestSagaService {
     }
 
     @SagaRevertMethod(name = "deleteOnRemoteServiceOne")
-    public void deleteOnRemoteServiceOne(SagaRevertWithParentInput<SagaRevertableDto<TestDataEntity>, TestDataDto, RemoteOneDto> revertWithParentInput) {
-        if (revertWithParentInput.getOutput() != null) {
-            remoteServiceOne.delete(revertWithParentInput.getOutput().getRemoteOneId());
+    public void deleteOnRemoteServiceOne(@Nullable SagaRevertableDto<TestDataEntity> parentInput,
+                                         TestDataDto input,
+                                         @Nullable RemoteOneDto output,
+                                         @Nullable Throwable throwable) {
+        if (output != null) {
+            remoteServiceOne.delete(output.getRemoteOneId());
         }
     }
 
@@ -208,9 +212,12 @@ public class TestSagaServiceImpl implements TestSagaService {
     }
 
     @SagaRevertMethod(name = "deleteOnRemoteServiceTwo")
-    public void deleteOnRemoteServiceTwo(SagaRevertWithParentInput<RemoteOneDto, TestDataDto, RemoteTwoDto> sagaRevertWithParentInput) {
-        if (sagaRevertWithParentInput.getOutput() != null) {
-            remoteServiceTwo.delete(sagaRevertWithParentInput.getOutput().getRemoteTwoId());
+    public void deleteOnRemoteServiceTwo(@Nullable RemoteOneDto parentInput,
+                                         TestDataDto input,
+                                         @Nullable RemoteTwoDto output,
+                                         @Nullable Throwable throwable) {
+        if (output != null) {
+            remoteServiceTwo.delete(output.getRemoteTwoId());
         }
     }
 
