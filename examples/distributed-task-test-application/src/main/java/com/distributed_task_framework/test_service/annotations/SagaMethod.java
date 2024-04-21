@@ -16,9 +16,9 @@ import java.lang.annotation.Target;
  * IMPORTANT: take into account that spring generate proxy around such methods.
  * As a result you have to pay attention how to invoke it from the same bean.
  */
+@Documented
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
-@Documented
 public @interface SagaMethod {
 
     /**

@@ -174,7 +174,7 @@ public class SagaFlowBuilderImpl<PARENT_OUTPUT> implements SagaFlowBuilder<PAREN
         SagaContext currentSagaContext = sagaParentPipelineContext.getCurrentSagaContext();
 
         TaskId taskId = distributedTaskService.schedule(
-                currentSagaContext.getSagaMethodTaskDef(),
+                sagaRegister.resolveByTaskName(currentSagaContext.getSagaMethodTaskName()),
                 ExecutionContext.withAffinityGroup(
                         sagaParentPipelineContext,
                         affinityGroup,
@@ -196,7 +196,7 @@ public class SagaFlowBuilderImpl<PARENT_OUTPUT> implements SagaFlowBuilder<PAREN
         SagaContext currentSagaContext = sagaParentPipelineContext.getCurrentSagaContext();
 
         TaskId taskId = distributedTaskService.schedule(
-                currentSagaContext.getSagaMethodTaskDef(),
+                sagaRegister.resolveByTaskName(currentSagaContext.getSagaMethodTaskName()),
                 ExecutionContext.simple(sagaParentPipelineContext)
         );
 

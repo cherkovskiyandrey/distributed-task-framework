@@ -10,15 +10,14 @@ import com.distributed_task_framework.test_service.annotations.SagaMethod;
 import com.distributed_task_framework.test_service.exceptions.SagaException;
 import com.distributed_task_framework.test_service.models.SagaContext;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
+import com.distributed_task_framework.test_service.services.SagaRegister;
 import com.distributed_task_framework.test_service.utils.ArgumentProvider;
 import com.distributed_task_framework.test_service.utils.ArgumentProviderBuilder;
 import com.distributed_task_framework.test_service.utils.SagaArguments;
 import com.distributed_task_framework.test_service.utils.SagaSchemaArguments;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -34,6 +33,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class SagaTask implements Task<SagaPipelineContext> {
+    SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
     TaskSerializer taskSerializer;
     SagaHelper sagaHelper;
@@ -98,7 +98,7 @@ public class SagaTask implements Task<SagaPipelineContext> {
         sagaPipelineContext.moveToNext();
         var nextSagaContext = sagaPipelineContext.getCurrentSagaContext();
         distributedTaskService.schedule(
-                nextSagaContext.getSagaMethodTaskDef(),
+                sagaRegister.resolveByTaskName(nextSagaContext.getSagaMethodTaskName()),
                 executionContext.withNewMessage(sagaPipelineContext)
         );
     }
@@ -123,11 +123,12 @@ public class SagaTask implements Task<SagaPipelineContext> {
         if (isLastAttempt) {
             SagaPipelineContext sagaPipelineContext = failedExecutionContext.getInputMessageOrThrow();
             SagaContext currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
+
             currentSagaContext = currentSagaContext.toBuilder()
                     .throwable(throwable)
                     .build();
             sagaPipelineContext.setCurrentSagaContext(currentSagaContext);
-            sagaPipelineContext.rewindToRevert();
+            sagaPipelineContext.rewindToRevertFormCurrentPosition();
             if (!sagaPipelineContext.hasNext()) {
                 return true;
             }
@@ -135,11 +136,11 @@ public class SagaTask implements Task<SagaPipelineContext> {
             sagaPipelineContext.moveToNext();
             currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
             distributedTaskService.schedule(
-                    currentSagaContext.getSagaRevertMethodTaskDef(),
+                    sagaRegister.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
                     failedExecutionContext.withNewMessage(sagaPipelineContext)
             );
         }
 
-        return isNoRetryException;
+        return isLastAttempt;
     }
 }

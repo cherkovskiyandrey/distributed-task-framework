@@ -26,4 +26,6 @@ public class TestDataDto {
     String remoteServiceTwoId;
     @NotEmpty
     String remoteTwoData;
+
+    Integer throwExceptionOnLevel;
 }

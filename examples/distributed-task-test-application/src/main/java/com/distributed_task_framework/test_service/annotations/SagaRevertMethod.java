@@ -2,6 +2,12 @@ package com.distributed_task_framework.test_service.annotations;
 
 import com.distributed_task_framework.test_service.services.SagaProcessor;
 
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 /**
  * Used in order to mark any method in spring bean as method which can
  * be used in saga transaction as revert step.
@@ -10,6 +16,9 @@ import com.distributed_task_framework.test_service.services.SagaProcessor;
  * IMPORTANT: take into account that spring generate proxy around such methods.
  * As a result you have to pay attention how to invoke it from the same bean.
  */
+@Documented
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
 public @interface SagaRevertMethod {
 
     /**

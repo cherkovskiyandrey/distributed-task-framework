@@ -105,6 +105,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
                 assigned_worker = ?,
                 last_assigned_date_utc = ?,
                 execution_date_utc = ?,
+                failures = ?,
                 virtual_queue = ?::_____dtf_virtual_queue_type
             WHERE
             (
@@ -169,12 +170,13 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
     }
 
     private Object[] toArrayOfParamsIgnoreVersionToRescheduleAll(TaskEntity taskEntity) {
-        Object[] result = new Object[5];
+        Object[] result = new Object[6];
         result[0] = taskEntity.getAssignedWorker();
         result[1] = taskEntity.getLastAssignedDateUtc();
         result[2] = taskEntity.getExecutionDateUtc();
-        result[3] = JdbcTools.asString(taskEntity.getVirtualQueue());
-        result[4] = taskEntity.getId();
+        result[3] = taskEntity.getFailures();
+        result[4] = JdbcTools.asString(taskEntity.getVirtualQueue());
+        result[5] = taskEntity.getId();
         return result;
     }
 

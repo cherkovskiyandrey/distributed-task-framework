@@ -8,6 +8,7 @@ import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.test_service.exceptions.SagaException;
 import com.distributed_task_framework.test_service.models.SagaContext;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
+import com.distributed_task_framework.test_service.services.SagaRegister;
 import com.distributed_task_framework.test_service.utils.ArgumentProvider;
 import com.distributed_task_framework.test_service.utils.ArgumentProviderBuilder;
 import com.distributed_task_framework.test_service.utils.SagaArguments;
@@ -27,6 +28,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class SagaRevertTask implements Task<SagaPipelineContext> {
+    SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
     SagaHelper sagaHelper;
     TaskDef<SagaPipelineContext> taskDef;
@@ -126,7 +128,7 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
         sagaPipelineContext.moveToNext();
         var currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
         distributedTaskService.schedule(
-                currentSagaContext.getSagaRevertMethodTaskDef(),
+                sagaRegister.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
                 executionContext.withNewMessage(sagaPipelineContext)
         );
     }

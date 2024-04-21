@@ -30,6 +30,8 @@ public interface TaskRegistryService {
 
     <T> Optional<RegisteredTask<T>> getRegisteredLocalTask(String taskName);
 
+    <T> Optional<TaskDef<T>> getRegisteredLocalTaskDef(String taskName);
+
     <T> Optional<RegisteredTask<T>> getRegisteredTask(TaskDef<T> taskDef);
 
     /**

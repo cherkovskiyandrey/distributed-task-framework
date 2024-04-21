@@ -40,11 +40,11 @@ public class SagaContextDiscoveryImpl implements SagaContextDiscovery {
         if (isRequest()) {
             var sig = pjp.getSignature().toLongString();
             Annotation annotation = Optional.ofNullable(registeredMethods.get(sig))
-                    .filter(ann -> request.get().equals(ann.getClass()))
+                    .filter(ann -> request.get().isAssignableFrom(ann.getClass()))
                     .orElseThrow(() -> new SagaMethodNotFoundException(
                                     "Method=[%s] isn't marked as [%s]".formatted(
-                                            request.get(),
-                                            sig
+                                            sig,
+                                            request.get()
                                     )
                             )
                     );

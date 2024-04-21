@@ -22,4 +22,6 @@ public interface SagaRegister {
     <INPUT, PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
             ThreeConsumerWithThrowableArg<PARENT_INPUT, INPUT, OUTPUT> revertOperation
     );
+
+    TaskDef<SagaPipelineContext> resolveByTaskName(String taskName);
 }

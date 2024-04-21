@@ -17,7 +17,7 @@ public class CommonSettings {
 
     private static Retry cerateDefaultRetry() {
         return Retry.builder()
-                .retryMode(RetryMode.BACKOFF)
+                .retryMode(RetryMode.FIXED) //todo: pls change to backoff
                 .fixed(Fixed.builder().build())
                 .backoff(Backoff.builder().build())
                 .build();

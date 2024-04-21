@@ -72,6 +72,7 @@ import com.distributed_task_framework.task.Task;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -334,6 +335,8 @@ public class DistributedTaskAutoconfigure {
         //in order to easily add new properties to the task message and be tolerant during rolling out
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         objectMapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, true);
+        objectMapper.configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false);
+        objectMapper.configure(SerializationFeature.WRITE_SELF_REFERENCES_AS_NULL, true);
         objectMapper.registerModule(new JavaTimeModule());
         return objectMapper;
     }

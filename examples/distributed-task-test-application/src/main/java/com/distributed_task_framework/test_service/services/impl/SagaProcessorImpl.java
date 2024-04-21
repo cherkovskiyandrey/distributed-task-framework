@@ -33,12 +33,14 @@ import java.util.function.Function;
  * 4. Ability to register unrecoverable exceptions, with lead no to retry task (+)
  * 5. AffinityGroup + affinity (+)
  * 6. Revert pipeline (-)
- * 6.1 todo: now it will not work, because DTF doesn't allow to create tasks form exception
+ * 6.1 todo: now it will not work, because DTF doesn't allow to create tasks form exception (+)
  * //          ^^^^ - fixed, need to be covered by tests (-)
  * 6.2 todo: creating tasks to use join approach is uncorrected, because it doesn't prevent to run all next pipeline of tasks in case
- * when rollback is handled (-)
+ * when rollback is handled (+)
  * 7. if method is marked as @Transactional - use EXACTLY_ONCE GUARANTIES (-)
  * 8. Ability to set default and custom retry settings (maybe via task settings ?) (-)
+ *      - in real properties from application.yaml doesn't work at all!!! because they are built in com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor#buildTaskSettings(com.distributed_task_framework.task.Task)
+ *      and this logic has to be repeated in the saga library (-)
  * 9. Ability to wait for task completion (-)
  * 10. Ability to wait task result (-)
  * 11. Think about exactly once for remote http call (-)

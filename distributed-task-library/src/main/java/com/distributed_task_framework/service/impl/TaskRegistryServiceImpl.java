@@ -164,6 +164,14 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
         return Optional.ofNullable((RegisteredTask<T>) registeredTasks.get(toLocalTaskDef(taskName)));
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> Optional<TaskDef<T>> getRegisteredLocalTaskDef(String taskName) {
+        return getRegisteredLocalTask(taskName)
+                .map(RegisteredTask::getTask)
+                .map(objectTask -> (TaskDef<T>) objectTask.getDef());
+    }
+
     /**
      * @noinspection unchecked
      */

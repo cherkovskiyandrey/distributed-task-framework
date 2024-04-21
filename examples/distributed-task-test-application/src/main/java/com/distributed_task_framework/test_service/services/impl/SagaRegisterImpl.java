@@ -2,6 +2,7 @@ package com.distributed_task_framework.test_service.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.test_service.annotations.SagaMethod;
 import com.distributed_task_framework.test_service.annotations.SagaRevertMethod;
 import com.distributed_task_framework.test_service.exceptions.SagaMethodDuplicateException;
@@ -11,6 +12,7 @@ import com.distributed_task_framework.test_service.models.SagaPipelineContext;
 import com.distributed_task_framework.test_service.services.BiConsumerWithThrowableArg;
 import com.distributed_task_framework.test_service.services.SagaContextDiscovery;
 import com.distributed_task_framework.test_service.services.SagaRegister;
+import com.distributed_task_framework.test_service.services.SagaTaskFactory;
 import com.distributed_task_framework.test_service.services.ThreeConsumerWithThrowableArg;
 import com.distributed_task_framework.test_service.utils.ReflectionHelper;
 import com.google.common.collect.Maps;
@@ -19,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
@@ -46,10 +47,9 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     Map<String, TaskDef<SagaPipelineContext>> methodToTask = Maps.newHashMap();
     Map<String, TaskDef<SagaPipelineContext>> revertMethodToTask = Maps.newHashMap();
     DistributedTaskService distributedTaskService;
+    TaskRegistryService taskRegistryService;
     SagaContextDiscovery sagaContextDiscovery;
-    SagaHelper sagaHelper;
-    ObjectProvider<SagaTask> sagaTaskObjectProvider;
-    ObjectProvider<SagaRevertTask> sagaRevertTaskObjectProvider;
+    SagaTaskFactory sagaTaskFactory;
 
     @Override
     public <IN, OUT> TaskDef<SagaPipelineContext> resolve(Function<IN, OUT> operation) {
@@ -91,6 +91,12 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
         return resolveByMethodRef(sagaRevertMethod);
     }
 
+    @Override
+    public TaskDef<SagaPipelineContext> resolveByTaskName(String taskName) {
+        return taskRegistryService.<SagaPipelineContext>getRegisteredLocalTaskDef(taskName)
+                .orElseThrow(() -> new SagaTaskNotFoundException(taskName));
+    }
+
     //todo: check that all arguments have been passed to!!!
     private <A extends Annotation> A sagaMethodByRunnable(Runnable runnable,
                                                           Class<? extends A> annotationCls,
@@ -100,7 +106,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
             runnable.run();
             return sagaContextDiscovery.getSagaMethod();
         } catch (Exception exception) {
-            throw new SagaMethodResolvingException(methodRef.toString());
+            throw new SagaMethodResolvingException(exception);
         } finally {
             sagaContextDiscovery.completeDetection();
         }
@@ -181,7 +187,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                     methodToTask.put(taskName, taskDef);
                     sagaContextDiscovery.registerMethod(method.toString(), sagaMethodAnnotation);
 
-                    SagaTask sagaTask = sagaTaskObjectProvider.getObject(
+                    SagaTask sagaTask = sagaTaskFactory.sagaTask(
                             taskDef,
                             method,
                             bean,
@@ -205,7 +211,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                     revertMethodToTask.put(revertTaskName, taskDef);
                     sagaContextDiscovery.registerMethod(method.toString(), sagaRevertMethodAnnotation);
 
-                    SagaRevertTask sagaRevertTask = sagaRevertTaskObjectProvider.getObject(
+                    SagaRevertTask sagaRevertTask = sagaTaskFactory.sagaRevertTask(
                             taskDef,
                             method,
                             bean

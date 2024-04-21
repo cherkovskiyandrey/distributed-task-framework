@@ -35,9 +35,9 @@ public class SagaHelper {
             parentSagaContext = new SagaPipelineContext();
         }
         parentSagaContext.addSagaContext(SagaContext.builder()
-                .sagaMethodTaskDef(sagaMethodTaskDef)
+                .sagaMethodTaskName(sagaMethodTaskDef.getTaskName())
                 .operationSagaSchemaArguments(operationSagaSchemaArguments)
-                .sagaRevertMethodTaskDef(sagaRevertMethodTaskDef)
+                .sagaRevertMethodTaskName(sagaRevertMethodTaskDef != null ? sagaRevertMethodTaskDef.getTaskName() : null)
                 .revertOperationSagaSchemaArguments(revertOperationSagaSchemaArguments)
                 .serializedInput(taskSerializer.writeValue(input))
                 .build()
