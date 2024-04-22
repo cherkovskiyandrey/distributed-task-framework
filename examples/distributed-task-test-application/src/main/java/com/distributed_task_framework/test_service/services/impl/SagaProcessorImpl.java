@@ -4,8 +4,8 @@ import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
 import com.distributed_task_framework.test_service.models.SagaTrackId;
-import com.distributed_task_framework.test_service.services.BiConsumerWithThrowableArg;
-import com.distributed_task_framework.test_service.services.ConsumerWithThrowableArg;
+import com.distributed_task_framework.test_service.services.RevertibleBiConsumer;
+import com.distributed_task_framework.test_service.services.RevertibleConsumer;
 import com.distributed_task_framework.test_service.services.SagaFlow;
 import com.distributed_task_framework.test_service.services.SagaFlowBuilder;
 import com.distributed_task_framework.test_service.services.SagaFlowBuilderWithoutInput;
@@ -32,11 +32,11 @@ import java.util.function.Function;
  * 3. Pass Throwable to recovable method as @Nullable. And use it in case when exception has been thrown from current task (+)
  * 4. Ability to register unrecoverable exceptions, with lead no to retry task (+)
  * 5. AffinityGroup + affinity (+)
- * 6. Revert pipeline (-)
  * 6.1 todo: now it will not work, because DTF doesn't allow to create tasks form exception (+)
  * //          ^^^^ - fixed, need to be covered by tests (-)
  * 6.2 todo: creating tasks to use join approach is uncorrected, because it doesn't prevent to run all next pipeline of tasks in case
  * when rollback is handled (+)
+ * 6. Revert pipeline (-)
  * 7. if method is marked as @Transactional - use EXACTLY_ONCE GUARANTIES (-)
  * 8. Ability to set default and custom retry settings (maybe via task settings ?) (-)
  *      - in real properties from application.yaml doesn't work at all!!! because they are built in com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor#buildTaskSettings(com.distributed_task_framework.task.Task)
@@ -57,7 +57,7 @@ public class SagaProcessorImpl implements SagaProcessor {
     @SneakyThrows
     @Override
     public <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> registerToRun(Function<INPUT, OUTPUT> operation,
-                                                                 BiConsumerWithThrowableArg<INPUT, OUTPUT> revertOperation,
+                                                                 RevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
                                                                  INPUT input) {
         Objects.requireNonNull(input);
         TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
@@ -115,7 +115,7 @@ public class SagaProcessorImpl implements SagaProcessor {
     //but in order to implement revert procedure we must to pass to next task revert TaskDef + Input
     @Override
     public <INPUT> SagaFlowBuilderWithoutInput registerToConsume(Consumer<INPUT> operation,
-                                                                 ConsumerWithThrowableArg<INPUT> revertOperation,
+                                                                 RevertibleConsumer<INPUT> revertOperation,
                                                                  INPUT input) {
         Objects.requireNonNull(input);
         throw new UnsupportedOperationException();

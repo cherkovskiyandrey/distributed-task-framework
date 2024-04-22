@@ -9,11 +9,11 @@ import com.distributed_task_framework.test_service.exceptions.SagaMethodDuplicat
 import com.distributed_task_framework.test_service.exceptions.SagaMethodResolvingException;
 import com.distributed_task_framework.test_service.exceptions.SagaTaskNotFoundException;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
-import com.distributed_task_framework.test_service.services.BiConsumerWithThrowableArg;
+import com.distributed_task_framework.test_service.services.RevertibleBiConsumer;
 import com.distributed_task_framework.test_service.services.SagaContextDiscovery;
 import com.distributed_task_framework.test_service.services.SagaRegister;
 import com.distributed_task_framework.test_service.services.SagaTaskFactory;
-import com.distributed_task_framework.test_service.services.ThreeConsumerWithThrowableArg;
+import com.distributed_task_framework.test_service.services.RevertibleThreeConsumer;
 import com.distributed_task_framework.test_service.utils.ReflectionHelper;
 import com.google.common.collect.Maps;
 import lombok.AccessLevel;
@@ -71,7 +71,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
 
     @Override
     public <PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
-            BiConsumerWithThrowableArg<PARENT_INPUT, OUTPUT> revertOperation) {
+            RevertibleBiConsumer<PARENT_INPUT, OUTPUT> revertOperation) {
         SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
                 () -> revertOperation.apply(null, null, null),
                 SagaRevertMethod.class,
@@ -82,7 +82,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
 
     @Override
     public <INPUT, PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
-            ThreeConsumerWithThrowableArg<PARENT_INPUT, INPUT, OUTPUT> revertOperation) {
+            RevertibleThreeConsumer<PARENT_INPUT, INPUT, OUTPUT> revertOperation) {
         SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
                 () -> revertOperation.apply(null, null, null, null),
                 SagaRevertMethod.class,

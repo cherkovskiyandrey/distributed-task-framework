@@ -16,7 +16,7 @@ public interface SagaFlowBuilderWithoutInput {
      */
     <INPUT> SagaFlowBuilderWithoutInput thenConsume(
             Consumer<INPUT> operation,
-            ConsumerWithThrowableArg<INPUT> revertOperation,
+            RevertibleConsumer<INPUT> revertOperation,
             INPUT input
     );
 
@@ -44,7 +44,7 @@ public interface SagaFlowBuilderWithoutInput {
      */
     <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
             Function<INPUT, OUTPUT> operation,
-            BiConsumerWithThrowableArg<INPUT, OUTPUT> revertOperation,
+            RevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
             INPUT input
     );
 

@@ -19,7 +19,7 @@ public interface SagaFlowBuilder<PARENT_OUTPUT> {
      */
     <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
             BiFunction<PARENT_OUTPUT, INPUT, OUTPUT> operation,
-            ThreeConsumerWithThrowableArg<PARENT_OUTPUT, INPUT, OUTPUT> revertOperation,
+            RevertibleThreeConsumer<PARENT_OUTPUT, INPUT, OUTPUT> revertOperation,
             INPUT input
     );
 
@@ -47,7 +47,7 @@ public interface SagaFlowBuilder<PARENT_OUTPUT> {
      */
     <OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
             Function<PARENT_OUTPUT, OUTPUT> operation,
-            BiConsumerWithThrowableArg<PARENT_OUTPUT, OUTPUT> revertOperation
+            RevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation
     );
 
     /**
@@ -72,7 +72,7 @@ public interface SagaFlowBuilder<PARENT_OUTPUT> {
      */
     <INPUT> SagaFlowBuilderWithoutInput thenConsume(
             BiConsumer<PARENT_OUTPUT, INPUT> operation,
-            BiConsumerWithThrowableArg<PARENT_OUTPUT, INPUT> revertOperation,
+            RevertibleBiConsumer<PARENT_OUTPUT, INPUT> revertOperation,
             INPUT input
     );
 
@@ -98,7 +98,7 @@ public interface SagaFlowBuilder<PARENT_OUTPUT> {
      */
     SagaFlowBuilderWithoutInput thenConsume(
             Consumer<PARENT_OUTPUT> operation,
-            ConsumerWithThrowableArg<PARENT_OUTPUT> revertOperation
+            RevertibleConsumer<PARENT_OUTPUT> revertOperation
     );
 
     /**

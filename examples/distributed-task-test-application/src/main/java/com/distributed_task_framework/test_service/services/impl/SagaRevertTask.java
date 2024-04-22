@@ -5,7 +5,7 @@ import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.test_service.exceptions.SagaException;
+import com.distributed_task_framework.test_service.exceptions.SagaInternalException;
 import com.distributed_task_framework.test_service.models.SagaContext;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
 import com.distributed_task_framework.test_service.services.SagaRegister;
@@ -62,7 +62,7 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
 
         var argTotal = method.getParameters().length;
         if (argTotal != argumentProvider.size()) {
-            throw new SagaException(
+            throw new SagaInternalException(
                     "Unexpected number of arguments: expected=%d, but passed=%d".formatted(argumentProvider.size(), argTotal)
             );
         }
@@ -97,7 +97,7 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
     @Override
     public boolean onFailureWithResult(FailedExecutionContext<SagaPipelineContext> failedExecutionContext) {
         Throwable throwable = failedExecutionContext.getError();
-        boolean isNoRetryException = ExceptionUtils.throwableOfType(throwable, SagaException.class) != null;
+        boolean isNoRetryException = ExceptionUtils.throwableOfType(throwable, SagaInternalException.class) != null;
         boolean isLastAttempt = failedExecutionContext.isLastAttempt() || isNoRetryException;
 
         log.error("onFailureWithResult(): saga revert operation error failedExecutionContext=[{}], failures=[{}], isLastAttempt=[{}]",

@@ -12,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.PlatformTransactionManager;
 
 //todo: autoconfiguration in starter
@@ -50,7 +51,7 @@ public class SagaConfiguration {
     }
 
     @Bean
-    public SagaTaskFactory sagaTaskFactory(SagaRegister sagaRegister,
+    public SagaTaskFactory sagaTaskFactory(@Lazy SagaRegister sagaRegister,
                                            DistributedTaskService distributedTaskService,
                                            TaskSerializer taskSerializer,
                                            SagaHelper sagaHelper) {

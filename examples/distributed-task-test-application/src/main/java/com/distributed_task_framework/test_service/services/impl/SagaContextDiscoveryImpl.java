@@ -1,6 +1,6 @@
 package com.distributed_task_framework.test_service.services.impl;
 
-import com.distributed_task_framework.test_service.exceptions.SagaException;
+import com.distributed_task_framework.test_service.exceptions.SagaInternalException;
 import com.distributed_task_framework.test_service.exceptions.SagaMethodNotFoundException;
 import com.distributed_task_framework.test_service.services.SagaContextDiscovery;
 import com.google.common.collect.Maps;
@@ -72,7 +72,7 @@ public class SagaContextDiscoveryImpl implements SagaContextDiscovery {
     @Override
     public <SAGA_METHOD extends Annotation> SAGA_METHOD getSagaMethod() {
         if (!isRequest() || sagaMethodRef.get() == null) {
-            throw new SagaException("Unexpected call for method=[%s]".formatted(methodSignature.get()));
+            throw new SagaInternalException("Unexpected call for method=[%s]".formatted(methodSignature.get()));
         }
         return (SAGA_METHOD) sagaMethodRef.get();
     }

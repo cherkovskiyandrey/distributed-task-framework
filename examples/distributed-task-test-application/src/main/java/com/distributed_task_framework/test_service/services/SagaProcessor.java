@@ -20,7 +20,7 @@ public interface SagaProcessor {
      */
     <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> registerToRun(
             Function<INPUT, OUTPUT> operation,
-            BiConsumerWithThrowableArg<INPUT, OUTPUT> revertOperation,
+            RevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
             INPUT input
     );
 
@@ -50,7 +50,7 @@ public interface SagaProcessor {
      */
     <INPUT> SagaFlowBuilderWithoutInput registerToConsume(
             Consumer<INPUT> operation,
-            ConsumerWithThrowableArg<INPUT> revertOperation,
+            RevertibleConsumer<INPUT> revertOperation,
             INPUT input
     );
 

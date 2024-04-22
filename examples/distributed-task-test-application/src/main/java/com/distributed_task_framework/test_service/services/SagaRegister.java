@@ -16,11 +16,11 @@ public interface SagaRegister {
     <T, U, R> TaskDef<SagaPipelineContext> resolve(BiFunction<T, U, R> operation);
 
     <PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
-            BiConsumerWithThrowableArg<PARENT_INPUT, OUTPUT> revertOperation
+            RevertibleBiConsumer<PARENT_INPUT, OUTPUT> revertOperation
     );
 
     <INPUT, PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
-            ThreeConsumerWithThrowableArg<PARENT_INPUT, INPUT, OUTPUT> revertOperation
+            RevertibleThreeConsumer<PARENT_INPUT, INPUT, OUTPUT> revertOperation
     );
 
     TaskDef<SagaPipelineContext> resolveByTaskName(String taskName);

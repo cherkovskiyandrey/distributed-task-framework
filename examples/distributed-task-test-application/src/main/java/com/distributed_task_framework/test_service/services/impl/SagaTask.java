@@ -7,7 +7,7 @@ import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.test_service.annotations.SagaMethod;
-import com.distributed_task_framework.test_service.exceptions.SagaException;
+import com.distributed_task_framework.test_service.exceptions.SagaInternalException;
 import com.distributed_task_framework.test_service.models.SagaContext;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
 import com.distributed_task_framework.test_service.services.SagaRegister;
@@ -15,6 +15,8 @@ import com.distributed_task_framework.test_service.utils.ArgumentProvider;
 import com.distributed_task_framework.test_service.utils.ArgumentProviderBuilder;
 import com.distributed_task_framework.test_service.utils.SagaArguments;
 import com.distributed_task_framework.test_service.utils.SagaSchemaArguments;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -64,7 +66,7 @@ public class SagaTask implements Task<SagaPipelineContext> {
 
         var argTotal = method.getParameters().length;
         if (argTotal != argumentProvider.size()) {
-            throw new SagaException(
+            throw new SagaInternalException(
                     "Unexpected number of arguments: expected=%d, but passed=%d".formatted(argumentProvider.size(), argTotal)
             );
         }
@@ -81,7 +83,7 @@ public class SagaTask implements Task<SagaPipelineContext> {
                     sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                     sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1])
             );
-            default -> throw new SagaException(
+            default -> throw new SagaInternalException(
                     "Unexpected number of arguments: expected=%d, but passed=%d".formatted(argumentProvider.size(), argTotal)
             );
         };
@@ -110,7 +112,7 @@ public class SagaTask implements Task<SagaPipelineContext> {
         boolean isNoRetryException = Arrays.stream(sagaMethodAnnotation.noRetryFor())
                 .map(thrCls -> ExceptionUtils.throwableOfType(throwable, thrCls))
                 .anyMatch(Objects::nonNull)
-                || ExceptionUtils.throwableOfType(throwable, SagaException.class) != null;
+                || ExceptionUtils.throwableOfType(throwable, SagaInternalException.class) != null;
         boolean isLastAttempt = failedExecutionContext.isLastAttempt() || isNoRetryException;
 
         log.error("onFailureWithResult(): saga operation error failedExecutionContext=[{}], failures=[{}], isLastAttempt=[{}]",
@@ -121,9 +123,14 @@ public class SagaTask implements Task<SagaPipelineContext> {
         );
 
         if (isLastAttempt) {
+            JavaType javaType = TypeFactory.defaultInstance().constructType(throwable.getClass());
+            TypeFactory.defaultInstance().findClass(javaType.getTypeName());
+
             SagaPipelineContext sagaPipelineContext = failedExecutionContext.getInputMessageOrThrow();
             SagaContext currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
 
+
+            //todo: write to SagaExecutionException
             currentSagaContext = currentSagaContext.toBuilder()
                     .throwable(throwable)
                     .build();
