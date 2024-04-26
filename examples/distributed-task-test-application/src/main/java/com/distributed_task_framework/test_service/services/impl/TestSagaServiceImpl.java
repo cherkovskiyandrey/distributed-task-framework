@@ -2,6 +2,7 @@ package com.distributed_task_framework.test_service.services.impl;
 
 import com.distributed_task_framework.test_service.annotations.SagaMethod;
 import com.distributed_task_framework.test_service.annotations.SagaRevertMethod;
+import com.distributed_task_framework.test_service.exceptions.SagaExecutionException;
 import com.distributed_task_framework.test_service.models.RemoteOneDto;
 import com.distributed_task_framework.test_service.models.RemoteTwoDto;
 import com.distributed_task_framework.test_service.models.SagaRevertableDto;
@@ -31,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 
 @Slf4j
@@ -117,21 +119,19 @@ public class TestSagaServiceImpl implements TestSagaService {
     private SagaFlow<Audit> sagaCallBase(TestDataDto testDataDto) {
         return sagaProcessor
                 .registerToRun(
-                        s -> testSagaService.createLocal(s),
-                        (in, out, thr) -> testSagaService.deleteLocal(in, out, thr),
+                        testSagaService::createLocal,
+                        testSagaService::deleteLocal,
                         testDataDto
                 )
                 .thenRun(
-                        (r, s) -> testSagaService.createOnRemoteServiceOne(r, s),
-                        (p, in, out, thr) -> testSagaService.deleteOnRemoteServiceOne(p, in, out, thr),
-                        testDataDto
+                        testSagaService::createOnRemoteServiceOne,
+                        testSagaService::deleteOnRemoteServiceOne
                 )
                 .thenRun(
-                        (r, s) -> testSagaService.createOnRemoteServiceTwo(r, s),
-                        (p, in, out, thr) -> testSagaService.deleteOnRemoteServiceTwo(p, in, out, thr),
-                        testDataDto
+                        testSagaService::createOnRemoteServiceTwo,
+                        testSagaService::deleteOnRemoteServiceTwo
                 )
-                .thenRun(r -> testSagaService.saveAudit(r))
+                .thenRun(testSagaService::saveAudit)
                 .startWithAffinity(TEST_DATA_MANAGEMENT, "" + testDataDto.getId());
     }
 
@@ -143,6 +143,7 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .version(testDataDto.getVersion())
                 .data(testDataDto.getRemoteOneData() + testDataDto.getRemoteTwoData())
                 .build();
+        throwExceptionIfRequired(1, testDataDto);
 
         return SagaRevertableDto.<TestDataEntity>builder()
                 .prevValue(testDataRepository.findById(testDataEntity.getId()).orElse(null))
@@ -154,8 +155,10 @@ public class TestSagaServiceImpl implements TestSagaService {
     @SagaRevertMethod(name = "deleteLocal")
     public void deleteLocal(TestDataDto input,
                             @Nullable SagaRevertableDto<TestDataEntity> output,
-                            @Nullable Throwable throwable) {
-        if (throwable instanceof OptimisticLockingFailureException) {
+                            @Nullable SagaExecutionException sagaExecutionException) {
+        if (sagaExecutionException != null && (
+                sagaExecutionException.getCause() instanceof OptimisticLockingFailureException ||
+                sagaExecutionException.isTheSameBaseOnSimpleName(OptimisticLockingFailureException.class))) {
             log.warn("deleteLocal(): data has been changed");
             return;
         }
@@ -188,6 +191,7 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .remoteOneId(testDataDto.getRemoteServiceOneId())
                 .remoteOneData(testDataDto.getRemoteOneData())
                 .build();
+        throwExceptionIfRequired(2, testDataDto);
         return remoteServiceOne.create(remoteOneDto);
     }
 
@@ -195,7 +199,7 @@ public class TestSagaServiceImpl implements TestSagaService {
     public void deleteOnRemoteServiceOne(@Nullable SagaRevertableDto<TestDataEntity> parentInput,
                                          TestDataDto input,
                                          @Nullable RemoteOneDto output,
-                                         @Nullable Throwable throwable) {
+                                         @Nullable SagaExecutionException throwable) {
         if (output != null) {
             remoteServiceOne.delete(output.getRemoteOneId());
         }
@@ -208,6 +212,7 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .remoteTwoId(testDataDto.getRemoteServiceTwoId())
                 .remoteTwoData(testDataDto.getRemoteTwoData())
                 .build();
+        throwExceptionIfRequired(3, testDataDto);
         return remoteServiceTwo.create(remoteTwoDto);
     }
 
@@ -215,19 +220,26 @@ public class TestSagaServiceImpl implements TestSagaService {
     public void deleteOnRemoteServiceTwo(@Nullable RemoteOneDto parentInput,
                                          TestDataDto input,
                                          @Nullable RemoteTwoDto output,
-                                         @Nullable Throwable throwable) {
+                                         @Nullable SagaExecutionException throwable) {
         if (output != null) {
             remoteServiceTwo.delete(output.getRemoteTwoId());
         }
     }
 
     @SagaMethod(name = "saveAudit")
-    public Audit saveAudit(RemoteTwoDto remoteTwoDto) {
+    public Audit saveAudit(RemoteTwoDto remoteTwoDto, TestDataDto testDataDto) {
+        throwExceptionIfRequired(4, testDataDto);
         return auditRepository.save(Audit.builder()
                 .who("I")
                 .when(Instant.now())
                 .what(remoteTwoDto.toString())
                 .build()
         );
+    }
+
+    private void throwExceptionIfRequired(int level, TestDataDto testDataDto) {
+        if (Objects.equals(level, testDataDto.getThrowExceptionOnLevel())) {
+            throw new RuntimeException("emulate exception!");
+        }
     }
 }

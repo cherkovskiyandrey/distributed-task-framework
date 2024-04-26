@@ -55,12 +55,12 @@ public class SagaTask implements Task<SagaPipelineContext> {
         SagaContext currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
         SagaSchemaArguments operationSagaSchemaArguments = currentSagaContext.getOperationSagaSchemaArguments();
 
-        byte[] rootArgument = currentSagaContext.getSerializedInput();
+        byte[] rootArgument = sagaPipelineContext.getRootSagaContext().getSerializedInput();
         byte[] parentArgument = sagaPipelineContext.getParentSagaContext()
                 .flatMap(sagaContext -> Optional.ofNullable(sagaContext.getSerializedOutput()))
                 .orElse(null);
         ArgumentProviderBuilder argumentProviderBuilder = new ArgumentProviderBuilder(operationSagaSchemaArguments);
-        argumentProviderBuilder.reg(SagaArguments.INPUT, rootArgument);
+        argumentProviderBuilder.reg(SagaArguments.ROOT_INPUT, rootArgument);
         argumentProviderBuilder.reg(SagaArguments.PARENT_OUTPUT, parentArgument);
         ArgumentProvider argumentProvider = argumentProviderBuilder.build();
 
@@ -108,11 +108,11 @@ public class SagaTask implements Task<SagaPipelineContext> {
     @SneakyThrows
     @Override
     public boolean onFailureWithResult(FailedExecutionContext<SagaPipelineContext> failedExecutionContext) {
-        Throwable throwable = failedExecutionContext.getError();
+        Throwable exception = failedExecutionContext.getError();
         boolean isNoRetryException = Arrays.stream(sagaMethodAnnotation.noRetryFor())
-                .map(thrCls -> ExceptionUtils.throwableOfType(throwable, thrCls))
+                .map(thrCls -> ExceptionUtils.throwableOfType(exception, thrCls))
                 .anyMatch(Objects::nonNull)
-                || ExceptionUtils.throwableOfType(throwable, SagaInternalException.class) != null;
+                || ExceptionUtils.throwableOfType(exception, SagaInternalException.class) != null;
         boolean isLastAttempt = failedExecutionContext.isLastAttempt() || isNoRetryException;
 
         log.error("onFailureWithResult(): saga operation error failedExecutionContext=[{}], failures=[{}], isLastAttempt=[{}]",
@@ -123,16 +123,16 @@ public class SagaTask implements Task<SagaPipelineContext> {
         );
 
         if (isLastAttempt) {
-            JavaType javaType = TypeFactory.defaultInstance().constructType(throwable.getClass());
-            TypeFactory.defaultInstance().findClass(javaType.getTypeName());
-
             SagaPipelineContext sagaPipelineContext = failedExecutionContext.getInputMessageOrThrow();
             SagaContext currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
 
+            JavaType exceptionType = TypeFactory.defaultInstance().constructType(exception.getClass());
 
-            //todo: write to SagaExecutionException
+            //reset stack trace because
+            exception.setStackTrace(new StackTraceElement[0]);
             currentSagaContext = currentSagaContext.toBuilder()
-                    .throwable(throwable)
+                    .exceptionType(exceptionType.toCanonical())
+                    .serializedException(taskSerializer.writeValue(exception))
                     .build();
             sagaPipelineContext.setCurrentSagaContext(currentSagaContext);
             sagaPipelineContext.rewindToRevertFormCurrentPosition();

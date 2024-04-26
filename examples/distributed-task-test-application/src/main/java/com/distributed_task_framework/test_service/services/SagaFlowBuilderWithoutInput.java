@@ -3,7 +3,7 @@ package com.distributed_task_framework.test_service.services;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public interface SagaFlowBuilderWithoutInput {
+public interface SagaFlowBuilderWithoutInput<ROOT_INPUT> {
 
     /**
      * Allow to set next operation in current saga.
@@ -14,10 +14,9 @@ public interface SagaFlowBuilderWithoutInput {
      * @param <INPUT>         input type of operation
      * @return {@link SagaFlowBuilder}
      */
-    <INPUT> SagaFlowBuilderWithoutInput thenConsume(
-            Consumer<INPUT> operation,
-            RevertibleConsumer<INPUT> revertOperation,
-            INPUT input
+    SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
+            Consumer<ROOT_INPUT> operation,
+            RevertibleConsumer<ROOT_INPUT> revertOperation
     );
 
     /**
@@ -28,9 +27,8 @@ public interface SagaFlowBuilderWithoutInput {
      * @param <INPUT>   input type of operation
      * @return {@link SagaFlowBuilder}
      */
-    <INPUT> SagaFlowBuilderWithoutInput thenConsume(
-            Consumer<INPUT> operation,
-            INPUT input
+    SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
+            Consumer<ROOT_INPUT> operation
     );
 
     /**
@@ -42,10 +40,9 @@ public interface SagaFlowBuilderWithoutInput {
      * @param <INPUT>         input type of operation
      * @return {@link SagaFlowBuilder}
      */
-    <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
-            Function<INPUT, OUTPUT> operation,
-            RevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
-            INPUT input
+    <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
+            Function<ROOT_INPUT, OUTPUT> operation,
+            RevertibleBiConsumer<ROOT_INPUT, OUTPUT> revertOperation
     );
 
     /**
@@ -56,9 +53,8 @@ public interface SagaFlowBuilderWithoutInput {
      * @param <INPUT>   input type of operation
      * @return {@link SagaFlowBuilder}
      */
-    <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(
-            Function<INPUT, OUTPUT> operation,
-            INPUT input
+    <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
+            Function<ROOT_INPUT, OUTPUT> operation
     );
 
     SagaFlowWithoutResult start();

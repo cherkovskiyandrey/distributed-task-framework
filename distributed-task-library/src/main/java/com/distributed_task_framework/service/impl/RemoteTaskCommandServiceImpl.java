@@ -110,6 +110,8 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
                 .currentTaskId(taskId)
                 .build();
         var command = ScheduleCommand.<T>builder()
+                //todo: it is a bad idea, because in case when remote server don't know nothing about
+                //JavaType inputMessageType in taskDef it will lead to error during deserialization
                 .taskDef(taskDef)
                 .executionContext(executionContext)
                 .delay(delay)

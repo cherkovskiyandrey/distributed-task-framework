@@ -9,11 +9,11 @@ import com.distributed_task_framework.test_service.models.SagaContext;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
 import com.distributed_task_framework.test_service.services.RevertibleBiConsumer;
 import com.distributed_task_framework.test_service.services.RevertibleConsumer;
+import com.distributed_task_framework.test_service.services.RevertibleThreeConsumer;
 import com.distributed_task_framework.test_service.services.SagaFlow;
 import com.distributed_task_framework.test_service.services.SagaFlowBuilder;
 import com.distributed_task_framework.test_service.services.SagaFlowBuilderWithoutInput;
 import com.distributed_task_framework.test_service.services.SagaRegister;
-import com.distributed_task_framework.test_service.services.RevertibleThreeConsumer;
 import com.distributed_task_framework.test_service.utils.SagaArguments;
 import com.distributed_task_framework.test_service.utils.SagaSchemaArguments;
 import lombok.Builder;
@@ -21,7 +21,6 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -29,7 +28,7 @@ import java.util.function.Function;
 
 @Value
 @Builder(toBuilder = true)
-public class SagaFlowBuilderImpl<PARENT_OUTPUT> implements SagaFlowBuilder<PARENT_OUTPUT> {
+public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
     PlatformTransactionManager transactionManager;
     DistributedTaskService distributedTaskService;
     SagaRegister sagaRegister;
@@ -39,20 +38,18 @@ public class SagaFlowBuilderImpl<PARENT_OUTPUT> implements SagaFlowBuilder<PAREN
 
     @SneakyThrows
     @Override
-    public <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, INPUT, OUTPUT> operation,
-                                                           RevertibleThreeConsumer<PARENT_OUTPUT, INPUT, OUTPUT> revertOperation,
-                                                           INPUT input) {
-        Objects.requireNonNull(input);
+    public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation,
+                                                                RevertibleThreeConsumer<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> revertOperation) {
         TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
         TaskDef<SagaPipelineContext> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation);
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(
                 SagaArguments.PARENT_OUTPUT,
-                SagaArguments.INPUT
+                SagaArguments.ROOT_INPUT
         );
         var revertOperationSagaSchemaArguments = SagaSchemaArguments.of(
                 SagaArguments.PARENT_OUTPUT,
-                SagaArguments.INPUT,
+                SagaArguments.ROOT_INPUT,
                 SagaArguments.OUTPUT,
                 SagaArguments.THROWABLE
         );
@@ -63,20 +60,19 @@ public class SagaFlowBuilderImpl<PARENT_OUTPUT> implements SagaFlowBuilder<PAREN
                 operationSagaSchemaArguments,
                 sagaRevertMethodTaskDef,
                 revertOperationSagaSchemaArguments,
-                input
+                null
         );
 
         return wrapToSagaFlowBuilder(sagaPipelineContext);
     }
 
     @Override
-    public <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, INPUT, OUTPUT> operation, INPUT input) {
-        Objects.requireNonNull(input);
+    public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation) {
         TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(
                 SagaArguments.PARENT_OUTPUT,
-                SagaArguments.INPUT
+                SagaArguments.ROOT_INPUT
         );
 
         var sagaPipelineContext = sagaHelper.buildContextFor(
@@ -85,15 +81,15 @@ public class SagaFlowBuilderImpl<PARENT_OUTPUT> implements SagaFlowBuilder<PAREN
                 operationSagaSchemaArguments,
                 null,
                 null,
-                input
+                null
         );
 
         return wrapToSagaFlowBuilder(sagaPipelineContext);
     }
 
     @Override
-    public <OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation,
-                                                    RevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation) {
+    public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation,
+                                                                RevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation) {
         TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
         TaskDef<SagaPipelineContext> revertSagaMethodTaskDef = sagaRegister.resolveRevert(revertOperation);
 
@@ -117,7 +113,7 @@ public class SagaFlowBuilderImpl<PARENT_OUTPUT> implements SagaFlowBuilder<PAREN
     }
 
     @Override
-    public <OUTPUT> SagaFlowBuilder<OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation) {
+    public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation) {
         TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.PARENT_OUTPUT);
@@ -135,34 +131,31 @@ public class SagaFlowBuilderImpl<PARENT_OUTPUT> implements SagaFlowBuilder<PAREN
     }
 
     @SuppressWarnings("unchecked")
-    private <OUTPUT> SagaFlowBuilder<OUTPUT> wrapToSagaFlowBuilder(SagaPipelineContext sagaPipelineContext) {
-        return (SagaFlowBuilder<OUTPUT>) this.toBuilder()
+    private <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipelineContext sagaPipelineContext) {
+        return (SagaFlowBuilder<ROOT_INPUT, OUTPUT>) this.toBuilder()
                 .sagaParentPipelineContext(sagaPipelineContext)
                 .build();
     }
 
     @Override
-    public <INPUT> SagaFlowBuilderWithoutInput thenConsume(BiConsumer<PARENT_OUTPUT, INPUT> operation,
-                                                           RevertibleBiConsumer<PARENT_OUTPUT, INPUT> revertOperation,
-                                                           INPUT input) {
-        Objects.requireNonNull(input);
+    public SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation,
+                                                               RevertibleBiConsumer<PARENT_OUTPUT, ROOT_INPUT> revertOperation) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public <INPUT> SagaFlowBuilderWithoutInput thenConsume(BiConsumer<PARENT_OUTPUT, INPUT> operation, INPUT input) {
-        Objects.requireNonNull(input);
+    public SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public SagaFlowBuilderWithoutInput thenConsume(Consumer<PARENT_OUTPUT> operation,
-                                                   RevertibleConsumer<PARENT_OUTPUT> revertOperation) {
+    public SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(Consumer<PARENT_OUTPUT> operation,
+                                                               RevertibleConsumer<PARENT_OUTPUT> revertOperation) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public SagaFlowBuilderWithoutInput thenConsume(Consumer<PARENT_OUTPUT> operation) {
+    public SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(Consumer<PARENT_OUTPUT> operation) {
         throw new UnsupportedOperationException();
     }
 

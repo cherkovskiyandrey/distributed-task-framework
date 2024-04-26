@@ -2,6 +2,7 @@ package com.distributed_task_framework.test_service.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.TaskSerializer;
+import com.distributed_task_framework.test_service.exceptions.SagaExecutionException;
 import com.distributed_task_framework.test_service.models.SagaContext;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
 import com.distributed_task_framework.test_service.utils.SagaSchemaArguments;
@@ -52,5 +53,26 @@ public class SagaHelper {
         }
         JavaType javaType = TypeFactory.defaultInstance().constructType(parameter.getParameterizedType());
         return taskSerializer.readValue(argument, javaType);
+    }
+
+    public SagaExecutionException buildExecutionException(@Nullable String exceptionType,
+                                                          @Nullable byte[] serializedException) throws IOException {
+        if (exceptionType == null || serializedException == null) {
+            return null;
+        }
+
+        Throwable rootCause = null;
+        String message;
+        try {
+            var javaType = TypeFactory.defaultInstance().constructFromCanonical(exceptionType);
+            rootCause = taskSerializer.readValue(serializedException, javaType);
+            message = rootCause.getMessage();
+        } catch (Exception ignore) {
+            log.warn("buildExecutionException(): rootCause can't be deserialized for type=[{}]", exceptionType);
+            Throwable throwable = taskSerializer.readValue(serializedException, Throwable.class);
+            message = throwable.getMessage();
+        }
+
+        return new SagaExecutionException(message, rootCause, exceptionType);
     }
 }

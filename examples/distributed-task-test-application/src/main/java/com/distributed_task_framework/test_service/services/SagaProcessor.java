@@ -18,7 +18,7 @@ public interface SagaProcessor {
      * @param <OUTPUT>        output type of operation
      * @return {@link SagaFlowBuilder}
      */
-    <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> registerToRun(
+    <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(
             Function<INPUT, OUTPUT> operation,
             RevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
             INPUT input
@@ -34,7 +34,7 @@ public interface SagaProcessor {
      * @param <OUTPUT>  output type of operation
      * @return {@link SagaFlowBuilder}
      */
-    <INPUT, OUTPUT> SagaFlowBuilder<OUTPUT> registerToRun(
+    <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(
             Function<INPUT, OUTPUT> operation,
             INPUT input
     );
@@ -48,7 +48,7 @@ public interface SagaProcessor {
      * @param <INPUT>         input type of operation
      * @return {@link SagaFlowBuilder}
      */
-    <INPUT> SagaFlowBuilderWithoutInput registerToConsume(
+    <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(
             Consumer<INPUT> operation,
             RevertibleConsumer<INPUT> revertOperation,
             INPUT input
@@ -62,7 +62,7 @@ public interface SagaProcessor {
      * @param <INPUT>   input type of operation
      * @return {@link SagaFlowBuilder}
      */
-    <INPUT> SagaFlowBuilderWithoutInput registerToConsume(
+    <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(
             Consumer<INPUT> operation,
             INPUT input
     );

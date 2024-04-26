@@ -99,6 +99,12 @@ public class SagaPipelineContext {
         return sagaContexts.get(cursor);
     }
 
+    @JsonIgnore
+    public SagaContext getRootSagaContext() {
+        checkBorders();
+        return sagaContexts.get(0);
+    }
+
     /**
      * Get parent SagaContext if exists.
      * Always return parent from forward standpoint.

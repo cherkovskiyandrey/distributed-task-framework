@@ -46,18 +46,20 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
         SagaContext currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
         SagaSchemaArguments sagaSchemaArguments = currentSagaContext.getRevertOperationSagaSchemaArguments();
 
-        byte[] serializedInput = currentSagaContext.getSerializedInput();
+        byte[] serializedInput = sagaPipelineContext.getRootSagaContext().getSerializedInput();
         byte[] serializedOutput = currentSagaContext.getSerializedOutput();
         byte[] parentSerializedOutput = sagaPipelineContext.getParentSagaContext()
                 .flatMap(sagaContext -> Optional.ofNullable(sagaContext.getSerializedOutput()))
                 .orElse(null);
-        var throwable = currentSagaContext.getThrowable();
+        var exceptionType = currentSagaContext.getExceptionType();
+        byte[] serializedException = currentSagaContext.getSerializedException();
+        var sagaExecutionException = sagaHelper.buildExecutionException(exceptionType, serializedException);
 
         ArgumentProviderBuilder argumentProviderBuilder = new ArgumentProviderBuilder(sagaSchemaArguments);
-        argumentProviderBuilder.reg(SagaArguments.INPUT, serializedInput);
+        argumentProviderBuilder.reg(SagaArguments.ROOT_INPUT, serializedInput);
         argumentProviderBuilder.reg(SagaArguments.OUTPUT, serializedOutput);
         argumentProviderBuilder.reg(SagaArguments.PARENT_OUTPUT, parentSerializedOutput);
-        argumentProviderBuilder.reg(SagaArguments.THROWABLE, throwable);
+        argumentProviderBuilder.reg(SagaArguments.THROWABLE, sagaExecutionException);
         ArgumentProvider argumentProvider = argumentProviderBuilder.build();
 
         var argTotal = method.getParameters().length;
@@ -72,22 +74,22 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
                     method,
                     bean,
                     sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
-                    throwable
+                    argumentProvider.getById(1)
             );
             case 3 -> ReflectionUtils.invokeMethod(
                     method,
                     bean,
                     sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
-                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[0]),
-                    throwable
+                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1]),
+                    argumentProvider.getById(2)
             );
             case 4 -> ReflectionUtils.invokeMethod(
                     method,
                     bean,
                     sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
-                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[0]),
-                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(2), method.getParameters()[0]),
-                    throwable
+                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1]),
+                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(2), method.getParameters()[2]),
+                    argumentProvider.getById(3)
             );
         }
 

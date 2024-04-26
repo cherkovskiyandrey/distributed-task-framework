@@ -10,14 +10,6 @@ public class SagaException extends RuntimeException {
         super(message, cause);
     }
 
-    public SagaException(Throwable cause) {
-        super(cause);
-    }
-
-    public SagaException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
-    }
-
     public SagaException(Exception e) {
         super(e);
     }
