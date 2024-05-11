@@ -128,7 +128,7 @@ public class SagaTask implements Task<SagaPipelineContext> {
 
             JavaType exceptionType = TypeFactory.defaultInstance().constructType(exception.getClass());
 
-            //reset stack trace because
+            //reset stack trace
             exception.setStackTrace(new StackTraceElement[0]);
             currentSagaContext = currentSagaContext.toBuilder()
                     .exceptionType(exceptionType.toCanonical())

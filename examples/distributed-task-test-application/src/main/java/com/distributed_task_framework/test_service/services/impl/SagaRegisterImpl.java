@@ -53,19 +53,19 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
 
     @Override
     public <IN, OUT> TaskDef<SagaPipelineContext> resolve(Function<IN, OUT> operation) {
-        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.apply(null), SagaMethod.class, operation);
+        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.apply(null), SagaMethod.class);
         return resolveByMethodRef(sagaMethod);
     }
 
     @Override
     public <IN> TaskDef<SagaPipelineContext> resolve(Consumer<IN> operation) {
-        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.accept(null), SagaMethod.class, operation);
+        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.accept(null), SagaMethod.class);
         return resolveByMethodRef(sagaMethod);
     }
 
     @Override
     public <T, U, R> TaskDef<SagaPipelineContext> resolve(BiFunction<T, U, R> operation) {
-        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.apply(null, null), SagaMethod.class, operation);
+        SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.apply(null, null), SagaMethod.class);
         return resolveByMethodRef(sagaMethod);
     }
 
@@ -74,8 +74,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
             RevertibleBiConsumer<PARENT_INPUT, OUTPUT> revertOperation) {
         SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
                 () -> revertOperation.apply(null, null, null),
-                SagaRevertMethod.class,
-                revertOperation
+                SagaRevertMethod.class
         );
         return resolveByMethodRef(sagaRevertMethod);
     }
@@ -85,8 +84,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
             RevertibleThreeConsumer<PARENT_INPUT, INPUT, OUTPUT> revertOperation) {
         SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
                 () -> revertOperation.apply(null, null, null, null),
-                SagaRevertMethod.class,
-                revertOperation
+                SagaRevertMethod.class
         );
         return resolveByMethodRef(sagaRevertMethod);
     }
@@ -98,9 +96,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     }
 
     //todo: check that all arguments have been passed to!!!
-    private <A extends Annotation> A sagaMethodByRunnable(Runnable runnable,
-                                                          Class<? extends A> annotationCls,
-                                                          Object methodRef) {
+    private <A extends Annotation> A sagaMethodByRunnable(Runnable runnable, Class<? extends A> annotationCls) {
         sagaContextDiscovery.beginDetection(annotationCls);
         try {
             runnable.run();

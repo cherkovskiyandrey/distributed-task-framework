@@ -67,7 +67,7 @@ public class SagaHelper {
             var javaType = TypeFactory.defaultInstance().constructFromCanonical(exceptionType);
             rootCause = taskSerializer.readValue(serializedException, javaType);
             message = rootCause.getMessage();
-        } catch (Exception ignore) {
+        } catch (Exception exception) {
             log.warn("buildExecutionException(): rootCause can't be deserialized for type=[{}]", exceptionType);
             Throwable throwable = taskSerializer.readValue(serializedException, Throwable.class);
             message = throwable.getMessage();
