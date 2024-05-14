@@ -3,6 +3,7 @@ package com.distributed_task_framework.test_service.services.impl;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
+import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.test_service.annotations.SagaMethod;
 import com.distributed_task_framework.test_service.annotations.SagaRevertMethod;
 import com.distributed_task_framework.test_service.exceptions.SagaMethodDuplicateException;
@@ -10,22 +11,25 @@ import com.distributed_task_framework.test_service.exceptions.SagaMethodResolvin
 import com.distributed_task_framework.test_service.exceptions.SagaTaskNotFoundException;
 import com.distributed_task_framework.test_service.models.SagaPipelineContext;
 import com.distributed_task_framework.test_service.services.RevertibleBiConsumer;
+import com.distributed_task_framework.test_service.services.RevertibleThreeConsumer;
 import com.distributed_task_framework.test_service.services.SagaContextDiscovery;
 import com.distributed_task_framework.test_service.services.SagaRegister;
 import com.distributed_task_framework.test_service.services.SagaTaskFactory;
-import com.distributed_task_framework.test_service.services.RevertibleThreeConsumer;
 import com.distributed_task_framework.test_service.utils.ReflectionHelper;
 import com.google.common.collect.Maps;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
@@ -189,7 +193,8 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                             bean,
                             sagaMethodAnnotation
                     );
-                    distributedTaskService.registerTask(sagaTask);
+                    var taskSettings = buildTaskSettings(method);
+                    distributedTaskService.registerTask(sagaTask, taskSettings);
                 });
     }
 
@@ -212,7 +217,18 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                             method,
                             bean
                     );
-                    distributedTaskService.registerTask(sagaRevertTask);
+                    var taskSettings = buildTaskSettings(method);
+                    distributedTaskService.registerTask(sagaRevertTask, taskSettings);
                 });
+    }
+
+    private TaskSettings buildTaskSettings(Method method) {
+        return ReflectionHelper.findAnnotation(method, Transactional.class)
+                .filter(transactional -> StringUtils.isBlank(transactional.transactionManager()))
+                .map(transactional -> TaskSettings.DEFAULT.toBuilder()
+                        .executionGuarantees(TaskSettings.ExecutionGuarantees.EXACTLY_ONCE)
+                        .build()
+                )
+                .orElse(TaskSettings.DEFAULT);
     }
 }

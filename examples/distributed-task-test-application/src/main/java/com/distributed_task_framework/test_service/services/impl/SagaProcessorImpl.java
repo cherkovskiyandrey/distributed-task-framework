@@ -39,14 +39,17 @@ import java.util.function.Function;
  * 6. Revert pipeline (+)
  * 7. Решить вопрос с сериализацией Throwable-а (+)
  * 7. SagaProcessor::thenRun has not to receive input, because input has to be provided from root method! (+)
- * 7. SagaRegister.resolve has to be optimized and return value from cache (-)
+ * 7. SagaRegister.resolve has to be optimized and return value from cache (+)
+ *      - impossible, every call the same lambda code has different reference
  * 8. Необходимо регистрировать 2 таски одну для прямой операции и вторую для обратной и создать регистр имя-операции:код ? (-)
- * 7. if method is marked as @Transactional - use EXACTLY_ONCE GUARANTIES (-)
- * 8. Ability to set default and custom retry settings (maybe via task settings ?) (-)
+ *      - тут основные консерны:
+ *              - как быть с версионностью (-)
+ * 7. if method is marked as @Transactional - use EXACTLY_ONCE GUARANTIES (+)
+ * 8. Ability to wait for task completion (-)
+ * 9. Ability to wait task result (-)
+ * 10. Ability to set default and custom retry settings (maybe via task settings ?) (-)
  * - in real properties from application.yaml doesn't work at all!!! because they are built in com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor#buildTaskSettings(com.distributed_task_framework.task.Task)
  * and this logic has to be repeated in the saga library (-)
- * 9. Ability to wait for task completion (-)
- * 10. Ability to wait task result (-)
  * 11. Think about exactly once for remote http call (-)
  */
 @Slf4j
