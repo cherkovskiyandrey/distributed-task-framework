@@ -68,7 +68,7 @@ public class PartitionExtendedRepositoryImpl implements PartitionExtendedReposit
     private static final String FILTER_EXISTED = """
             WITH filter AS (
                 SELECT affinity_group, task_name, time_bucket
-                FROM UNNEST(:affinityGroup, :taskName, :timeBucket)
+                FROM UNNEST(:affinityGroup::varchar[], :taskName::varchar[], :timeBucket::int[])
                 AS tmp(affinity_group, task_name, time_bucket)
             ),
             partitions_with_affinity_groups AS (
