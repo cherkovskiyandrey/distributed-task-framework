@@ -1,10 +1,10 @@
 package com.distributed_task_framework.perf_test.tasks;
 
+import com.distributed_task_framework.model.FailedExecutionContext;
+import com.distributed_task_framework.service.DistributedTaskService;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.distributed_task_framework.model.FailedExecutionContext;
-import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.perf_test.persistence.repository.IntermediateResultRepository;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestRunRepository;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;

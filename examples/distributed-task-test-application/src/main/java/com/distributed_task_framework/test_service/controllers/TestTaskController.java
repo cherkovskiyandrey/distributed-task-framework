@@ -1,5 +1,7 @@
 package com.distributed_task_framework.test_service.controllers;
 
+import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.test_service.tasks.PrivateTaskDefinitions;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,8 +9,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.test_service.tasks.dto.SimpleMessageDto;
 
 @RestController

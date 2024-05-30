@@ -1,5 +1,6 @@
 package com.distributed_task_framework.perf_test.autoconfigure;
 
+import com.distributed_task_framework.service.DistributedTaskService;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,7 +14,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
-import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;
 
 @Configuration

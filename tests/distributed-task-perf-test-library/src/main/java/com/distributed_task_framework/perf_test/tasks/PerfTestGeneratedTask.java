@@ -1,5 +1,9 @@
 package com.distributed_task_framework.perf_test.tasks;
 
+import com.distributed_task_framework.autoconfigure.annotation.TaskExecutionGuarantees;
+import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
+import com.distributed_task_framework.perf_test.tasks.dto.PerfTestIntermediateDto;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestRun;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestState;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestSummary;
@@ -9,14 +13,10 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomUtils;
 import org.springframework.stereotype.Component;
-import com.distributed_task_framework.autoconfigure.annotation.TaskExecutionGuarantees;
 import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestRunRepository;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;
-import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
-import com.distributed_task_framework.perf_test.tasks.dto.PerfTestIntermediateDto;
 
 @Slf4j
 @Component
