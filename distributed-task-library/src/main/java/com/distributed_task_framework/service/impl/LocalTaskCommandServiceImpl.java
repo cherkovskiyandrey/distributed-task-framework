@@ -1,5 +1,9 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.exception.CronExpiredException;
+import com.distributed_task_framework.exception.OptimisticLockException;
+import com.distributed_task_framework.exception.TaskConfigurationException;
+import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.JoinTaskMessage;
@@ -7,12 +11,24 @@ import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.model.WorkerContext;
+import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.local_commands.CancelTaskCommand;
+import com.distributed_task_framework.service.impl.local_commands.CreateLinksCommand;
 import com.distributed_task_framework.service.impl.local_commands.FinalizeCommand;
 import com.distributed_task_framework.service.impl.local_commands.ForceRescheduleCommand;
 import com.distributed_task_framework.service.impl.local_commands.RescheduleCommand;
 import com.distributed_task_framework.service.impl.local_commands.SaveCommand;
+import com.distributed_task_framework.service.internal.CompletionService;
+import com.distributed_task_framework.service.internal.InternalTaskCommandService;
+import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
+import com.distributed_task_framework.service.internal.TaskLinkManager;
+import com.distributed_task_framework.service.internal.TaskRegistryService;
+import com.distributed_task_framework.service.internal.WorkerContextManager;
+import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -23,21 +39,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
-import com.distributed_task_framework.exception.CronExpiredException;
-import com.distributed_task_framework.exception.OptimisticLockException;
-import com.distributed_task_framework.exception.TaskConfigurationException;
-import com.distributed_task_framework.exception.UnknownTaskException;
-import com.distributed_task_framework.persistence.entity.TaskEntity;
-import com.distributed_task_framework.persistence.entity.VirtualQueue;
-import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.service.impl.local_commands.CreateLinksCommand;
-import com.distributed_task_framework.service.internal.InternalTaskCommandService;
-import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
-import com.distributed_task_framework.service.internal.TaskLinkManager;
-import com.distributed_task_framework.service.internal.TaskRegistryService;
-import com.distributed_task_framework.service.internal.WorkerContextManager;
-import com.distributed_task_framework.settings.CommonSettings;
-import com.distributed_task_framework.settings.TaskSettings;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -61,6 +62,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     CommonSettings commonSettings;
     InternalTaskCommandService internalTaskCommandService;
     TaskLinkManager taskLinkManager;
+    CompletionService completionService;
     Clock clock;
 
     public LocalTaskCommandServiceImpl(WorkerContextManager workerContextManager,
@@ -73,6 +75,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                        CommonSettings commonSettings,
                                        InternalTaskCommandService internalTaskCommandService,
                                        TaskLinkManager taskLinkManager,
+                                       CompletionService completionService,
                                        Clock clock) {
         super(workerContextManager, transactionManager);
         this.taskRepository = taskRepository;
@@ -83,6 +86,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         this.commonSettings = commonSettings;
         this.internalTaskCommandService = internalTaskCommandService;
         this.taskLinkManager = taskLinkManager;
+        this.completionService = completionService;
         this.clock = clock;
     }
 
@@ -384,16 +388,16 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     }
 
     @Override
-    public <T> void reschedule(TaskId taskId, Duration delay) throws Exception {
+    public void reschedule(TaskId taskId, Duration delay) throws Exception {
         rescheduleBaseTxAware(taskId, delay, false);
     }
 
     @Override
-    public <T> void rescheduleImmediately(TaskId taskId, Duration delay) throws Exception {
+    public void rescheduleImmediately(TaskId taskId, Duration delay) throws Exception {
         rescheduleBaseTxAware(taskId, delay, true);
     }
 
-    <T> void rescheduleBaseTxAware(TaskId taskId,
+    void rescheduleBaseTxAware(TaskId taskId,
                                    Duration delay,
                                    boolean isImmediately) throws Exception {
         executeTxAware(
@@ -666,13 +670,23 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     }
 
     @Override
-    public void waitCompletion(TaskId taskId) throws TimeoutException {
-        throw new UnsupportedOperationException("Isn't supported yet");
+    public void waitCompletion(TaskId taskId) throws TimeoutException, InterruptedException {
+        completionService.waitCompletion(taskId);
     }
 
     @Override
-    public void waitCompletion(UUID workflowId) throws TimeoutException {
-        throw new UnsupportedOperationException("Isn't supported yet");
+    public void waitCompletion(TaskId taskId, Duration timeout) throws TimeoutException, InterruptedException {
+        completionService.waitCompletion(taskId, timeout);
+    }
+
+    @Override
+    public void waitCompletionAllWorkflow(TaskId taskId) throws TimeoutException, InterruptedException {
+        completionService.waitCompletionAllWorkflow(taskId.getWorkflowId());
+    }
+
+    @Override
+    public void waitCompletionAllWorkflow(TaskId taskId, Duration timeout) throws TimeoutException, InterruptedException {
+        completionService.waitCompletionAllWorkflow(taskId.getWorkflowId(), timeout);
     }
 
     @Override

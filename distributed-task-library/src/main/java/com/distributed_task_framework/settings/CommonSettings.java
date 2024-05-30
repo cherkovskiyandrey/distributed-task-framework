@@ -31,6 +31,18 @@ public class CommonSettings {
     String appName;
 
     @Builder.Default
+    CompletionSettings completionSettings = createCompletionSettings();
+
+    private static CompletionSettings createCompletionSettings() {
+        return CompletionSettings.builder()
+                .handlerInitialDelay(Duration.ofSeconds(1))
+                .handlerFixedDelay(Duration.ofSeconds(1))
+                .defaultTaskTimeout(Duration.ofMinutes(1))
+                .defaultWorkflowTimeout(Duration.ofMinutes(1))
+                .build();
+    }
+
+    @Builder.Default
     RegistrySettings registrySettings = createDefaultRegistrySettings();
 
     private static RegistrySettings createDefaultRegistrySettings() {
@@ -304,5 +316,27 @@ public class CommonSettings {
          */
         @Builder.Default
         ImmutableRangeMap<Integer, Integer> manageDelay = ImmutableRangeMap.<Integer, Integer>builder().build();
+    }
+
+    @Value
+    @Builder(toBuilder = true)
+    public static class CompletionSettings {
+        /**
+         * Initial delay before start to handle status of completion tasks.
+         */
+        Duration handlerInitialDelay;
+        /**
+         * Delay between handling status of completion tasks.
+         */
+        Duration handlerFixedDelay;
+        /**
+         * Default timeout to wait for completion particular task operation.
+         */
+        Duration defaultTaskTimeout;
+
+        /**
+         * Default timeout to wait for completion all workflow.
+         */
+        Duration defaultWorkflowTimeout;
     }
 }

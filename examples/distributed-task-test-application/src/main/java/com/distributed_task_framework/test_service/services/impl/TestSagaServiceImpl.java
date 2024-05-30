@@ -34,6 +34,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Component
@@ -88,6 +89,11 @@ public class TestSagaServiceImpl implements TestSagaService {
     @Override
     public void sagaCallAsyncWithoutTrackId(TestDataDto testDataDto) {
         sagaCallBase(testDataDto);
+    }
+
+    @Override
+    public void runSagaSync(TestDataDto testDataDto) throws InterruptedException, TimeoutException {
+        sagaCallBase(testDataDto).waitCompletion();
     }
 
     @SneakyThrows
@@ -184,7 +190,7 @@ public class TestSagaServiceImpl implements TestSagaService {
         return remoteServiceOne.create(remoteOneDto);
     }
 
-    @SagaMethod(name = "createOnRemoteServiceOn", version = 2)
+    @SagaMethod(name = "createOnRemoteServiceOne", version = 2)
     public RemoteOneDto createOnRemoteServiceOne(SagaRevertableDto<TestDataEntity> revertableTestDataEntity,
                                                  TestDataDto testDataDto) {
         var remoteOneDto = RemoteOneDto.builder()

@@ -5,6 +5,7 @@ import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.utils.JdbcTools;
+import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -214,6 +216,45 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
         ).stream().toList();
     }
 
+    //language=postgresql
+    private static final String FILTER_EXISTED_WORKFLOW_IDS = """
+            SELECT workflow_id
+            FROM _____dtf_tasks
+            WHERE workflow_id = any((:workflowIds)::uuid[])
+            AND deleted_at ISNULL
+            """;
+
+    //SUPPOSED USED INDEXES: _____dtf_tasks_wid_idx
+    @Override
+    public Set<UUID> filterExistedWorkflowIds(Set<UUID> workflowIds) {
+        return Sets.newHashSet(namedParameterJdbcTemplate.queryForList(
+                        FILTER_EXISTED_WORKFLOW_IDS,
+                        Map.of("workflowIds", JdbcTools.UUIDsToStringArray(workflowIds)),
+                        UUID.class
+                )
+        );
+    }
+
+    //language=postgresql
+    private static final String FILTER_EXISTED_TASK_IDS = """
+            SELECT id
+            FROM _____dtf_tasks
+            WHERE id = any((:ids)::uuid[])
+            AND deleted_at ISNULL
+            """;
+
+    //SUPPOSED USED INDEXES: pkey
+    @Override
+    public Set<UUID> filterExistedTaskIds(Set<UUID> requestedTaskIds) {
+        return Sets.newHashSet(namedParameterJdbcTemplate.queryForList(
+                        FILTER_EXISTED_TASK_IDS,
+                        Map.of("ids", JdbcTools.UUIDsToStringArray(requestedTaskIds)),
+                        UUID.class
+                )
+        );
+    }
+
+    //language=postgresql
     private static final String SELECT_BY_IDS = """
             SELECT *
             FROM _____dtf_tasks

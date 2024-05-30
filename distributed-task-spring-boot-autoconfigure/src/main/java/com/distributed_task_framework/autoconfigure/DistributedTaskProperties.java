@@ -31,11 +31,23 @@ public class DistributedTaskProperties {
     public static class Common {
         @NotBlank
         String appName;
+        Completion completion;
         Registry registry;
         Planner planner;
         WorkerManager workerManager;
         Statistics statistics;
         DeliveryManager deliveryManager;
+    }
+
+    @Data
+    @Builder(toBuilder = true)
+    @AllArgsConstructor(access = AccessLevel.PUBLIC)
+    @NoArgsConstructor
+    public static class Completion {
+        Duration handlerInitialDelay;
+        Duration handlerFixedDelay;
+        Duration defaultTaskTimeout;
+        Duration defaultWorkflowTimeout;
     }
 
     @Data

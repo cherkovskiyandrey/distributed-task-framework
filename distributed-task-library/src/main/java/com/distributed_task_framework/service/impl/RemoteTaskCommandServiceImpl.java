@@ -6,14 +6,9 @@ import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.model.WorkerContext;
-import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.task.common.RemoteStubTask;
-import lombok.AccessLevel;
-import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.PlatformTransactionManager;
 import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
+import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.remote_commands.CancelTaskByTaskDefCommand;
 import com.distributed_task_framework.service.impl.remote_commands.CancelTaskCommand;
 import com.distributed_task_framework.service.impl.remote_commands.RescheduleByTaskDefCommand;
@@ -22,6 +17,11 @@ import com.distributed_task_framework.service.impl.remote_commands.ScheduleComma
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
+import com.distributed_task_framework.task.common.RemoteStubTask;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -130,7 +130,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public <T> void reschedule(TaskId taskId, Duration delay) throws Exception {
+    public void reschedule(TaskId taskId, Duration delay) throws Exception {
         executeTxAware(
                 () -> reschedule(taskId, delay, false),
                 false
@@ -138,7 +138,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public <T> void rescheduleImmediately(TaskId taskId, Duration delay) throws Exception {
+    public void rescheduleImmediately(TaskId taskId, Duration delay) throws Exception {
         executeTxAware(
                 () -> reschedule(taskId, delay, true),
                 true
@@ -285,12 +285,22 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public void waitCompletion(TaskId taskId) throws TimeoutException {
+    public void waitCompletion(TaskId taskId) throws TimeoutException, InterruptedException {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 
     @Override
-    public void waitCompletion(UUID workflowId) throws TimeoutException {
+    public void waitCompletion(TaskId taskId, Duration timeout) throws TimeoutException, InterruptedException {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletionAllWorkflow(TaskId taskId) throws TimeoutException, InterruptedException {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletionAllWorkflow(TaskId taskId, Duration timeout) throws TimeoutException, InterruptedException {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 

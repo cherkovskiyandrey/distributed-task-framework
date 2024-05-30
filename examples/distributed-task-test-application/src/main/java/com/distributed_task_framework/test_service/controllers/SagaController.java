@@ -22,13 +22,19 @@ public class SagaController {
     private TestSagaService testSagaService;
 
     @Operation(summary = "Run async dtf saga without trackId")
-    @PostMapping("/without-track-id")
+    @PostMapping("/async/without-track-id")
     public void sagaCallAsyncWithoutTrackId(@RequestBody(required = false) TestDataDto testDataDto) throws Exception {
         testSagaService.sagaCallAsyncWithoutTrackId(testDataDto);
     }
 
-    @Operation(summary = "Run sync dtf saga")
-    @PostMapping
+    @Operation(summary = "Run dtf saga sync")
+    @PostMapping("/sync")
+    public void runSagaSync(@RequestBody(required = false) TestDataDto testDataDto) throws Exception {
+        testSagaService.runSagaSync(testDataDto);
+    }
+
+    @Operation(summary = "Run dtf saga sync and return result")
+    @PostMapping("/sync/with-result")
     public Audit runSaga(@RequestBody(required = false) TestDataDto testDataDto) throws Exception {
         return testSagaService.sagaCall(testDataDto);
     }

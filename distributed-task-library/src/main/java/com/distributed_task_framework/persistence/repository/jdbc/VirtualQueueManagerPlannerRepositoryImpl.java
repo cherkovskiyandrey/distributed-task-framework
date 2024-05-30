@@ -36,7 +36,7 @@ import static java.lang.String.format;
 public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueManagerPlannerRepository {
     NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
-
+    //language=postgresql
     private static final String SELECT_MAX_CREATED_DATE_IN_NEW_VIRTUAL_QUEUE = """
             SELECT max(created_date_utc)
             FROM _____dtf_tasks
@@ -54,7 +54,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         );
     }
 
-
+    //language=postgresql
     private static final String SELECT_AFFINITY_GROUPS_IN_VIRTUAL_QUEUE = """
             SELECT DISTINCT affinity_group
             FROM _____dtf_tasks
@@ -80,7 +80,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         );
     }
 
-
+    //language=postgresql
     private static final String AFFINITY_GROUP_TABLE_SUB_SELECT_TEMPLATE = """
             {TABLE_NAME} AS (
             	SELECT {AFFINITY_GROUP} AS affinity_group_name, count(1) AS number
@@ -96,6 +96,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
             )
             """;
 
+    //language=postgresql
     private static final String SELECT_AFFINITY_GROUP_IN_NEW_VIRTUAL_QUEUE_TEMPLATE = """
             WITH {AFFINITY_GROUP_TABLES},
             agg AS ({AFFINITY_GROUP_AGGREGATED_TABLE})
@@ -143,7 +144,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         );
     }
 
-
+    //language=postgresql
     private static final String SELECT_AFFINITY_GROUP_NEW_PORTION_TEMPLATE = """
             {TABLE_NAME} AS (
               SELECT
@@ -162,6 +163,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
             """;
 
     //todo: upper bound for key words
+    //language=postgresql
     private static final String MOVE_NEW_TO_READY_TEMPLATE = """
             WITH {AFFINITY_GROUP_TABLES},
             new_raw_union_portion AS ({AGGREGATED_AFFINITY_GROUP_TABLE}),
@@ -182,7 +184,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
             		select 'NEW'::_____dtf_virtual_queue_type, affinity, workflow_id
             		from new_unique_without_afg_and_with_af_wid
             	)
-            	and affinity_group isnull  --todo: affinity_group (null) <> affinity_group (null),  CHECH index usaging
+            	and affinity_group isnull
             ),
             new_raw_extended_portion_with_affg_and_with_aff as (
             	select *

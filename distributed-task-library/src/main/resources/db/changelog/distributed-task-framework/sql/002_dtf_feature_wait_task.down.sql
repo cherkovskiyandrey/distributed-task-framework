@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS "_____dtf_tasks_wid_idx";

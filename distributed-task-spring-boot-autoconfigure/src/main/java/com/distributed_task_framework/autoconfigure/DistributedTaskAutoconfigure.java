@@ -28,6 +28,7 @@ import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
+import com.distributed_task_framework.service.impl.CompletionServiceImpl;
 import com.distributed_task_framework.service.impl.CronService;
 import com.distributed_task_framework.service.impl.DeliveryManagerImpl;
 import com.distributed_task_framework.service.impl.DistributedTaskServiceImpl;
@@ -55,6 +56,7 @@ import com.distributed_task_framework.service.impl.workers.LocalExactlyOnceWorke
 import com.distributed_task_framework.service.internal.CapabilityRegister;
 import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.DeliveryManager;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.MetricHelper;
@@ -535,6 +537,18 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
+    public CompletionService completionService(CommonSettings commonSettings,
+                                               TaskRepository taskRepository,
+                                               WorkerContextManager workerContextManager) {
+        return new CompletionServiceImpl(
+                commonSettings,
+                taskRepository,
+                workerContextManager
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public TaskCommandWithDetectorService localTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
                                                                               PlatformTransactionManager transactionManager,
                                                                               TaskRepository taskRepository,
@@ -545,6 +559,7 @@ public class DistributedTaskAutoconfigure {
                                                                               CommonSettings commonSettings,
                                                                               TaskLinkManager taskLinkManager,
                                                                               @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
+                                                                              CompletionService completionService,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
                 workerContextManager,
@@ -557,6 +572,7 @@ public class DistributedTaskAutoconfigure {
                 commonSettings,
                 internalTaskCommandService,
                 taskLinkManager,
+                completionService,
                 clock
         );
     }

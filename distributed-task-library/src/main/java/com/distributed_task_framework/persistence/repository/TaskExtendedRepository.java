@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -30,6 +31,10 @@ public interface TaskExtendedRepository {
     Collection<TaskEntity> findAllByTaskName(String taskName);
 
     Collection<TaskEntity> findByName(String taskName, long batchSize);
+
+    Set<UUID> filterExistedWorkflowIds(Set<UUID> workflowIds);
+
+    Set<UUID> filterExistedTaskIds(Set<UUID> requestedTaskIds);
 
     void deleteByIds(Collection<UUID> taskIds);
 

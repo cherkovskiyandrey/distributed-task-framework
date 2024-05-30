@@ -45,7 +45,8 @@ import java.util.function.Function;
  *      - тут основные консерны:
  *              - как быть с версионностью (-)
  * 7. if method is marked as @Transactional - use EXACTLY_ONCE GUARANTIES (+)
- * 8. Ability to wait for task completion (-)
+ * 8. Ability to wait for task completion (+)
+ *      - wait for must be covered by tests (-)
  * 9. Ability to wait task result (-)
  * 10. Ability to set default and custom retry settings (maybe via task settings ?) (-)
  * - in real properties from application.yaml doesn't work at all!!! because they are built in com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor#buildTaskSettings(com.distributed_task_framework.task.Task)

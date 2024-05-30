@@ -35,6 +35,9 @@ public interface DistributedTaskPropertiesMapper {
         if (common == null) {
             return commonSettings;
         }
+        CommonSettings.CompletionSettings completionSettings = common.getCompletion() != null ?
+                merge(commonSettings.getCompletionSettings().toBuilder().build(), common.getCompletion()) :
+                commonSettings.getCompletionSettings();
         CommonSettings.RegistrySettings registrySettings = common.getRegistry() != null ?
                 merge(commonSettings.getRegistrySettings().toBuilder().build(), common.getRegistry()) :
                 commonSettings.getRegistrySettings();
@@ -52,6 +55,7 @@ public interface DistributedTaskPropertiesMapper {
                 merge(commonSettings.getDeliveryManagerSettings(), common.getDeliveryManager()) :
                 commonSettings.getDeliveryManagerSettings();
         return mergeInternal(commonSettings, common).toBuilder()
+                .completionSettings(completionSettings)
                 .registrySettings(registrySettings)
                 .plannerSettings(plannerSettings)
                 .workerManagerSettings(workerManagerSettings)
@@ -84,6 +88,7 @@ public interface DistributedTaskPropertiesMapper {
     DistributedTaskProperties.Common merge(@MappingTarget DistributedTaskProperties.Common defaultCommon,
                                            DistributedTaskProperties.Common common);
 
+    @Mapping(target = "completionSettings", ignore = true)
     @Mapping(target = "registrySettings", ignore = true)
     @Mapping(target = "plannerSettings", ignore = true)
     @Mapping(target = "workerManagerSettings", ignore = true)
@@ -91,6 +96,7 @@ public interface DistributedTaskPropertiesMapper {
     @Mapping(target = "deliveryManagerSettings", ignore = true)
     CommonSettings map(DistributedTaskProperties.Common mergedSettings);
 
+    @Mapping(target = "completion", ignore = true)
     @Mapping(target = "registry", ignore = true)
     @Mapping(target = "planner", ignore = true)
     @Mapping(target = "workerManager", ignore = true)
@@ -223,6 +229,21 @@ public interface DistributedTaskPropertiesMapper {
 
     @Mapping(target = "manageDelay", ignore = true)
     DistributedTaskProperties.WorkerManager mapInternal(CommonSettings.WorkerManagerSettings workerManagerSettings);
+
+    default CommonSettings.CompletionSettings merge(@MappingTarget CommonSettings.CompletionSettings defaultCompletionSettings,
+                                                    DistributedTaskProperties.Completion completion) {
+        DistributedTaskProperties.Completion defualtPropertiesCompletion = map(defaultCompletionSettings);
+        DistributedTaskProperties.Completion mergedCompletion = merge(defualtPropertiesCompletion, completion);
+        return map(mergedCompletion);
+    }
+
+    CommonSettings.CompletionSettings map(DistributedTaskProperties.Completion mergedCompletion);
+
+    DistributedTaskProperties.Completion merge(@MappingTarget DistributedTaskProperties.Completion defualtPropertiesCompletion,
+                                               DistributedTaskProperties.Completion completion);
+
+    DistributedTaskProperties.Completion map(CommonSettings.CompletionSettings defaultCompletionSettings);
+
 
     default CommonSettings.RegistrySettings merge(@MappingTarget CommonSettings.RegistrySettings defaultRegistrySettings,
                                                   DistributedTaskProperties.Registry registry) {

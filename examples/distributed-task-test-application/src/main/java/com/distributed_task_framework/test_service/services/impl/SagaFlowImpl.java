@@ -18,23 +18,26 @@ public class SagaFlowImpl<T> implements SagaFlow<T> {
     TaskId taskId;
 
     @Override
-    public void waitCompletion() throws TimeoutException {
-        //todo: implement method + think about how to return task result?
-        distributedTaskService.waitCompletion(taskId.getWorkflowId());
+    public void waitCompletion() throws TimeoutException, InterruptedException {
+        distributedTaskService.waitCompletionAllWorkflow(taskId);
     }
 
     @Override
-    public void waitCompletion(Duration duration) throws TimeoutException {
-        distributedTaskService.waitCompletion(taskId.getWorkflowId(), duration);
+    public void waitCompletion(Duration duration) throws TimeoutException, InterruptedException {
+        distributedTaskService.waitCompletionAllWorkflow(taskId, duration);
     }
 
     @Override
-    public Optional<T> get() throws TimeoutException {
+    public Optional<T> get() throws TimeoutException, InterruptedException {
+        distributedTaskService.waitCompletionAllWorkflow(taskId);
+        //todo: read result from local table
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Optional<T> get(Duration duration) throws TimeoutException {
+    public Optional<T> get(Duration duration) throws TimeoutException, InterruptedException {
+        distributedTaskService.waitCompletionAllWorkflow(taskId, duration);
+        //todo: read result from local table
         throw new UnsupportedOperationException();
     }
 

@@ -18,12 +18,14 @@ import com.distributed_task_framework.persistence.repository.NodeStateRepository
 import com.distributed_task_framework.persistence.repository.PartitionRepository;
 import com.distributed_task_framework.persistence.repository.RegisteredTaskRepository;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
+import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
+import com.distributed_task_framework.service.impl.CompletionServiceImpl;
 import com.distributed_task_framework.service.impl.CronService;
 import com.distributed_task_framework.service.impl.DistributedTaskServiceImpl;
 import com.distributed_task_framework.service.impl.InternalTaskCommandProxyService;
@@ -46,6 +48,7 @@ import com.distributed_task_framework.service.impl.workers.LocalExactlyOnceWorke
 import com.distributed_task_framework.service.internal.CapabilityRegister;
 import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
@@ -462,6 +465,17 @@ public class BaseTestConfiguration {
     }
 
     @Bean
+    public CompletionService completionService(CommonSettings commonSettings,
+                                               TaskRepository taskRepository,
+                                               WorkerContextManager workerContextManager) {
+        return new CompletionServiceImpl(
+                commonSettings,
+                taskRepository,
+                workerContextManager
+        );
+    }
+
+    @Bean
     public TaskCommandWithDetectorService localTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
                                                                               PlatformTransactionManager transactionManager,
                                                                               TaskRepository taskRepository,
@@ -472,6 +486,7 @@ public class BaseTestConfiguration {
                                                                               CommonSettings commonSettings,
                                                                               @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
                                                                               TaskLinkManager taskLinkManager,
+                                                                              CompletionService completionService,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
                 workerContextManager,
@@ -484,6 +499,7 @@ public class BaseTestConfiguration {
                 commonSettings,
                 internalTaskCommandService,
                 taskLinkManager,
+                completionService,
                 clock
         );
     }
