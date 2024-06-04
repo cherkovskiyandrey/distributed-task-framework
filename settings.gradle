@@ -33,6 +33,8 @@ project(':distributed-task-perf-test-application').projectDir = new File('tests/
 
 //Examples
 include ':distributed-task-test-application'
+include ':distributed-task-base-saga-test-application'
 
 project(':distributed-task-test-application').projectDir = new File('examples/distributed-task-test-application')
+project(':distributed-task-base-saga-test-application').projectDir = new File('examples/distributed-task-base-saga-test-application')
 

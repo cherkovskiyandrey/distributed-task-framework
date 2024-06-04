@@ -1,21 +1,21 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.service.DistributedTaskService;
-import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
-import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
-import com.distributed_task_framework.saga.services.SagaRegister;
-import com.distributed_task_framework.service.internal.TaskRegistryService;
-import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.annotations.SagaRevertMethod;
 import com.distributed_task_framework.saga.exceptions.SagaMethodDuplicateException;
 import com.distributed_task_framework.saga.exceptions.SagaMethodResolvingException;
 import com.distributed_task_framework.saga.exceptions.SagaTaskNotFoundException;
 import com.distributed_task_framework.saga.models.SagaPipelineContext;
+import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
+import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
 import com.distributed_task_framework.saga.services.SagaContextDiscovery;
+import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.services.SagaTaskFactory;
 import com.distributed_task_framework.saga.utils.ReflectionHelper;
+import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.internal.TaskRegistryService;
+import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Maps;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ReflectionUtils;
 
@@ -40,7 +39,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Component //todo: BeanPostProcessor doesn't work if create bean from method!
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {

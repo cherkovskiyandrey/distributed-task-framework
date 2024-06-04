@@ -1,0 +1,77 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/distributed-task
+    username: distributed-task
+    password: distributed-task
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 10
+      data-source-properties:
+        rewriteBatchedStatements: true
+        useConfigs: maxPerformance
+      validation-timeout: 10000
+      keepalive-time: 60000
+      connection-timeout: 10000
+  application:
+    name: test-app
+
+distributed-task:
+  enabled: true
+  common:
+    app-name: local-test-app
+    completion:
+      handler-initial-delay: PT1S
+      handler-fixed-delay: PT1S
+      default-task-timeout: PT1M
+      default-workflow-timeout: PT1M
+    registry:
+      update-initial-delay-ms: 5000
+      update-fixed-delay-ms: 5000
+      max-inactivity-interval-ms: 16000
+      cache-expiration-ms: 5000
+    planner:
+      watchdog-initial-delay-ms: 5000
+      watchdog-fixed-delay-ms: 5000
+      max-parallel-tasks-in-cluster-default: 100
+      batch-size: 100
+      polling-delay:
+        0: 100
+    #      force-fair-general-task-planner: true
+    worker-manager:
+      max-parallel-tasks-in-node: 100
+
+  task-properties-group:
+    default-properties:
+      execution-guarantees: AT_LEAST_ONCE
+      dlt-enabled: true
+      retry:
+        backoff:
+          initial-delay: PT10S
+          delay-period: PT5S
+          max-retries: 1000
+          max-delay: PT1H
+        fixed:
+          delay: PT1S
+          max-interval: PT5S
+          max-number: 5
+        retry-mode: FIXED
+      max-parallel-in-cluster: 100
+      timeout: PT10S
+
+    task-properties:
+      CRON_TEST_TASK_DEF:
+        execution-guarantees: EXACTLY_ONCE
+        #        cron: '0 * * * * *'
+        dlt-enabled: false
+        retry:
+          # or backoff or retry with fixed delay
+          fixed:
+            delay: PT10S
+            max-number: 10000
+            max-interval: P1D
+          backoff:
+            initial-delay: PT10S
+            delay-period: PT5S
+            max-retries: 1000
+            max-delay: PT1H
+        max-parallel-in-cluster: 100

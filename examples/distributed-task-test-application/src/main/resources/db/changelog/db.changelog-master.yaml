@@ -3,5 +3,3 @@ databaseChangeLog:
       file: db/changelog/distributed-task-framework/db.changelog-dtf-init.yaml
   - include:
       file: db/changelog/distributed-task-framework/db.changelog-dtf-feature-wait-task.yaml
-  - include:
-      file: db/changelog/test/db.changelog-test-init.yaml
