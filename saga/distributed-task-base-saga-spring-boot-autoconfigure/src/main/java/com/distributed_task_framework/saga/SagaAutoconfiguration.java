@@ -34,21 +34,25 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 )
 //@EnableJdbcRepositories(basePackageClasses = NodeStateRepository.class) //todo: add link to repo
 @EnableTransactionManagement
-@EnableAspectJAutoProxy
+@EnableAspectJAutoProxy(proxyTargetClass = true)
 public class SagaAutoconfiguration {
 
+    //it is important to return exactly SagaContextDiscoveryImpl type in order to allow spring to detect
+    // @Aspect annotation on bean
     @Bean
     @ConditionalOnMissingBean
-    public SagaContextDiscovery sagaAspect() {
+    public SagaContextDiscoveryImpl sagaAspect() {
         return new SagaContextDiscoveryImpl();
     }
 
+    //it is important to return exactly SagaRegisterImpl type in order to allow spring to detect
+    //BeanPostProcessor interface and invoke its method
     @Bean
     @ConditionalOnMissingBean
-    public SagaRegister sagaRegister(DistributedTaskService distributedTaskService,
-                                     TaskRegistryService taskRegistryService,
-                                     SagaContextDiscovery sagaContextDiscovery,
-                                     SagaTaskFactory sagaTaskFactory) {
+    public SagaRegisterImpl sagaRegister(DistributedTaskService distributedTaskService,
+                                         TaskRegistryService taskRegistryService,
+                                         SagaContextDiscovery sagaContextDiscovery,
+                                         SagaTaskFactory sagaTaskFactory) {
         return new SagaRegisterImpl(
                 distributedTaskService,
                 taskRegistryService,
