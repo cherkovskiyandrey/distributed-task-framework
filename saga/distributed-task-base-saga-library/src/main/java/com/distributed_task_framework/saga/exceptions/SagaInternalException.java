@@ -8,4 +8,8 @@ public class SagaInternalException extends SagaException {
     public SagaInternalException(Exception e) {
         super(e);
     }
+
+    public SagaInternalException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

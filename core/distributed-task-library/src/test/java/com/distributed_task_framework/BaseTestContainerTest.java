@@ -23,7 +23,7 @@ public class BaseTestContainerTest {
 
     private static final WaitStrategy WAIT_STRATEGY = Wait.forListeningPort().withStartupTimeout(Duration.ofSeconds(30));
 
-    protected static final DockerComposeContainer<?> COMPOSE_CONTAINER = new DockerComposeContainer<>(new File("./../docker-compose.yaml"))
+    protected static final DockerComposeContainer<?> COMPOSE_CONTAINER = new DockerComposeContainer<>(new File("./../../docker-compose.yaml"))
             .withExposedService(POSTGRESQL_SERVICE, POSTGRESQL_PORT, WAIT_STRATEGY);
 
     static {

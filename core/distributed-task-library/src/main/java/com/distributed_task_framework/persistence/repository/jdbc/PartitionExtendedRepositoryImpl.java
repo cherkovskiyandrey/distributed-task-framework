@@ -24,7 +24,7 @@ import java.util.UUID;
 public class PartitionExtendedRepositoryImpl implements PartitionExtendedRepository {
     private static final BeanPropertyRowMapper<PartitionEntity> PARTITION_ROW_MAPPER = new BeanPropertyRowMapper<>(PartitionEntity.class);
 
-    private static final String SAVE_OR_UPDATE_BATCH = """
+    private static final String SAVE = """
             INSERT INTO _____dtf_partitions (
                 id,
                 affinity_group,
@@ -41,12 +41,12 @@ public class PartitionExtendedRepositoryImpl implements PartitionExtendedReposit
     NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
     @Override
-    public Collection<PartitionEntity> saveOrUpdateBatch(Collection<PartitionEntity> taskNameEntities) {
+    public Collection<PartitionEntity> saveAsNew(Collection<PartitionEntity> taskNameEntities) {
         var batchArguments = taskNameEntities.stream()
                 .map(this::prepareToSave)
                 .map(this::toParameterSource)
                 .toArray(SqlParameterSource[]::new);
-        int[] affectedRows = namedParameterJdbcTemplate.batchUpdate(SAVE_OR_UPDATE_BATCH, batchArguments);
+        int[] affectedRows = namedParameterJdbcTemplate.batchUpdate(SAVE, batchArguments);
         return Sets.newHashSet(JdbcTools.filterAffected(Lists.newArrayList(taskNameEntities), affectedRows));
     }
 

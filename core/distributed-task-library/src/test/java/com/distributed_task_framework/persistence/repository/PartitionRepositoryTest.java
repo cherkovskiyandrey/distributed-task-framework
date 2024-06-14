@@ -24,7 +24,7 @@ class PartitionRepositoryTest extends BaseRepositoryTest {
         var allPartitions = createTestPartitions();
 
         //do
-        var savedPartitions = partitionRepository.saveOrUpdateBatch(allPartitions);
+        var savedPartitions = partitionRepository.saveAsNew(allPartitions);
 
         //verify
         Assertions.assertThat(savedPartitions).containsAll(allPartitions);

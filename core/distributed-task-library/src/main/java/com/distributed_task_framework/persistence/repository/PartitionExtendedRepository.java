@@ -7,7 +7,7 @@ import java.util.Collection;
 public interface PartitionExtendedRepository {
 
     @SuppressWarnings("UnusedReturnValue")
-    Collection<PartitionEntity> saveOrUpdateBatch(Collection<PartitionEntity> taskNameEntities);
+    Collection<PartitionEntity> saveAsNew(Collection<PartitionEntity> taskNameEntities);
 
     Collection<PartitionEntity> filterExisted(Collection<PartitionEntity> entities);
 

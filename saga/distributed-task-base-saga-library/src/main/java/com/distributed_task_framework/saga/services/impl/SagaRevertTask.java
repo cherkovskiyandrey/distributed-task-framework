@@ -122,7 +122,7 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
         if (!sagaPipelineContext.hasNext()) {
             log.info(
                     "scheduleNextRevertIfRequired(): revert chain has been completed for sagaPipelineContext with id=[{}]",
-                    sagaPipelineContext.getId()
+                    sagaPipelineContext.getSagaId()
             );
             return;
         }

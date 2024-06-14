@@ -4,4 +4,6 @@ databaseChangeLog:
   - include:
       file: db/changelog/distributed-task-framework/db.changelog-dtf-feature-wait-task.yaml
   - include:
+      file: db/changelog/distributed-task-base-saga/db.changelog-dtf-saga-init.yaml
+  - include:
       file: db/changelog/test/db.changelog-test-init.yaml

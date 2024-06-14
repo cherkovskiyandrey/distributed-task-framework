@@ -2,6 +2,7 @@ package com.distributed_task_framework.saga.services.impl;
 
 
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.saga.services.SagaResultService;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.saga.annotations.SagaMethod;
@@ -21,6 +22,7 @@ import java.lang.reflect.Method;
 public class SagaTaskFactoryImpl implements SagaTaskFactory {
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
+    SagaResultService sagaResultService;
     TaskSerializer taskSerializer;
     SagaHelper sagaHelper;
 
@@ -32,6 +34,7 @@ public class SagaTaskFactoryImpl implements SagaTaskFactory {
         return new SagaTask(
                 sagaRegister,
                 distributedTaskService,
+                sagaResultService,
                 taskSerializer,
                 sagaHelper,
                 taskDef,

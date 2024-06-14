@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS _____dtf_saga_result;

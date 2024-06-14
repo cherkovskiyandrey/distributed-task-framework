@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.saga.services.SagaResultService;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
@@ -38,19 +39,20 @@ import java.util.function.Function;
  * when rollback is handled (+)
  * 6. Revert pipeline (+)
  * 7. Решить вопрос с сериализацией Throwable-а (+)
- * 7. SagaProcessor::thenRun has not to receive input, because input has to be provided from root method! (+)
- * 7. SagaRegister.resolve has to be optimized and return value from cache (+)
+ * 8. SagaProcessor::thenRun has not to receive input, because input has to be provided from root method! (+)
+ * 9. SagaRegister.resolve has to be optimized and return value from cache (+)
  *      - impossible, every call the same lambda code has different reference
- * 8. Необходимо регистрировать 2 таски одну для прямой операции и вторую для обратной и создать регистр имя-операции:код ? (-)
- *      - тут основные консерны:
- *              - как быть с версионностью (-)
- * 7. if method is marked as @Transactional - use EXACTLY_ONCE GUARANTIES (+)
- * 8. Ability to wait for task completion (+)
+ * 10. if method is marked as @Transactional - use EXACTLY_ONCE GUARANTIES (+)
+ * 11. Ability to wait for task completion (+)
  *      - wait for must be covered by tests (-)
+ * 12. Create separated library + boot module + test application (+)
  * 9. Ability to wait task result (-)
  * 10. Ability to set default and custom retry settings (maybe via task settings ?) (-)
  * - in real properties from application.yaml doesn't work at all!!! because they are built in com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor#buildTaskSettings(com.distributed_task_framework.task.Task)
  * and this logic has to be repeated in the saga library (-)
+ * 8. Необходимо регистрировать 2 таски одну для прямой операции и вторую для обратной и создать регистр имя-операции:код ? (-)
+ *      - тут основные консерны:
+ *              - как быть с версионностью (-)
  * 11. Think about exactly once for remote http call (-)
  */
 @Slf4j
@@ -60,6 +62,7 @@ public class SagaProcessorImpl implements SagaProcessor {
     PlatformTransactionManager transactionManager;
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
+    SagaResultService sagaResultService;
     SagaHelper sagaHelper;
 
     @SneakyThrows
@@ -112,6 +115,7 @@ public class SagaProcessorImpl implements SagaProcessor {
     private <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipelineContext sagaPipelineContext) {
         return SagaFlowBuilderImpl.<INPUT, OUTPUT>builder()
                 .transactionManager(transactionManager)
+                .sagaResultService(sagaResultService)
                 .distributedTaskService(distributedTaskService)
                 .sagaHelper(sagaHelper)
                 .sagaRegister(sagaRegister)

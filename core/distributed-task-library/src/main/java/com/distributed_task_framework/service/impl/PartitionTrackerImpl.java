@@ -31,7 +31,7 @@ public class PartitionTrackerImpl implements PartitionTracker {
     public void reinit() {
         var partitionEntities = partitionTrackerRepository.activePartitions();
         var entities = partitionMapper.asEntities(partitionEntities, currentTimeWindow());
-        partitionRepository.saveOrUpdateBatch(entities);
+        partitionRepository.saveAsNew(entities);
         log.info("reinit(): partitionEntities=[{}]", partitionEntities);
     }
 
@@ -50,7 +50,7 @@ public class PartitionTrackerImpl implements PartitionTracker {
                 Sets.newHashSet(existedPartitionEntities))
         );
         if (!toAdd.isEmpty()) {
-            partitionRepository.saveOrUpdateBatch(toAdd);
+            partitionRepository.saveAsNew(toAdd);
             log.info("track(): toAdd=[{}]", toAdd);
         }
     }

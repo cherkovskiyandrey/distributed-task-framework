@@ -1,20 +1,21 @@
 package com.distributed_task_framework.saga.services.impl;
 
+import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.service.DistributedTaskService;
-import com.distributed_task_framework.saga.services.SagaRegister;
-import com.distributed_task_framework.saga.utils.SagaArguments;
-import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
 import com.distributed_task_framework.saga.models.SagaContext;
 import com.distributed_task_framework.saga.models.SagaPipelineContext;
+import com.distributed_task_framework.saga.services.SagaRegister;
+import com.distributed_task_framework.saga.services.SagaResultService;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
 import com.distributed_task_framework.saga.utils.ArgumentProviderBuilder;
+import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
+import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.TaskSerializer;
+import com.distributed_task_framework.task.Task;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import lombok.AccessLevel;
@@ -37,6 +38,7 @@ import java.util.Optional;
 public class SagaTask implements Task<SagaPipelineContext> {
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
+    SagaResultService sagaResultService;
     TaskSerializer taskSerializer;
     SagaHelper sagaHelper;
     TaskDef<SagaPipelineContext> taskDef;
@@ -89,6 +91,15 @@ public class SagaTask implements Task<SagaPipelineContext> {
         };
 
         if (!sagaPipelineContext.hasNext()) {
+            Class<?> returnType = method.getReturnType();
+            if (!sagaHelper.isVoidType(returnType)) {
+                var resultType = TypeFactory.defaultInstance().constructType(returnType);
+                sagaResultService.setOkResult(
+                        sagaPipelineContext.getSagaId(),
+                        taskSerializer.writeValue(result),
+                        resultType
+                );
+            }
             return; //last task in sequence
         }
 
@@ -130,12 +141,21 @@ public class SagaTask implements Task<SagaPipelineContext> {
 
             //reset stack trace
             exception.setStackTrace(new StackTraceElement[0]);
+            byte[] serializedException = taskSerializer.writeValue(exception);
+
+            sagaResultService.setFailResult(
+                    sagaPipelineContext.getSagaId(),
+                    serializedException,
+                    exceptionType
+            );
+
             currentSagaContext = currentSagaContext.toBuilder()
                     .exceptionType(exceptionType.toCanonical())
-                    .serializedException(taskSerializer.writeValue(exception))
+                    .serializedException(serializedException)
                     .build();
             sagaPipelineContext.setCurrentSagaContext(currentSagaContext);
             sagaPipelineContext.rewindToRevertFormCurrentPosition();
+
             if (!sagaPipelineContext.hasNext()) {
                 return true;
             }

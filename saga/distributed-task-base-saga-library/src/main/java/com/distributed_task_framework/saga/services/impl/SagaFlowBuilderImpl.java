@@ -1,26 +1,29 @@
 package com.distributed_task_framework.saga.services.impl;
 
-import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
-import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.saga.models.SagaContext;
+import com.distributed_task_framework.saga.models.SagaPipelineContext;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
 import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
+import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
 import com.distributed_task_framework.saga.services.SagaRegister;
+import com.distributed_task_framework.saga.services.SagaResultService;
 import com.distributed_task_framework.saga.utils.SagaArguments;
-import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.saga.models.SagaContext;
-import com.distributed_task_framework.saga.models.SagaPipelineContext;
-import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
+import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.TaskSerializer;
 import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.Value;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -30,6 +33,7 @@ import java.util.function.Function;
 @Builder(toBuilder = true)
 public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
     PlatformTransactionManager transactionManager;
+    SagaResultService sagaResultService;
     DistributedTaskService distributedTaskService;
     SagaRegister sagaRegister;
     SagaHelper sagaHelper;
@@ -159,9 +163,11 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         throw new UnsupportedOperationException();
     }
 
+    @Transactional
     @SneakyThrows
     @Override
     public SagaFlow<PARENT_OUTPUT> startWithAffinity(String affinityGroup, String affinity) {
+        UUID sagaId = sagaParentPipelineContext.getSagaId();
         sagaParentPipelineContext.rewind();
         sagaParentPipelineContext.moveToNext();
         SagaContext currentSagaContext = sagaParentPipelineContext.getCurrentSagaContext();
@@ -174,9 +180,12 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
                         affinity
                 )
         );
+        sagaResultService.beginWatching(sagaId);
 
         return SagaFlowImpl.<PARENT_OUTPUT>builder()
                 .distributedTaskService(distributedTaskService)
+                .sagaResultService(sagaResultService)
+                .sagaId(sagaId)
                 .taskId(taskId)
                 .build();
     }
@@ -184,6 +193,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     @SneakyThrows
     @Override
     public SagaFlow<PARENT_OUTPUT> start() {
+        UUID sagaId = sagaParentPipelineContext.getSagaId();
         sagaParentPipelineContext.rewind();
         sagaParentPipelineContext.moveToNext();
         SagaContext currentSagaContext = sagaParentPipelineContext.getCurrentSagaContext();
@@ -192,9 +202,12 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
                 sagaRegister.resolveByTaskName(currentSagaContext.getSagaMethodTaskName()),
                 ExecutionContext.simple(sagaParentPipelineContext)
         );
+        sagaResultService.beginWatching(sagaId);
 
         return SagaFlowImpl.<PARENT_OUTPUT>builder()
                 .distributedTaskService(distributedTaskService)
+                .sagaResultService(sagaResultService)
+                .sagaId(sagaId)
                 .taskId(taskId)
                 .build();
     }

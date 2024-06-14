@@ -16,13 +16,13 @@ import java.util.UUID;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SagaPipelineContext {
-    final UUID id;
+    final UUID sagaId;
     final List<SagaContext> sagaContexts;
     int cursor;
     boolean forward;
 
     public SagaPipelineContext() {
-        this.id = UUID.randomUUID();
+        this.sagaId = UUID.randomUUID();
         this.sagaContexts = Lists.newArrayList();
         this.cursor = -1;
         this.forward = true;

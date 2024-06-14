@@ -58,20 +58,7 @@ distributed-task:
       max-parallel-in-cluster: 100
       timeout: PT10S
 
-    task-properties:
-      CRON_TEST_TASK_DEF:
-        execution-guarantees: EXACTLY_ONCE
-        #        cron: '0 * * * * *'
-        dlt-enabled: false
-        retry:
-          # or backoff or retry with fixed delay
-          fixed:
-            delay: PT10S
-            max-number: 10000
-            max-interval: P1D
-          backoff:
-            initial-delay: PT10S
-            delay-period: PT5S
-            max-retries: 1000
-            max-delay: PT1H
-        max-parallel-in-cluster: 100
+  saga:
+    result:
+      empty-result-deprecation-timeout: PT2M
+      result-deprecation-timeout: PT2M
