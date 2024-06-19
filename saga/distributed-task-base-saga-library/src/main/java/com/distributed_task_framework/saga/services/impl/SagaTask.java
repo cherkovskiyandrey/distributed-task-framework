@@ -93,11 +93,9 @@ public class SagaTask implements Task<SagaPipelineContext> {
         if (!sagaPipelineContext.hasNext()) {
             Class<?> returnType = method.getReturnType();
             if (!sagaHelper.isVoidType(returnType)) {
-                var resultType = TypeFactory.defaultInstance().constructType(returnType);
                 sagaResultService.setOkResult(
                         sagaPipelineContext.getSagaId(),
-                        taskSerializer.writeValue(result),
-                        resultType
+                        taskSerializer.writeValue(result)
                 );
             }
             return; //last task in sequence

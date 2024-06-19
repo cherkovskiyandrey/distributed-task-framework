@@ -14,21 +14,17 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Table("_____dtf_saga_result")
-//@Data
 @Value
 @FieldNameConstants
-//@FieldDefaults(level = AccessLevel.PRIVATE)
 @AllArgsConstructor(access = AccessLevel.PUBLIC)
-//@NoArgsConstructor
 @Builder(toBuilder = true)
 public class SagaResultEntity {
     @Id
     UUID sagaId;
     LocalDateTime createdDateUtc;
     LocalDateTime completedDateUtc;
-    boolean isException;
     @Nullable
-    String resultType;
+    String exceptionType;
     @Nullable
     @ToString.Exclude
     byte[] result;

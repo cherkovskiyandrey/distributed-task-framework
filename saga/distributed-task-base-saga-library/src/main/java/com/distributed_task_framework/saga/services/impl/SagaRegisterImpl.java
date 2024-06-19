@@ -6,6 +6,7 @@ import com.distributed_task_framework.saga.annotations.SagaRevertMethod;
 import com.distributed_task_framework.saga.exceptions.SagaMethodDuplicateException;
 import com.distributed_task_framework.saga.exceptions.SagaMethodResolvingException;
 import com.distributed_task_framework.saga.exceptions.SagaTaskNotFoundException;
+import com.distributed_task_framework.saga.models.SagaOperation;
 import com.distributed_task_framework.saga.models.SagaPipelineContext;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
@@ -46,33 +47,33 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     private static final String TASK_REVERT_PREFIX = "_____SAGA_REVERT";
     private static final String TASK_NAME_DELIMITER = "_";
 
-    Map<String, TaskDef<SagaPipelineContext>> methodToTask = Maps.newHashMap();
-    Map<String, TaskDef<SagaPipelineContext>> revertMethodToTask = Maps.newHashMap();
+    Map<String, SagaOperation> methodToSagaOperation = Maps.newHashMap();
+    Map<String, SagaOperation> revertMethodToSagaOperation = Maps.newHashMap();
     DistributedTaskService distributedTaskService;
     TaskRegistryService taskRegistryService;
     SagaContextDiscovery sagaContextDiscovery;
     SagaTaskFactory sagaTaskFactory;
 
     @Override
-    public <IN, OUT> TaskDef<SagaPipelineContext> resolve(Function<IN, OUT> operation) {
+    public <IN, OUT> SagaOperation resolve(Function<IN, OUT> operation) {
         SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.apply(null), SagaMethod.class);
         return resolveByMethodRef(sagaMethod);
     }
 
     @Override
-    public <IN> TaskDef<SagaPipelineContext> resolve(Consumer<IN> operation) {
+    public <IN> SagaOperation resolve(Consumer<IN> operation) {
         SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.accept(null), SagaMethod.class);
         return resolveByMethodRef(sagaMethod);
     }
 
     @Override
-    public <T, U, R> TaskDef<SagaPipelineContext> resolve(BiFunction<T, U, R> operation) {
+    public <T, U, R> SagaOperation resolve(BiFunction<T, U, R> operation) {
         SagaMethod sagaMethod = sagaMethodByRunnable(() -> operation.apply(null, null), SagaMethod.class);
         return resolveByMethodRef(sagaMethod);
     }
 
     @Override
-    public <PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
+    public <PARENT_INPUT, OUTPUT> SagaOperation resolveRevert(
             RevertibleBiConsumer<PARENT_INPUT, OUTPUT> revertOperation) {
         SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
                 () -> revertOperation.apply(null, null, null),
@@ -82,7 +83,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     }
 
     @Override
-    public <INPUT, PARENT_INPUT, OUTPUT> TaskDef<SagaPipelineContext> resolveRevert(
+    public <INPUT, PARENT_INPUT, OUTPUT> SagaOperation resolveRevert(
             RevertibleThreeConsumer<PARENT_INPUT, INPUT, OUTPUT> revertOperation) {
         SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
                 () -> revertOperation.apply(null, null, null, null),
@@ -110,18 +111,18 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
         }
     }
 
-    private TaskDef<SagaPipelineContext> resolveByMethodRef(SagaMethod sagaMethod) {
+    private SagaOperation resolveByMethodRef(SagaMethod sagaMethod) {
         var taskName = taskNameFor(sagaMethod);
-        var operationTask = methodToTask.get(taskName);
+        var operationTask = methodToSagaOperation.get(taskName);
         if (operationTask == null) {
             throw new SagaTaskNotFoundException(taskName);
         }
         return operationTask;
     }
 
-    private TaskDef<SagaPipelineContext> resolveByMethodRef(SagaRevertMethod sagaRevertMethod) {
+    private SagaOperation resolveByMethodRef(SagaRevertMethod sagaRevertMethod) {
         var taskName = revertTaskNameFor(sagaRevertMethod);
-        var revertOperationTask = revertMethodToTask.get(taskName);
+        var revertOperationTask = revertMethodToSagaOperation.get(taskName);
         if (revertOperationTask == null) {
             throw new SagaTaskNotFoundException(taskName);
         }
@@ -177,12 +178,12 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                     @SuppressWarnings("OptionalGetWithoutIsPresent")
                     SagaMethod sagaMethodAnnotation = ReflectionHelper.findAnnotation(method, SagaMethod.class).get();
                     var taskName = taskNameFor(sagaMethodAnnotation);
-                    if (methodToTask.containsKey(taskName)) {
+                    if (methodToSagaOperation.containsKey(taskName)) {
                         throw new SagaMethodDuplicateException(taskName);
                     }
 
                     var taskDef = TaskDef.privateTaskDef(taskName, SagaPipelineContext.class);
-                    methodToTask.put(taskName, taskDef);
+                    methodToSagaOperation.put(taskName, new SagaOperation(method, taskDef));
                     sagaContextDiscovery.registerMethod(method.toString(), sagaMethodAnnotation);
 
                     SagaTask sagaTask = sagaTaskFactory.sagaTask(
@@ -204,10 +205,10 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                     SagaRevertMethod sagaRevertMethodAnnotation = ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).get();
                     var revertTaskName = revertTaskNameFor(sagaRevertMethodAnnotation);
                     var taskDef = TaskDef.privateTaskDef(revertTaskName, SagaPipelineContext.class);
-                    if (revertMethodToTask.containsKey(revertTaskName)) {
+                    if (revertMethodToSagaOperation.containsKey(revertTaskName)) {
                         throw new SagaMethodDuplicateException(revertTaskName);
                     }
-                    revertMethodToTask.put(revertTaskName, taskDef);
+                    revertMethodToSagaOperation.put(revertTaskName, new SagaOperation(method, taskDef));
                     sagaContextDiscovery.registerMethod(method.toString(), sagaRevertMethodAnnotation);
 
                     SagaRevertTask sagaRevertTask = sagaTaskFactory.sagaRevertTask(

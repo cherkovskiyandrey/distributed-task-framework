@@ -3,7 +3,9 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
+import com.distributed_task_framework.saga.mappers.SagaTrackIdMapper;
 import com.distributed_task_framework.saga.models.SagaContext;
+import com.distributed_task_framework.saga.models.SagaOperation;
 import com.distributed_task_framework.saga.models.SagaPipelineContext;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
@@ -17,6 +19,7 @@ import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
+import jakarta.annotation.Nullable;
 import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.Value;
@@ -39,13 +42,17 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     SagaHelper sagaHelper;
     TaskSerializer taskSerializer;
     SagaPipelineContext sagaParentPipelineContext;
+    SagaTrackIdMapper sagaTrackIdMapper;
+    @Nullable
+    Class<?> methodOutputType;
 
     @SneakyThrows
     @Override
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation,
                                                                 RevertibleThreeConsumer<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> revertOperation) {
-        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
-        TaskDef<SagaPipelineContext> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation);
+        SagaOperation sagaOperation = sagaRegister.resolve(operation);
+        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaPipelineContext> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(
                 SagaArguments.PARENT_OUTPUT,
@@ -67,12 +74,13 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
                 null
         );
 
-        return wrapToSagaFlowBuilder(sagaPipelineContext);
+        return wrapToSagaFlowBuilder(sagaPipelineContext, sagaOperation.getMethod().getReturnType());
     }
 
     @Override
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation) {
-        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
+        SagaOperation sagaOperation = sagaRegister.resolve(operation);
+        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(
                 SagaArguments.PARENT_OUTPUT,
@@ -88,14 +96,15 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
                 null
         );
 
-        return wrapToSagaFlowBuilder(sagaPipelineContext);
+        return wrapToSagaFlowBuilder(sagaPipelineContext, sagaOperation.getMethod().getReturnType());
     }
 
     @Override
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation,
                                                                 RevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation) {
-        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
-        TaskDef<SagaPipelineContext> revertSagaMethodTaskDef = sagaRegister.resolveRevert(revertOperation);
+        SagaOperation sagaOperation = sagaRegister.resolve(operation);
+        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaPipelineContext> revertSagaMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.PARENT_OUTPUT);
         var revertOperationSagaSchemaArguments = SagaSchemaArguments.of(
@@ -113,12 +122,13 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
                 null
         );
 
-        return wrapToSagaFlowBuilder(sagaPipelineContext);
+        return wrapToSagaFlowBuilder(sagaPipelineContext, sagaOperation.getMethod().getReturnType());
     }
 
     @Override
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation) {
-        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaRegister.resolve(operation);
+        SagaOperation sagaOperation = sagaRegister.resolve(operation);
+        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.PARENT_OUTPUT);
 
@@ -131,13 +141,15 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
                 null
         );
 
-        return wrapToSagaFlowBuilder(sagaPipelineContext);
+        return wrapToSagaFlowBuilder(sagaPipelineContext, sagaOperation.getMethod().getReturnType());
     }
 
     @SuppressWarnings("unchecked")
-    private <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipelineContext sagaPipelineContext) {
+    private <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipelineContext sagaPipelineContext,
+                                                                               @Nullable Class<?> methodOutputType) {
         return (SagaFlowBuilder<ROOT_INPUT, OUTPUT>) this.toBuilder()
                 .sagaParentPipelineContext(sagaPipelineContext)
+                .methodOutputType(methodOutputType)
                 .build();
     }
 
@@ -163,6 +175,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         throw new UnsupportedOperationException();
     }
 
+    @SuppressWarnings("unchecked")
     @Transactional
     @SneakyThrows
     @Override
@@ -187,9 +200,12 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
                 .sagaResultService(sagaResultService)
                 .sagaId(sagaId)
                 .taskId(taskId)
+                .sagaTrackIdMapper(sagaTrackIdMapper)
+                .resultType((Class<PARENT_OUTPUT>) methodOutputType)
                 .build();
     }
 
+    @SuppressWarnings("unchecked")
     @SneakyThrows
     @Override
     public SagaFlow<PARENT_OUTPUT> start() {
@@ -209,6 +225,8 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
                 .sagaResultService(sagaResultService)
                 .sagaId(sagaId)
                 .taskId(taskId)
+                .sagaTrackIdMapper(sagaTrackIdMapper)
+                .resultType((Class<PARENT_OUTPUT>) methodOutputType)
                 .build();
     }
 }

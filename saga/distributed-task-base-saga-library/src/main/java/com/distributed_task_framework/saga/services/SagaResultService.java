@@ -10,9 +10,9 @@ public interface SagaResultService {
 
     void beginWatching(UUID sagaId);
 
-    <T> Optional<T> get(UUID sagaId) throws SagaExecutionException;
+    <T> Optional<T> get(UUID sagaId, Class<T> resultType) throws SagaExecutionException;
 
-    void setOkResult(UUID sagaId, byte[] serializedValue, JavaType valueType);
+    void setOkResult(UUID sagaId, byte[] serializedValue);
 
     void setFailResult(UUID sagaId, byte[] serializedException, JavaType exceptionType);
 }

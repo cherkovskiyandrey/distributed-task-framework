@@ -113,13 +113,8 @@ public class TestSagaServiceImpl implements TestSagaService {
     @SneakyThrows
     @Override
     public Optional<Audit> sagaCallPollResult(SagaTrackId trackId) {
-        Optional<SagaFlow<Audit>> sagaProcessorFlow = sagaProcessor.getFlow(trackId, Audit.class)
-                .filter(SagaFlow::isCompleted);
-        if (sagaProcessorFlow.isPresent()) {
-            SagaFlow<Audit> auditSagaFlow = sagaProcessorFlow.get();
-            return auditSagaFlow.get();
-        }
-        return Optional.empty();
+        SagaFlow<Audit> sagaProcessorFlow = sagaProcessor.getFlow(trackId, Audit.class);
+        return sagaProcessorFlow.isCompleted() ? sagaProcessorFlow.get() : Optional.empty();
     }
 
     private SagaFlow<Audit> sagaCallBase(TestDataDto testDataDto) {

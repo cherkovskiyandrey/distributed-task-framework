@@ -81,12 +81,9 @@ public class SagaHelper {
         return new SagaExecutionException(message, rootCause, exceptionType);
     }
 
-    public <T> Optional<T> buildObject(byte[] serializedObject, String resultType) {
-
-        //todo: it is a bad approach, need to get result type locally!
-        JavaType javaType = TypeFactory.defaultInstance().constructFromCanonical(resultType);
+    public <T> Optional<T> buildObject(byte[] serializedObject, Class<T> resultType) {
         try {
-            return Optional.ofNullable(taskSerializer.readValue(serializedObject, javaType));
+            return Optional.ofNullable(taskSerializer.readValue(serializedObject, resultType));
         } catch (IOException e) {
             throw new SagaParseObjectException("Couldn't parse object", e);
         }

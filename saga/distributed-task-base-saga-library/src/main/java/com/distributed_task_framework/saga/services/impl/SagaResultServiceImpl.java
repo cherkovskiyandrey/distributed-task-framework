@@ -2,7 +2,6 @@ package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.saga.configurations.SagaConfiguration;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
-import com.distributed_task_framework.saga.exceptions.SagaInternalException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.persistence.entities.SagaResultEntity;
 import com.distributed_task_framework.saga.persistence.repository.SagaResultRepository;
@@ -16,6 +15,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.ReflectionUtils;
 
 import java.time.Clock;
@@ -76,14 +76,12 @@ public class SagaResultServiceImpl implements SagaResultService {
     @VisibleForTesting
     void handleDeprecatedResults() {
         SagaConfiguration.Result result = sagaConfiguration.getResult();
-        var emptyTimeoutSec = result.getEmptyResultDeprecationTimeout().toSeconds();
-        var removedExpiredEmptyResults = sagaResultRepository.removeExpiredEmptyResults(emptyTimeoutSec);
+        var removedExpiredEmptyResults = sagaResultRepository.removeExpiredEmptyResults(result.getEmptyResultDeprecationTimeout());
         if (!removedExpiredEmptyResults.isEmpty()) {
             log.info("handleDeprecatedResults(): removedExpiredEmptyResults=[{}]", removedExpiredEmptyResults);
         }
 
-        long resultTimeoutSec = result.getResultDeprecationTimeout().toSeconds();
-        var removeExpiredResults = sagaResultRepository.removeExpiredResults(resultTimeoutSec);
+        var removeExpiredResults = sagaResultRepository.removeExpiredResults(result.getResultDeprecationTimeout());
         if (!removeExpiredResults.isEmpty()) {
             log.info("handleDeprecatedResults(): removeExpiredResults=[{}]", removeExpiredResults);
         }
@@ -99,7 +97,7 @@ public class SagaResultServiceImpl implements SagaResultService {
     }
 
     @Override
-    public <T> Optional<T> get(UUID sagaId) throws SagaExecutionException {
+    public <T> Optional<T> get(UUID sagaId, Class<T> resultType) throws SagaExecutionException {
         var sagaResultEntity = sagaResultRepository.findById(sagaId)
                 .orElseThrow(() -> new SagaNotFoundException(
                         "Saga with id=[%s] doesn't exists or has been completed for a long time".formatted(sagaId))
@@ -109,23 +107,17 @@ public class SagaResultServiceImpl implements SagaResultService {
             return Optional.empty();
         }
 
-        var resultType = sagaResultEntity.getResultType();
-        if (resultType == null) {
-            throw new SagaInternalException("resultType is empty for sagaId=[%s]".formatted(sagaId));
-        }
-
-        if (sagaResultEntity.isException()) {
-            throw sagaHelper.buildExecutionException(sagaResultEntity.getResultType(), sagaResultEntity.getResult());
+        if (StringUtils.isNotBlank(sagaResultEntity.getExceptionType())) {
+            throw sagaHelper.buildExecutionException(sagaResultEntity.getExceptionType(), sagaResultEntity.getResult());
         }
         return sagaHelper.buildObject(sagaResult, resultType);
     }
 
     @Override
-    public void setOkResult(UUID sagaId, byte[] serializedValue, JavaType valueType) {
+    public void setOkResult(UUID sagaId, byte[] serializedValue) {
         sagaResultRepository.findById(sagaId)
                 .map(sagaResultEntity -> sagaResultEntity.toBuilder()
                         .result(serializedValue)
-                        .resultType(valueType.toCanonical())
                         .completedDateUtc(LocalDateTime.now(clock))
                         .build()
                 )
@@ -136,9 +128,8 @@ public class SagaResultServiceImpl implements SagaResultService {
     public void setFailResult(UUID sagaId, byte[] serializedException, JavaType exceptionType) {
         sagaResultRepository.findById(sagaId)
                 .map(sagaResultEntity -> sagaResultEntity.toBuilder()
-                        .isException(true)
                         .result(serializedException)
-                        .resultType(exceptionType.toCanonical())
+                        .exceptionType(exceptionType.toCanonical())
                         .completedDateUtc(LocalDateTime.now(clock))
                         .build()
                 )

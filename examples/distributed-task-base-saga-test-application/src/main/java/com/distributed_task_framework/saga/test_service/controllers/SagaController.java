@@ -48,6 +48,6 @@ public class SagaController {
     @Operation(summary = "Poll async dtf saga")
     @GetMapping("/{trackId}")
     public Optional<Audit> pollSagaAsync(@PathVariable("trackId") String trackId) {
-        return testSagaService.sagaCallPollResult(SagaTrackId.of(trackId));
+        return testSagaService.sagaCallPollResult(new SagaTrackId(trackId));
     }
 }

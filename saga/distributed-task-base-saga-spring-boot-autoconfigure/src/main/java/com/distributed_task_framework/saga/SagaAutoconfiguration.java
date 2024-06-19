@@ -3,6 +3,7 @@ package com.distributed_task_framework.saga;
 
 import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
 import com.distributed_task_framework.saga.configurations.SagaConfiguration;
+import com.distributed_task_framework.saga.mappers.SagaTrackIdMapper;
 import com.distributed_task_framework.saga.persistence.repository.SagaResultRepository;
 import com.distributed_task_framework.saga.services.SagaContextDiscovery;
 import com.distributed_task_framework.saga.services.SagaProcessor;
@@ -49,6 +50,12 @@ public class SagaAutoconfiguration {
     @ConditionalOnMissingBean
     public Clock distributedTaskInternalClock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SagaTrackIdMapper sagaTrackIdMapper(TaskSerializer taskSerializer) {
+        return new SagaTrackIdMapper(taskSerializer);
     }
 
     //it is important to return exactly SagaContextDiscoveryImpl type in order to allow spring to detect
@@ -101,13 +108,15 @@ public class SagaAutoconfiguration {
                                        SagaRegister sagaRegister,
                                        DistributedTaskService distributedTaskService,
                                        SagaResultService sagaResultService,
-                                       SagaHelper sagaHelper) {
+                                       SagaHelper sagaHelper,
+                                       SagaTrackIdMapper sagaTrackIdMapper) {
         return new SagaProcessorImpl(
                 transactionManager,
                 sagaRegister,
                 distributedTaskService,
                 sagaResultService,
-                sagaHelper
+                sagaHelper,
+                sagaTrackIdMapper
         );
     }
 
