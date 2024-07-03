@@ -14,7 +14,9 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.time.Duration;
@@ -28,13 +30,13 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static java.lang.String.format;
 
 @Slf4j
-@RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueManagerPlannerRepository {
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcTemplate;
 
 
     private static final String SELECT_MAX_CREATED_DATE_IN_NEW_VIRTUAL_QUEUE = """
@@ -42,6 +44,10 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
             FROM _____dtf_tasks
             WHERE virtual_queue = 'NEW'::_____dtf_virtual_queue_type
             """;
+
+    public VirtualQueueManagerPlannerRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    }
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_vq_cdu_idx
     @Override
@@ -144,6 +150,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
     }
 
 
+    //language=PostgreSQL
     private static final String SELECT_AFFINITY_GROUP_NEW_PORTION_TEMPLATE = """
             {TABLE_NAME} AS (
               SELECT
@@ -162,6 +169,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
             """;
 
     //todo: upper bound for key words
+    //language=PostgreSQL
     private static final String MOVE_NEW_TO_READY_TEMPLATE = """
             WITH {AFFINITY_GROUP_TABLES},
             new_raw_union_portion AS ({AGGREGATED_AFFINITY_GROUP_TABLE}),

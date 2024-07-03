@@ -1,5 +1,6 @@
 package com.distributed_task_framework.autoconfigure;
 
+import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.mapper.CommandMapper;
 import com.distributed_task_framework.mapper.NodeStateMapper;
@@ -103,10 +104,14 @@ import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
+import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -114,6 +119,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Configuration
 @ConditionalOnClass(DistributedTaskService.class)
@@ -125,7 +133,9 @@ import java.util.concurrent.TimeUnit;
         JdbcTemplateAutoConfiguration.class,
         DataSourceTransactionManagerAutoConfiguration.class
 })
-@EnableJdbcRepositories(basePackageClasses = NodeStateRepository.class)
+@EnableJdbcRepositories(basePackageClasses = NodeStateRepository.class,
+        transactionManagerRef = DTF_TX_MANAGER,
+        jdbcOperationsRef = DTF_JDBC_OPS)
 @EnableTransactionManagement
 @EnableCaching
 public class DistributedTaskAutoconfigure {
@@ -134,6 +144,25 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public Clock distributedTaskInternalClock() {
         return Clock.systemUTC();
+    }
+
+    @Bean("dtfDataSource")
+    @Conditional(DtfDataSourceCondition.class)
+    @DtfDataSource
+    public DataSource dtfDataSource(DataSource defaultDataSource) {
+        return defaultDataSource;
+    }
+
+    @ConditionalOnMissingBean(name = "dtfTransactionManager")
+    @Bean
+    public DataSourceTransactionManager dtfTransactionManager(@DtfDataSource DataSource dtfDataSource) {
+        return new DataSourceTransactionManager(dtfDataSource);
+    }
+
+    @ConditionalOnMissingBean(name = DTF_JDBC_OPS)
+    @Bean
+    public NamedParameterJdbcOperations dtfNamedParameterJdbcOperations(@DtfDataSource DataSource dtfDataSource) {
+        return new NamedParameterJdbcTemplate(dtfDataSource);
     }
 
     @Bean

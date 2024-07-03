@@ -30,6 +30,7 @@ import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
+import com.distributed_task_framework.task.TaskGenerator;
 import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
@@ -45,7 +46,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.util.Pair;
-import com.distributed_task_framework.task.TaskGenerator;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -69,7 +69,7 @@ import static org.awaitility.Awaitility.await;
 @Disabled
 @FieldDefaults(level = AccessLevel.PROTECTED)
 @Import(BaseSpringIntegrationTest.AdditionalTestConfiguration.class)
-public class BaseSpringIntegrationTest extends BaseTestContainerTest {
+public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
     protected static final Comparator<LocalDateTime> LOCAL_DATE_TIME_COMPARATOR_TO_SECONDS = Comparator.comparing(a -> a.truncatedTo(ChronoUnit.SECONDS));
 
     @Autowired

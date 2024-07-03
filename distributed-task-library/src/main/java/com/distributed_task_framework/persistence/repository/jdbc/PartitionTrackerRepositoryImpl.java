@@ -9,7 +9,9 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.util.List;
@@ -17,11 +19,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
 public class PartitionTrackerRepositoryImpl implements PartitionTrackerRepository {
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcTemplate;
 
     private static final String SELECT_ACTIVE_PARTITIONS = """
             SELECT distinct affinity_group, task_name
@@ -30,6 +33,10 @@ public class PartitionTrackerRepositoryImpl implements PartitionTrackerRepositor
             """;
 
     private static final BeanPropertyRowMapper<Partition> PARTITION_MAPPER = new BeanPropertyRowMapper<>(Partition.class);
+
+    public PartitionTrackerRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    }
 
     //SUPPOSED USED INDEXES: not use index at all, but check very quickly
     @Override

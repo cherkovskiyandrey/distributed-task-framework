@@ -9,25 +9,23 @@ import com.distributed_task_framework.utils.JdbcTools;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static java.lang.String.format;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-@RequiredArgsConstructor
 public class TaskCommandRepositoryImpl implements TaskCommandRepository {
-    JdbcTemplate jdbcTemplate;
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcTemplate;
 
     private static final String RESCHEDULE = """
             UPDATE _____dtf_tasks
@@ -45,11 +43,16 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
             )
             """;
 
+    public TaskCommandRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    }
+
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public void reschedule(TaskEntity taskEntity) {
         Object[] args = toArrayOfParamsToReschedule(taskEntity);
-        int rowAffected = jdbcTemplate.update(RESCHEDULE, args);
+        int rowAffected = namedParameterJdbcTemplate.getJdbcOperations()
+                .update(RESCHEDULE, args);
         if (rowAffected == 1) {
             return;
         }
@@ -67,7 +70,8 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
         var batchArgs = taskEntities.stream()
                 .map(this::toArrayOfParamsToReschedule)
                 .toList();
-        int[] result = jdbcTemplate.batchUpdate(RESCHEDULE, batchArgs);
+        int[] result = namedParameterJdbcTemplate.getJdbcOperations()
+                .batchUpdate(RESCHEDULE, batchArgs);
         var notAffected = JdbcTools.filterNotAffected(Lists.newArrayList(taskEntities), result);
         if (notAffected.isEmpty()) {
             return;
@@ -119,7 +123,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
     @Override
     public boolean forceReschedule(TaskEntity taskEntity) {
         Object[] args = toArrayOfParamsIgnoreVersionToRescheduleAll(taskEntity);
-        return jdbcTemplate.update(RESCHEDULE_IGNORE_VERSION, args) == 1;
+        return namedParameterJdbcTemplate.getJdbcOperations().update(RESCHEDULE_IGNORE_VERSION, args) == 1;
     }
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
@@ -128,7 +132,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
         List<Object[]> batchArgs = tasksToSave.stream()
                 .map(this::toArrayOfParamsIgnoreVersionToRescheduleAll)
                 .toList();
-        jdbcTemplate.batchUpdate(RESCHEDULE_IGNORE_VERSION, batchArgs);
+        namedParameterJdbcTemplate.getJdbcOperations().batchUpdate(RESCHEDULE_IGNORE_VERSION, batchArgs);
     }
 
     private static final String CANCEL_TASK_BY_TASK_ID = """
@@ -145,7 +149,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public boolean cancel(UUID taskId) {
-        int updatedRows = jdbcTemplate.update(CANCEL_TASK_BY_TASK_ID, taskId);
+        int updatedRows = namedParameterJdbcTemplate.getJdbcOperations().update(CANCEL_TASK_BY_TASK_ID, taskId);
         return updatedRows == 1;
     }
 
@@ -156,7 +160,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
                 .map(this::toArrayOfParamsToCancel)
                 .toList();
 
-        jdbcTemplate.batchUpdate(CANCEL_TASK_BY_TASK_ID, batchArgs);
+        namedParameterJdbcTemplate.getJdbcOperations().batchUpdate(CANCEL_TASK_BY_TASK_ID, batchArgs);
     }
 
     private Object[] toArrayOfParamsToReschedule(TaskEntity taskEntity) {

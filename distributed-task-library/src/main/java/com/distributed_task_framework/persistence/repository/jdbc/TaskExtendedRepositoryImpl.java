@@ -6,12 +6,12 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.utils.JdbcTools;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.sql.Types;
 import java.time.Clock;
@@ -25,15 +25,15 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static java.lang.String.format;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-@RequiredArgsConstructor
 public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     public static final BeanPropertyRowMapper<TaskEntity> TASK_ROW_MAPPER = new BeanPropertyRowMapper<>(TaskEntity.class);
 
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcTemplate;
     Clock clock;
 
     private static final String SAVE_OR_UPDATE_TEMPLATE = """
@@ -93,6 +93,11 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
                     failures = excluded.failures
             WHERE _____dtf_tasks.version = :expectedVersion
             """;
+
+    public TaskExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate, Clock clock) {
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+        this.clock = clock;
+    }
 
     @Override
     public TaskEntity saveOrUpdate(TaskEntity taskEntity) {

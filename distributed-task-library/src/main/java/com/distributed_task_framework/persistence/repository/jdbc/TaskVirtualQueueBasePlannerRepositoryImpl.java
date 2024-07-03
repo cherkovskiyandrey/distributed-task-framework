@@ -9,11 +9,11 @@ import com.distributed_task_framework.utils.JdbcTools;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -25,11 +25,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+
 @Slf4j
-@RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class TaskVirtualQueueBasePlannerRepositoryImpl implements TaskVirtualQueueBasePlannerRepository {
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcTemplate;
     Clock clock;
 
     private static final String SELECT_CURRENT_ASSIGNED_TASK_STAT = """
@@ -49,6 +50,11 @@ public class TaskVirtualQueueBasePlannerRepositoryImpl implements TaskVirtualQue
     private static final BeanPropertyRowMapper<NodeTaskActivity> NODE_TASK_ACTIVITY_ROW_MAPPER =
             new BeanPropertyRowMapper<>(NodeTaskActivity.class);
 
+    public TaskVirtualQueueBasePlannerRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate, Clock clock) {
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+        this.clock = clock;
+    }
+
     //SUPPOSED USED INDEXES: _____dtf_tasks_aw_idx
     @Override
     public List<NodeTaskActivity> currentAssignedTaskStat(Set<UUID> knownNodes, Set<String> knownTaskNames) {
@@ -64,6 +70,7 @@ public class TaskVirtualQueueBasePlannerRepositoryImpl implements TaskVirtualQue
     }
 
 
+    //language=PostgreSQL
     private static final String PARTITION_STAT_COUNT_SUB_SELECT_TEMPLATE = """
              {TABLE_NAME} AS (
                  SELECT
@@ -88,6 +95,7 @@ public class TaskVirtualQueueBasePlannerRepositoryImpl implements TaskVirtualQue
              )
             """;
 
+    //language=PostgreSQL
     private static final String PARTITION_STAT_COUNT_SELECT_TEMPLATE = """
             WITH {PARTITION_STAT_COUNT_SUB_TABLES},
             all_tasks AS ({PARTITION_STAT_AGGREGATED_TABLE})
@@ -147,6 +155,7 @@ public class TaskVirtualQueueBasePlannerRepositoryImpl implements TaskVirtualQue
     }
 
 
+    //language=PostgreSQL
     private static final String TASKS_TO_PLAN_SUB_SELECT_TEMPLATE = """
             {TABLE_NAME} AS (
                      SELECT
@@ -175,6 +184,7 @@ public class TaskVirtualQueueBasePlannerRepositoryImpl implements TaskVirtualQue
                  )
             """;
 
+    //language=PostgreSQL
     private static final String TASKS_TO_PLAN_SELECT_TEMPLATE = """
             WITH {TASK_TO_PLAN_SUB_SELECT_TABLES},
             all_tasks AS ({TASK_TO_PLAN_AGGREGATED_TABLE})

@@ -6,11 +6,11 @@ import com.distributed_task_framework.utils.JdbcTools;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 
 import java.sql.Types;
@@ -19,8 +19,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
 public class PartitionExtendedRepositoryImpl implements PartitionExtendedRepository {
     private static final BeanPropertyRowMapper<PartitionEntity> PARTITION_ROW_MAPPER = new BeanPropertyRowMapper<>(PartitionEntity.class);
 
@@ -38,7 +39,11 @@ public class PartitionExtendedRepositoryImpl implements PartitionExtendedReposit
             )
             """;
 
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcTemplate;
+
+    public PartitionExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    }
 
     @Override
     public Collection<PartitionEntity> saveOrUpdateBatch(Collection<PartitionEntity> taskNameEntities) {

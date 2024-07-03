@@ -85,10 +85,14 @@ import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
+import javax.sql.DataSource;
 import java.net.URL;
 import java.time.Clock;
 import java.time.Duration;
@@ -102,7 +106,9 @@ import java.util.concurrent.TimeUnit;
 
 @TestConfiguration
 @EnableJdbcAuditing//(dateTimeProviderRef = "auditingDateTimeProvider")
-@EnableJdbcRepositories(basePackageClasses = NodeStateRepository.class)
+@EnableJdbcRepositories(basePackageClasses = NodeStateRepository.class,
+        transactionManagerRef = "dtfTransactionManager",
+        jdbcOperationsRef = "dtfNamedParameterJdbcOperations")
 @EnableTransactionManagement
 @EnableCaching
 public class BaseTestConfiguration {
@@ -605,5 +611,16 @@ public class BaseTestConfiguration {
                 clock,
                 metricHelper
         );
+    }
+
+    @Bean
+    public NamedParameterJdbcOperations dtfNamedParameterJdbcOperations(DataSource dataSource) {
+        return new NamedParameterJdbcTemplate(dataSource);
+    }
+
+
+    @Bean
+    public DataSourceTransactionManager dtfTransactionManager(DataSource dtfDataSource) {
+        return new DataSourceTransactionManager(dtfDataSource);
     }
 }
