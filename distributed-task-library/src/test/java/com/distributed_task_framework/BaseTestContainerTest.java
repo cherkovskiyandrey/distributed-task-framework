@@ -17,7 +17,7 @@ import java.time.Duration;
 @SpringBootTest //(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(BaseTestConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class BaseTestContainerTest {
+public abstract class BaseTestContainerTest {
     protected static final String POSTGRESQL_SERVICE = "distributed-task-postgresql";
     protected static final int POSTGRESQL_PORT = 5432;
 

@@ -3,16 +3,18 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
 import com.distributed_task_framework.persistence.repository.RegisteredTaskExtendedRepository;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.util.Collection;
 import java.util.UUID;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
 public class RegisteredTaskExtendedRepositoryImpl implements RegisteredTaskExtendedRepository {
     private static final String SAVE_OR_UPDATE_BATCH = """
             INSERT INTO _____dtf_registered_tasks (
@@ -28,7 +30,11 @@ public class RegisteredTaskExtendedRepositoryImpl implements RegisteredTaskExten
                 task_name = :taskName
             """;
 
-    NamedParameterJdbcTemplate jdbcTemplate;
+    NamedParameterJdbcOperations jdbcTemplate;
+
+    public RegisteredTaskExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
 
     @Override
     public void saveOrUpdateBatch(Collection<RegisteredTaskEntity> taskEntities) {

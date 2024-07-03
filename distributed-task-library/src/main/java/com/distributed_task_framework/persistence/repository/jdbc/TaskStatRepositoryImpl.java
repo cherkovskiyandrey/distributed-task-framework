@@ -4,21 +4,22 @@ import com.distributed_task_framework.model.AggregatedTaskStat;
 import com.distributed_task_framework.persistence.repository.TaskStatRepository;
 import com.distributed_task_framework.utils.JdbcTools;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-@RequiredArgsConstructor
 public class TaskStatRepositoryImpl implements TaskStatRepository {
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations dtfNamedParameterJdbcTemplate;
 
     private static final String SELECT_AGGREGATED_TASK_STAT = """
             SELECT
@@ -37,10 +38,14 @@ public class TaskStatRepositoryImpl implements TaskStatRepository {
     private static final BeanPropertyRowMapper<AggregatedTaskStat> AGGREGATED_TASK_STAT_ROW_MAPPER =
             new BeanPropertyRowMapper<>(AggregatedTaskStat.class);
 
+    public TaskStatRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations dtfNamedParameterJdbcTemplate) {
+        this.dtfNamedParameterJdbcTemplate = dtfNamedParameterJdbcTemplate;
+    }
+
     //SUPPOSED USED INDEXES: don't use any indexes because of scan all history
     @Override
     public List<AggregatedTaskStat> getAggregatedTaskStat(Set<String> knownTaskNames) {
-        return namedParameterJdbcTemplate.query(
+        return dtfNamedParameterJdbcTemplate.query(
                         SELECT_AGGREGATED_TASK_STAT,
                         Map.of(
                                 "knownTaskNames", JdbcTools.toArray(knownTaskNames)

@@ -6,12 +6,12 @@ import com.distributed_task_framework.persistence.repository.TaskWorkerRepositor
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.JdbcTools;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -21,11 +21,12 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-@RequiredArgsConstructor
 public class TaskWorkerRepositoryImpl implements TaskWorkerRepository {
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcTemplate;
     CommonSettings commonSettings;
 
     private static final String SELECT_NEXT_ASSIGNED_TASKS = """
@@ -40,6 +41,11 @@ public class TaskWorkerRepositoryImpl implements TaskWorkerRepository {
             ORDER BY execution_date_utc
             LIMIT :maxSize
             """;
+
+    public TaskWorkerRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate, CommonSettings commonSettings) {
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+        this.commonSettings = commonSettings;
+    }
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_aw_idx
     @Override

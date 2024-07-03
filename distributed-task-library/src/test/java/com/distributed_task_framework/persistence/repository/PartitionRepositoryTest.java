@@ -12,8 +12,6 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import java.util.Collection;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE)
 class PartitionRepositoryTest extends BaseRepositoryTest {
