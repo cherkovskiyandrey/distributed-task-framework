@@ -3,7 +3,7 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaParseObjectException;
-import com.distributed_task_framework.saga.models.SagaContext;
+import com.distributed_task_framework.saga.models.SagaActionContext;
 import com.distributed_task_framework.saga.models.SagaPipelineContext;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.TaskSerializer;
@@ -37,7 +37,7 @@ public class SagaHelper {
         if (parentSagaContext == null) {
             parentSagaContext = new SagaPipelineContext();
         }
-        parentSagaContext.addSagaContext(SagaContext.builder()
+        parentSagaContext.addSagaContext(SagaActionContext.builder()
                 .sagaMethodTaskName(sagaMethodTaskDef.getTaskName())
                 .operationSagaSchemaArguments(operationSagaSchemaArguments)
                 .sagaRevertMethodTaskName(sagaRevertMethodTaskDef != null ? sagaRevertMethodTaskDef.getTaskName() : null)

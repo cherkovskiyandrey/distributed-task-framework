@@ -4,7 +4,7 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.saga.mappers.SagaTrackIdMapper;
-import com.distributed_task_framework.saga.models.SagaContext;
+import com.distributed_task_framework.saga.models.SagaActionContext;
 import com.distributed_task_framework.saga.models.SagaOperation;
 import com.distributed_task_framework.saga.models.SagaPipelineContext;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
@@ -183,10 +183,10 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         UUID sagaId = sagaParentPipelineContext.getSagaId();
         sagaParentPipelineContext.rewind();
         sagaParentPipelineContext.moveToNext();
-        SagaContext currentSagaContext = sagaParentPipelineContext.getCurrentSagaContext();
+        SagaActionContext currentSagaActionContext = sagaParentPipelineContext.getCurrentSagaContext();
 
         TaskId taskId = distributedTaskService.schedule(
-                sagaRegister.resolveByTaskName(currentSagaContext.getSagaMethodTaskName()),
+                sagaRegister.resolveByTaskName(currentSagaActionContext.getSagaMethodTaskName()),
                 ExecutionContext.withAffinityGroup(
                         sagaParentPipelineContext,
                         affinityGroup,
@@ -212,10 +212,10 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         UUID sagaId = sagaParentPipelineContext.getSagaId();
         sagaParentPipelineContext.rewind();
         sagaParentPipelineContext.moveToNext();
-        SagaContext currentSagaContext = sagaParentPipelineContext.getCurrentSagaContext();
+        SagaActionContext currentSagaActionContext = sagaParentPipelineContext.getCurrentSagaContext();
 
         TaskId taskId = distributedTaskService.schedule(
-                sagaRegister.resolveByTaskName(currentSagaContext.getSagaMethodTaskName()),
+                sagaRegister.resolveByTaskName(currentSagaActionContext.getSagaMethodTaskName()),
                 ExecutionContext.simple(sagaParentPipelineContext)
         );
         sagaResultService.beginWatching(sagaId);

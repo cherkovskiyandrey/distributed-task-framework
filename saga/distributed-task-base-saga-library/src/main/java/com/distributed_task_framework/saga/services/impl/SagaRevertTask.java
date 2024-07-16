@@ -8,7 +8,7 @@ import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
-import com.distributed_task_framework.saga.models.SagaContext;
+import com.distributed_task_framework.saga.models.SagaActionContext;
 import com.distributed_task_framework.saga.models.SagaPipelineContext;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
 import com.distributed_task_framework.saga.utils.ArgumentProviderBuilder;
@@ -43,16 +43,16 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
     @Override
     public void execute(ExecutionContext<SagaPipelineContext> executionContext) throws Exception {
         SagaPipelineContext sagaPipelineContext = executionContext.getInputMessageOrThrow();
-        SagaContext currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
-        SagaSchemaArguments sagaSchemaArguments = currentSagaContext.getRevertOperationSagaSchemaArguments();
+        SagaActionContext currentSagaActionContext = sagaPipelineContext.getCurrentSagaContext();
+        SagaSchemaArguments sagaSchemaArguments = currentSagaActionContext.getRevertOperationSagaSchemaArguments();
 
         byte[] serializedInput = sagaPipelineContext.getRootSagaContext().getSerializedInput();
-        byte[] serializedOutput = currentSagaContext.getSerializedOutput();
+        byte[] serializedOutput = currentSagaActionContext.getSerializedOutput();
         byte[] parentSerializedOutput = sagaPipelineContext.getParentSagaContext()
                 .flatMap(sagaContext -> Optional.ofNullable(sagaContext.getSerializedOutput()))
                 .orElse(null);
-        var exceptionType = currentSagaContext.getExceptionType();
-        byte[] serializedException = currentSagaContext.getSerializedException();
+        var exceptionType = currentSagaActionContext.getExceptionType();
+        byte[] serializedException = currentSagaActionContext.getSerializedException();
         var sagaExecutionException = sagaHelper.buildExecutionException(exceptionType, serializedException);
 
         ArgumentProviderBuilder argumentProviderBuilder = new ArgumentProviderBuilder(sagaSchemaArguments);

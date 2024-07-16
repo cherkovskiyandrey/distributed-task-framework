@@ -17,13 +17,13 @@ import java.util.UUID;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SagaPipelineContext {
     final UUID sagaId;
-    final List<SagaContext> sagaContexts;
+    final List<SagaActionContext> sagaActionContexts;
     int cursor;
     boolean forward;
 
     public SagaPipelineContext() {
         this.sagaId = UUID.randomUUID();
-        this.sagaContexts = Lists.newArrayList();
+        this.sagaActionContexts = Lists.newArrayList();
         this.cursor = -1;
         this.forward = true;
     }
@@ -58,7 +58,7 @@ public class SagaPipelineContext {
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean hasNext() {
         if (forward) {
-            return cursor + 1 < sagaContexts.size();
+            return cursor + 1 < sagaActionContexts.size();
         }
 
         for (var revCursor = cursor; revCursor > 0; revCursor -= 1) {
@@ -94,15 +94,15 @@ public class SagaPipelineContext {
      * @return
      */
     @JsonIgnore
-    public SagaContext getCurrentSagaContext() {
+    public SagaActionContext getCurrentSagaContext() {
         checkBorders();
-        return sagaContexts.get(cursor);
+        return sagaActionContexts.get(cursor);
     }
 
     @JsonIgnore
-    public SagaContext getRootSagaContext() {
+    public SagaActionContext getRootSagaContext() {
         checkBorders();
-        return sagaContexts.get(0);
+        return sagaActionContexts.get(0);
     }
 
     /**
@@ -112,10 +112,10 @@ public class SagaPipelineContext {
      * @return
      */
     @JsonIgnore
-    public Optional<SagaContext> getParentSagaContext() {
+    public Optional<SagaActionContext> getParentSagaContext() {
         checkBorders();
         if (cursor - 1 >= 0) {
-            return Optional.ofNullable(sagaContexts.get(cursor - 1));
+            return Optional.ofNullable(sagaActionContexts.get(cursor - 1));
         }
         return Optional.empty();
     }
@@ -124,38 +124,38 @@ public class SagaPipelineContext {
      * Add SagaContext to next position.
      * Always add to forward direction.
      *
-     * @param sagaContext
+     * @param sagaActionContext
      */
     @JsonIgnore
-    public void addSagaContext(SagaContext sagaContext) {
+    public void addSagaContext(SagaActionContext sagaActionContext) {
         if (!forward) {
             throw new UnsupportedOperationException("Isn't supported");
         }
-        sagaContexts.add(sagaContext);
+        sagaActionContexts.add(sagaActionContext);
     }
 
     /**
      * Set SagaContext on current position.
      *
-     * @param currentSagaContext
+     * @param currentSagaActionContext
      */
     @JsonIgnore
-    public void setCurrentSagaContext(SagaContext currentSagaContext) {
+    public void setCurrentSagaContext(SagaActionContext currentSagaActionContext) {
         checkBorders();
-        sagaContexts.set(cursor, currentSagaContext);
+        sagaActionContexts.set(cursor, currentSagaActionContext);
     }
 
     private void checkBorders() {
-        if (sagaContexts.isEmpty() || cursor < 0 || cursor >= sagaContexts.size()) {
+        if (sagaActionContexts.isEmpty() || cursor < 0 || cursor >= sagaActionContexts.size()) {
             throw new SagaOutBoundException(
-                    "checkBorders(): rawCursor=[%d], sagaContexts.size=[%d]".formatted(cursor, sagaContexts.size())
+                    "checkBorders(): rawCursor=[%d], sagaContexts.size=[%d]".formatted(cursor, sagaActionContexts.size())
             );
         }
     }
 
     @JsonIgnore
     private boolean hasValidRevertOperation(int cursor) {
-        var sagaContext = sagaContexts.get(cursor);
+        var sagaContext = sagaActionContexts.get(cursor);
         return sagaContext != null && sagaContext.getSagaRevertMethodTaskName() != null;
     }
 }

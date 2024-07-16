@@ -5,7 +5,7 @@ import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
-import com.distributed_task_framework.saga.models.SagaContext;
+import com.distributed_task_framework.saga.models.SagaActionContext;
 import com.distributed_task_framework.saga.models.SagaPipelineContext;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.services.SagaResultService;
@@ -54,8 +54,8 @@ public class SagaTask implements Task<SagaPipelineContext> {
     @Override
     public void execute(ExecutionContext<SagaPipelineContext> executionContext) throws Exception {
         SagaPipelineContext sagaPipelineContext = executionContext.getInputMessageOrThrow();
-        SagaContext currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
-        SagaSchemaArguments operationSagaSchemaArguments = currentSagaContext.getOperationSagaSchemaArguments();
+        SagaActionContext currentSagaActionContext = sagaPipelineContext.getCurrentSagaContext();
+        SagaSchemaArguments operationSagaSchemaArguments = currentSagaActionContext.getOperationSagaSchemaArguments();
 
         byte[] rootArgument = sagaPipelineContext.getRootSagaContext().getSerializedInput();
         byte[] parentArgument = sagaPipelineContext.getParentSagaContext()
@@ -101,10 +101,10 @@ public class SagaTask implements Task<SagaPipelineContext> {
             return; //last task in sequence
         }
 
-        currentSagaContext = currentSagaContext.toBuilder()
+        currentSagaActionContext = currentSagaActionContext.toBuilder()
                 .serializedOutput(taskSerializer.writeValue(result))
                 .build();
-        sagaPipelineContext.setCurrentSagaContext(currentSagaContext);
+        sagaPipelineContext.setCurrentSagaContext(currentSagaActionContext);
 
         sagaPipelineContext.moveToNext();
         var nextSagaContext = sagaPipelineContext.getCurrentSagaContext();
@@ -133,7 +133,7 @@ public class SagaTask implements Task<SagaPipelineContext> {
 
         if (isLastAttempt) {
             SagaPipelineContext sagaPipelineContext = failedExecutionContext.getInputMessageOrThrow();
-            SagaContext currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
+            SagaActionContext currentSagaActionContext = sagaPipelineContext.getCurrentSagaContext();
 
             JavaType exceptionType = TypeFactory.defaultInstance().constructType(exception.getClass());
 
@@ -147,11 +147,11 @@ public class SagaTask implements Task<SagaPipelineContext> {
                     exceptionType
             );
 
-            currentSagaContext = currentSagaContext.toBuilder()
+            currentSagaActionContext = currentSagaActionContext.toBuilder()
                     .exceptionType(exceptionType.toCanonical())
                     .serializedException(serializedException)
                     .build();
-            sagaPipelineContext.setCurrentSagaContext(currentSagaContext);
+            sagaPipelineContext.setCurrentSagaContext(currentSagaActionContext);
             sagaPipelineContext.rewindToRevertFormCurrentPosition();
 
             if (!sagaPipelineContext.hasNext()) {
@@ -159,9 +159,9 @@ public class SagaTask implements Task<SagaPipelineContext> {
             }
 
             sagaPipelineContext.moveToNext();
-            currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
+            currentSagaActionContext = sagaPipelineContext.getCurrentSagaContext();
             distributedTaskService.schedule(
-                    sagaRegister.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
+                    sagaRegister.resolveByTaskName(currentSagaActionContext.getSagaRevertMethodTaskName()),
                     failedExecutionContext.withNewMessage(sagaPipelineContext)
             );
         }

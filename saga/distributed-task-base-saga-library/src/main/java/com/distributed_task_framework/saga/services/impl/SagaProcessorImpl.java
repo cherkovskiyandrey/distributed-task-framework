@@ -52,7 +52,7 @@ import java.util.function.Function;
  * 9. Ability to wait task result (+)
  * 10. Ability to set default and custom retry settings (maybe via task settings ?) (-)
  * - in real properties from application.yaml doesn't work at all!!! because they are built in com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor#buildTaskSettings(com.distributed_task_framework.task.Task)
- * and this logic has to be repeated in the saga library (-)
+ * and this logic has to be repeated in the saga library or separated and moved to dedicated module (-)
  * 8. Необходимо регистрировать 2 таски одну для прямой операции и вторую для обратной и создать регистр имя-операции:код ? (-)
  * - тут основные консерны:
  * - как быть с версионностью (-)
@@ -161,6 +161,7 @@ public class SagaProcessorImpl implements SagaProcessor {
 
     @Override
     public SagaFlowWithoutResult getFlow(SagaTrackId trackId) {
+        //todo
         throw new UnsupportedOperationException();
     }
 }
