@@ -1,6 +1,5 @@
 package com.distributed_task_framework.saga.test_service.controllers;
 
-import com.distributed_task_framework.saga.models.SagaTrackId;
 import com.distributed_task_framework.saga.test_service.models.TestDataDto;
 import com.distributed_task_framework.saga.test_service.persistence.entities.Audit;
 import com.distributed_task_framework.saga.test_service.services.TestSagaService;
@@ -14,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("api/saga")
@@ -41,13 +41,13 @@ public class SagaController {
 
     @Operation(summary = "Run async dtf saga")
     @PostMapping("/async")
-    public SagaTrackId runSagaAsync(@RequestBody(required = false) TestDataDto testDataDto) throws Exception {
+    public UUID runSagaAsync(@RequestBody(required = false) TestDataDto testDataDto) throws Exception {
         return testSagaService.sagaCallAsync(testDataDto);
     }
 
     @Operation(summary = "Poll async dtf saga")
     @GetMapping("/{trackId}")
-    public Optional<Audit> pollSagaAsync(@PathVariable("trackId") String trackId) {
-        return testSagaService.sagaCallPollResult(new SagaTrackId(trackId));
+    public Optional<Audit> pollSagaAsync(@PathVariable("trackId") UUID trackId) {
+        return testSagaService.sagaCallPollResult(trackId);
     }
 }

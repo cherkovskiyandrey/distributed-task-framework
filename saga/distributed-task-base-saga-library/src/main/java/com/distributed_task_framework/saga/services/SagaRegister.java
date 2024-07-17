@@ -2,7 +2,7 @@ package com.distributed_task_framework.saga.services;
 
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.models.SagaOperation;
-import com.distributed_task_framework.saga.models.SagaPipelineContext;
+import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -22,5 +22,5 @@ public interface SagaRegister {
             RevertibleThreeConsumer<PARENT_INPUT, INPUT, OUTPUT> revertOperation
     );
 
-    TaskDef<SagaPipelineContext> resolveByTaskName(String taskName);
+    TaskDef<SagaEmbeddedPipelineContext> resolveByTaskName(String taskName);
 }

@@ -3,22 +3,23 @@ package com.distributed_task_framework.saga;
 
 import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
 import com.distributed_task_framework.saga.configurations.SagaConfiguration;
-import com.distributed_task_framework.saga.mappers.SagaTrackIdMapper;
-import com.distributed_task_framework.saga.persistence.repository.SagaResultRepository;
+import com.distributed_task_framework.saga.mappers.ContextMapper;
+import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
 import com.distributed_task_framework.saga.services.SagaContextDiscovery;
+import com.distributed_task_framework.saga.services.SagaContextService;
 import com.distributed_task_framework.saga.services.SagaProcessor;
 import com.distributed_task_framework.saga.services.SagaRegister;
-import com.distributed_task_framework.saga.services.SagaResultService;
 import com.distributed_task_framework.saga.services.SagaTaskFactory;
 import com.distributed_task_framework.saga.services.impl.SagaContextDiscoveryImpl;
+import com.distributed_task_framework.saga.services.impl.SagaContextServiceImpl;
 import com.distributed_task_framework.saga.services.impl.SagaHelper;
 import com.distributed_task_framework.saga.services.impl.SagaProcessorImpl;
 import com.distributed_task_framework.saga.services.impl.SagaRegisterImpl;
-import com.distributed_task_framework.saga.services.impl.SagaResultServiceImpl;
 import com.distributed_task_framework.saga.services.impl.SagaTaskFactoryImpl;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
+import org.mapstruct.factory.Mappers;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -40,7 +41,7 @@ import java.time.Clock;
 @AutoConfigureAfter(
         DistributedTaskAutoconfigure.class
 )
-@EnableJdbcRepositories(basePackageClasses = SagaResultRepository.class)
+@EnableJdbcRepositories(basePackageClasses = SagaContextRepository.class)
 @EnableTransactionManagement
 @EnableAspectJAutoProxy(proxyTargetClass = true)
 @EnableConfigurationProperties(value = SagaConfiguration.class)
@@ -54,8 +55,8 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaTrackIdMapper sagaTrackIdMapper(TaskSerializer taskSerializer) {
-        return new SagaTrackIdMapper(taskSerializer);
+    public ContextMapper contextMapper() {
+        return Mappers.getMapper(ContextMapper.class);
     }
 
     //it is important to return exactly SagaContextDiscoveryImpl type in order to allow spring to detect
@@ -68,13 +69,15 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaResultService sagaResultService(SagaResultRepository sagaResultRepository,
-                                               SagaHelper sagaHelper,
-                                               Clock clock,
-                                               SagaConfiguration sagaConfiguration) {
-        return new SagaResultServiceImpl(
-                sagaResultRepository,
+    public SagaContextService sagaResultService(SagaContextRepository sagaContextRepository,
+                                                SagaHelper sagaHelper,
+                                                ContextMapper contextMapper,
+                                                Clock clock,
+                                                SagaConfiguration sagaConfiguration) {
+        return new SagaContextServiceImpl(
+                sagaContextRepository,
                 sagaHelper,
+                contextMapper,
                 clock,
                 sagaConfiguration
         );
@@ -107,16 +110,14 @@ public class SagaAutoconfiguration {
     public SagaProcessor sagaProcessor(PlatformTransactionManager transactionManager,
                                        SagaRegister sagaRegister,
                                        DistributedTaskService distributedTaskService,
-                                       SagaResultService sagaResultService,
-                                       SagaHelper sagaHelper,
-                                       SagaTrackIdMapper sagaTrackIdMapper) {
+                                       SagaContextService sagaContextService,
+                                       SagaHelper sagaHelper) {
         return new SagaProcessorImpl(
                 transactionManager,
                 sagaRegister,
                 distributedTaskService,
-                sagaResultService,
-                sagaHelper,
-                sagaTrackIdMapper
+                sagaContextService,
+                sagaHelper
         );
     }
 
@@ -125,12 +126,12 @@ public class SagaAutoconfiguration {
     public SagaTaskFactory sagaTaskFactory(@Lazy SagaRegister sagaRegister,
                                            DistributedTaskService distributedTaskService,
                                            TaskSerializer taskSerializer,
-                                           SagaResultService sagaResultService,
+                                           SagaContextService sagaContextService,
                                            SagaHelper sagaHelper) {
         return new SagaTaskFactoryImpl(
                 sagaRegister,
                 distributedTaskService,
-                sagaResultService,
+                sagaContextService,
                 taskSerializer,
                 sagaHelper
         );

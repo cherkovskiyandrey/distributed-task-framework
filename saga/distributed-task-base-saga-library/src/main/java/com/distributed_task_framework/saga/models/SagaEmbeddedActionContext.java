@@ -10,7 +10,7 @@ import lombok.extern.jackson.Jacksonized;
 @Value
 @Builder(toBuilder = true)
 @Jacksonized
-public class SagaActionContext {
+public class SagaEmbeddedActionContext {
     @ToString.Exclude
     @Nullable
     byte[] serializedInput;

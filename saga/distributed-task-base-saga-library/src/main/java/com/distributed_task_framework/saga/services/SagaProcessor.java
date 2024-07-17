@@ -1,7 +1,6 @@
 package com.distributed_task_framework.saga.services;
 
-import com.distributed_task_framework.saga.models.SagaTrackId;
-
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -74,7 +73,7 @@ public interface SagaProcessor {
      * @param <OUTPUT>      output type
      * @return {@link SagaFlow} if exists, empty otherwise
      */
-    <OUTPUT> SagaFlow<OUTPUT> getFlow(SagaTrackId trackId, Class<OUTPUT> trackingClass);
+    <OUTPUT> SagaFlow<OUTPUT> getFlow(UUID trackId, Class<OUTPUT> trackingClass);
 
     /**
      * Get flow by trackId if exists.
@@ -82,5 +81,5 @@ public interface SagaProcessor {
      * @param trackId trackId for saga flow
      * @return {@link SagaFlowWithoutResult} if exists, empty otherwise
      */
-    SagaFlowWithoutResult getFlow(SagaTrackId trackId);
+    SagaFlowWithoutResult getFlow(UUID trackId);
 }

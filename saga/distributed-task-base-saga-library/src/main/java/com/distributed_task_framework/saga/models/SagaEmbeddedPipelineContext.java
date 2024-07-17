@@ -15,15 +15,15 @@ import java.util.UUID;
 @Getter
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SagaPipelineContext {
+public class SagaEmbeddedPipelineContext {
     final UUID sagaId;
-    final List<SagaActionContext> sagaActionContexts;
+    final List<SagaEmbeddedActionContext> sagaEmbeddedActionContexts;
     int cursor;
     boolean forward;
 
-    public SagaPipelineContext() {
+    public SagaEmbeddedPipelineContext() {
         this.sagaId = UUID.randomUUID();
-        this.sagaActionContexts = Lists.newArrayList();
+        this.sagaEmbeddedActionContexts = Lists.newArrayList();
         this.cursor = -1;
         this.forward = true;
     }
@@ -39,7 +39,7 @@ public class SagaPipelineContext {
     /**
      * Set direction to backward and move cursor to BEFORE the first valid revert operation.
      */
-    public void rewindToRevertFormCurrentPosition() {
+    public void rewindToRevertFromCurrentPosition() {
         forward = false;
         for (cursor = cursor + 1; cursor > 0; cursor -= 1) {
             if (hasValidRevertOperation(cursor - 1)) {
@@ -58,7 +58,7 @@ public class SagaPipelineContext {
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean hasNext() {
         if (forward) {
-            return cursor + 1 < sagaActionContexts.size();
+            return cursor + 1 < sagaEmbeddedActionContexts.size();
         }
 
         for (var revCursor = cursor; revCursor > 0; revCursor -= 1) {
@@ -94,15 +94,15 @@ public class SagaPipelineContext {
      * @return
      */
     @JsonIgnore
-    public SagaActionContext getCurrentSagaContext() {
+    public SagaEmbeddedActionContext getCurrentSagaContext() {
         checkBorders();
-        return sagaActionContexts.get(cursor);
+        return sagaEmbeddedActionContexts.get(cursor);
     }
 
     @JsonIgnore
-    public SagaActionContext getRootSagaContext() {
+    public SagaEmbeddedActionContext getRootSagaContext() {
         checkBorders();
-        return sagaActionContexts.get(0);
+        return sagaEmbeddedActionContexts.get(0);
     }
 
     /**
@@ -112,10 +112,10 @@ public class SagaPipelineContext {
      * @return
      */
     @JsonIgnore
-    public Optional<SagaActionContext> getParentSagaContext() {
+    public Optional<SagaEmbeddedActionContext> getParentSagaContext() {
         checkBorders();
         if (cursor - 1 >= 0) {
-            return Optional.ofNullable(sagaActionContexts.get(cursor - 1));
+            return Optional.ofNullable(sagaEmbeddedActionContexts.get(cursor - 1));
         }
         return Optional.empty();
     }
@@ -124,38 +124,38 @@ public class SagaPipelineContext {
      * Add SagaContext to next position.
      * Always add to forward direction.
      *
-     * @param sagaActionContext
+     * @param sagaEmbeddedActionContext
      */
     @JsonIgnore
-    public void addSagaContext(SagaActionContext sagaActionContext) {
+    public void addSagaContext(SagaEmbeddedActionContext sagaEmbeddedActionContext) {
         if (!forward) {
             throw new UnsupportedOperationException("Isn't supported");
         }
-        sagaActionContexts.add(sagaActionContext);
+        sagaEmbeddedActionContexts.add(sagaEmbeddedActionContext);
     }
 
     /**
      * Set SagaContext on current position.
      *
-     * @param currentSagaActionContext
+     * @param currentSagaEmbeddedActionContext
      */
     @JsonIgnore
-    public void setCurrentSagaContext(SagaActionContext currentSagaActionContext) {
+    public void setCurrentSagaContext(SagaEmbeddedActionContext currentSagaEmbeddedActionContext) {
         checkBorders();
-        sagaActionContexts.set(cursor, currentSagaActionContext);
+        sagaEmbeddedActionContexts.set(cursor, currentSagaEmbeddedActionContext);
     }
 
     private void checkBorders() {
-        if (sagaActionContexts.isEmpty() || cursor < 0 || cursor >= sagaActionContexts.size()) {
+        if (sagaEmbeddedActionContexts.isEmpty() || cursor < 0 || cursor >= sagaEmbeddedActionContexts.size()) {
             throw new SagaOutBoundException(
-                    "checkBorders(): rawCursor=[%d], sagaContexts.size=[%d]".formatted(cursor, sagaActionContexts.size())
+                    "checkBorders(): rawCursor=[%d], sagaContexts.size=[%d]".formatted(cursor, sagaEmbeddedActionContexts.size())
             );
         }
     }
 
     @JsonIgnore
     private boolean hasValidRevertOperation(int cursor) {
-        var sagaContext = sagaActionContexts.get(cursor);
+        var sagaContext = sagaEmbeddedActionContexts.get(cursor);
         return sagaContext != null && sagaContext.getSagaRevertMethodTaskName() != null;
     }
 }

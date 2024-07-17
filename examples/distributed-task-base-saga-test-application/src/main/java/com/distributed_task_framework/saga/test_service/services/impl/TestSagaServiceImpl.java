@@ -3,7 +3,6 @@ package com.distributed_task_framework.saga.test_service.services.impl;
 import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.annotations.SagaRevertMethod;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
-import com.distributed_task_framework.saga.models.SagaTrackId;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaProcessor;
 import com.distributed_task_framework.saga.test_service.models.RemoteOneDto;
@@ -34,6 +33,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 @Slf4j
@@ -105,14 +105,14 @@ public class TestSagaServiceImpl implements TestSagaService {
     }
 
     @Override
-    public SagaTrackId sagaCallAsync(TestDataDto testDataDto) {
+    public UUID sagaCallAsync(TestDataDto testDataDto) {
         return sagaCallBase(testDataDto)
                 .trackId();
     }
 
     @SneakyThrows
     @Override
-    public Optional<Audit> sagaCallPollResult(SagaTrackId trackId) {
+    public Optional<Audit> sagaCallPollResult(UUID trackId) {
         SagaFlow<Audit> sagaProcessorFlow = sagaProcessor.getFlow(trackId, Audit.class);
         return sagaProcessorFlow.isCompleted() ? sagaProcessorFlow.get() : Optional.empty();
     }

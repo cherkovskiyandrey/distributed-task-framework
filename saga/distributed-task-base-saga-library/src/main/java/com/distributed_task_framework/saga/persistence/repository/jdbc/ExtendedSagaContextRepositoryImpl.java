@@ -1,7 +1,7 @@
 package com.distributed_task_framework.saga.persistence.repository.jdbc;
 
-import com.distributed_task_framework.saga.persistence.entities.SagaResultEntity;
-import com.distributed_task_framework.saga.persistence.repository.ExtendedSagaResultRepository;
+import com.distributed_task_framework.saga.persistence.entities.SagaContextEntity;
+import com.distributed_task_framework.saga.persistence.repository.ExtendedSagaContextRepository;
 import com.distributed_task_framework.utils.JdbcTools;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -20,22 +20,24 @@ import java.util.UUID;
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class ExtendedSagaResultRepositoryImpl implements ExtendedSagaResultRepository {
+public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRepository {
     NamedParameterJdbcTemplate namedParameterJdbcTemplate;
     Clock clock;
 
     //language=postgresql
     private static final String SAVE_OR_UPDATE = """
-            INSERT INTO _____dtf_saga_result (
+            INSERT INTO _____dtf_saga_context (
                 saga_id,
                 created_date_utc,
                 completed_date_utc,
+                root_task_id,
                 exception_type,
                 result
             ) VALUES (
                 :sagaId::uuid,
                 :createdDateUtc,
                 :completedDateUtc,
+                :rootTaskId,
                 :exceptionType,
                 :result
             ) ON CONFLICT (saga_id) DO UPDATE
@@ -43,24 +45,25 @@ public class ExtendedSagaResultRepositoryImpl implements ExtendedSagaResultRepos
                     saga_id = excluded.saga_id,
                     created_date_utc = excluded.created_date_utc,
                     completed_date_utc = excluded.completed_date_utc,
+                    root_task_id = excluded.root_task_id,
                     exception_type = excluded.exception_type,
                     result = excluded.result
             """;
 
     @Override
-    public SagaResultEntity saveOrUpdate(SagaResultEntity sagaResultEntity) {
-        var parameterSource = toSqlParameterSource(sagaResultEntity);
+    public SagaContextEntity saveOrUpdate(SagaContextEntity sagaContextEntity) {
+        var parameterSource = toSqlParameterSource(sagaContextEntity);
         namedParameterJdbcTemplate.update(
                 SAVE_OR_UPDATE,
                 parameterSource
         );
-        return sagaResultEntity;
+        return sagaContextEntity;
     }
 
 
     //language=postgresql
     private static final String REMOVE_EXPIRED_EMPTY_RESULT = """
-            DELETE FROM _____dtf_saga_result
+            DELETE FROM _____dtf_saga_context
             WHERE
                 completed_date_utc IS NULL
                 AND created_date_utc < :timeThreshold
@@ -68,7 +71,7 @@ public class ExtendedSagaResultRepositoryImpl implements ExtendedSagaResultRepos
             """;
 
     @Override
-    public List<UUID> removeExpiredEmptyResults(Duration delay) {
+    public List<UUID> removeHanging(Duration delay) {
         var mapSqlParameterSource = new MapSqlParameterSource();
         mapSqlParameterSource.addValue("timeThreshold", LocalDateTime.now(clock).minus(delay), Types.TIMESTAMP);
         return namedParameterJdbcTemplate.queryForList(
@@ -81,7 +84,7 @@ public class ExtendedSagaResultRepositoryImpl implements ExtendedSagaResultRepos
 
     //language=postgresql
     private static final String REMOVE_EXPIRED_RESULT = """
-            DELETE FROM _____dtf_saga_result
+            DELETE FROM _____dtf_saga_context
             WHERE
                 completed_date_utc IS NOT NULL
                 AND completed_date_utc < :timeThreshold
@@ -89,7 +92,7 @@ public class ExtendedSagaResultRepositoryImpl implements ExtendedSagaResultRepos
             """;
 
     @Override
-    public List<UUID> removeExpiredResults(Duration delay) {
+    public List<UUID> removeExpired(Duration delay) {
         var mapSqlParameterSource = new MapSqlParameterSource();
         mapSqlParameterSource.addValue("timeThreshold", LocalDateTime.now(clock).minus(delay), Types.TIMESTAMP);
         return namedParameterJdbcTemplate.queryForList(
@@ -99,13 +102,14 @@ public class ExtendedSagaResultRepositoryImpl implements ExtendedSagaResultRepos
         );
     }
 
-    private MapSqlParameterSource toSqlParameterSource(SagaResultEntity sagaResultEntity) {
+    private MapSqlParameterSource toSqlParameterSource(SagaContextEntity sagaContextEntity) {
         var mapSqlParameterSource = new MapSqlParameterSource();
-        mapSqlParameterSource.addValue(SagaResultEntity.Fields.sagaId, JdbcTools.asNullableString(sagaResultEntity.getSagaId()), Types.VARCHAR);
-        mapSqlParameterSource.addValue(SagaResultEntity.Fields.createdDateUtc, sagaResultEntity.getCreatedDateUtc(), Types.TIMESTAMP);
-        mapSqlParameterSource.addValue(SagaResultEntity.Fields.completedDateUtc, sagaResultEntity.getCompletedDateUtc(), Types.TIMESTAMP);
-        mapSqlParameterSource.addValue(SagaResultEntity.Fields.exceptionType, sagaResultEntity.getExceptionType(), Types.VARCHAR);
-        mapSqlParameterSource.addValue(SagaResultEntity.Fields.result, sagaResultEntity.getResult(), Types.BINARY);
+        mapSqlParameterSource.addValue(SagaContextEntity.Fields.sagaId, JdbcTools.asNullableString(sagaContextEntity.getSagaId()), Types.VARCHAR);
+        mapSqlParameterSource.addValue(SagaContextEntity.Fields.createdDateUtc, sagaContextEntity.getCreatedDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(SagaContextEntity.Fields.completedDateUtc, sagaContextEntity.getCompletedDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(SagaContextEntity.Fields.rootTaskId, sagaContextEntity.getRootTaskId(), Types.BINARY);
+        mapSqlParameterSource.addValue(SagaContextEntity.Fields.exceptionType, sagaContextEntity.getExceptionType(), Types.VARCHAR);
+        mapSqlParameterSource.addValue(SagaContextEntity.Fields.result, sagaContextEntity.getResult(), Types.BINARY);
         return mapSqlParameterSource;
     }
 }

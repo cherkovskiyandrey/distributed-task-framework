@@ -1,20 +1,17 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.saga.mappers.SagaTrackIdMapper;
+import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
 import com.distributed_task_framework.saga.models.SagaOperation;
-import com.distributed_task_framework.saga.models.SagaParsedTrackId;
-import com.distributed_task_framework.saga.models.SagaPipelineContext;
-import com.distributed_task_framework.saga.models.SagaTrackId;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
+import com.distributed_task_framework.saga.services.SagaContextService;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
 import com.distributed_task_framework.saga.services.SagaFlowWithoutResult;
 import com.distributed_task_framework.saga.services.SagaProcessor;
 import com.distributed_task_framework.saga.services.SagaRegister;
-import com.distributed_task_framework.saga.services.SagaResultService;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -27,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -49,7 +47,7 @@ import java.util.function.Function;
  * 11. Ability to wait for task completion (+)
  * - wait for must be covered by tests (-)
  * 12. Create separated library + boot module + test application (+)
- * 9. Ability to wait task result (+)
+ * 9. Ability to wait task result (-)
  * 10. Ability to set default and custom retry settings (maybe via task settings ?) (-)
  * - in real properties from application.yaml doesn't work at all!!! because they are built in com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor#buildTaskSettings(com.distributed_task_framework.task.Task)
  * and this logic has to be repeated in the saga library or separated and moved to dedicated module (-)
@@ -65,9 +63,8 @@ public class SagaProcessorImpl implements SagaProcessor {
     PlatformTransactionManager transactionManager;
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
-    SagaResultService sagaResultService;
+    SagaContextService sagaContextService;
     SagaHelper sagaHelper;
-    SagaTrackIdMapper sagaTrackIdMapper;
 
     @SneakyThrows
     @Override
@@ -76,8 +73,8 @@ public class SagaProcessorImpl implements SagaProcessor {
                                                                         INPUT input) {
         Objects.requireNonNull(input);
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
-        TaskDef<SagaPipelineContext> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
+        TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaEmbeddedPipelineContext> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
         var revertOperationSagaSchemaArguments = SagaSchemaArguments.of(
@@ -86,7 +83,7 @@ public class SagaProcessorImpl implements SagaProcessor {
                 SagaArguments.THROWABLE
         );
 
-        SagaPipelineContext sagaPipelineContext = sagaHelper.buildContextFor(
+        SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext = sagaHelper.buildContextFor(
                 null,
                 sagaMethodTaskDef,
                 operationSagaSchemaArguments,
@@ -95,18 +92,18 @@ public class SagaProcessorImpl implements SagaProcessor {
                 input
         );
 
-        return wrapToSagaFlowBuilder(sagaPipelineContext, sagaOperation.getMethod().getReturnType());
+        return wrapToSagaFlowBuilder(sagaEmbeddedPipelineContext, sagaOperation.getMethod().getReturnType());
     }
 
     @Override
     public <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(Function<INPUT, OUTPUT> operation, INPUT input) {
         Objects.requireNonNull(input);
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
 
-        SagaPipelineContext sagaPipelineContext = sagaHelper.buildContextFor(
+        SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext = sagaHelper.buildContextFor(
                 null,
                 sagaMethodTaskDef,
                 operationSagaSchemaArguments,
@@ -115,19 +112,18 @@ public class SagaProcessorImpl implements SagaProcessor {
                 input
         );
 
-        return wrapToSagaFlowBuilder(sagaPipelineContext, sagaOperation.getMethod().getReturnType());
+        return wrapToSagaFlowBuilder(sagaEmbeddedPipelineContext, sagaOperation.getMethod().getReturnType());
     }
 
-    private <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipelineContext sagaPipelineContext,
+    private <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext,
                                                                                  @Nullable Class<?> methodOutputType) {
         return SagaFlowBuilderImpl.<INPUT, OUTPUT>builder()
                 .transactionManager(transactionManager)
-                .sagaResultService(sagaResultService)
+                .sagaContextService(sagaContextService)
                 .distributedTaskService(distributedTaskService)
                 .sagaHelper(sagaHelper)
                 .sagaRegister(sagaRegister)
-                .sagaParentPipelineContext(sagaPipelineContext)
-                .sagaTrackIdMapper(sagaTrackIdMapper)
+                .sagaParentEmbeddedPipelineContext(sagaEmbeddedPipelineContext)
                 .methodOutputType(methodOutputType)
                 .build();
     }
@@ -147,20 +143,17 @@ public class SagaProcessorImpl implements SagaProcessor {
     }
 
     @Override
-    public <OUTPUT> SagaFlow<OUTPUT> getFlow(SagaTrackId trackId, Class<OUTPUT> trackingClass) {
-        SagaParsedTrackId sagaParsedTrackId = sagaTrackIdMapper.mapToParsed(trackId);
+    public <OUTPUT> SagaFlow<OUTPUT> getFlow(UUID trackId, Class<OUTPUT> trackingClass) {
         return SagaFlowImpl.<OUTPUT>builder()
                 .distributedTaskService(distributedTaskService)
-                .sagaResultService(sagaResultService)
-                .sagaTrackIdMapper(sagaTrackIdMapper)
-                .sagaId(sagaParsedTrackId.sagaId())
-                .taskId(sagaParsedTrackId.taskId())
+                .sagaContextService(sagaContextService)
+                .sagaId(trackId)
                 .resultType(trackingClass)
                 .build();
     }
 
     @Override
-    public SagaFlowWithoutResult getFlow(SagaTrackId trackId) {
+    public SagaFlowWithoutResult getFlow(UUID trackId) {
         //todo
         throw new UnsupportedOperationException();
     }

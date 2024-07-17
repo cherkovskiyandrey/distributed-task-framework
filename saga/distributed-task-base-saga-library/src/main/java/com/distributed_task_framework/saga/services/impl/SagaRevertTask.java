@@ -8,8 +8,8 @@ import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
-import com.distributed_task_framework.saga.models.SagaActionContext;
-import com.distributed_task_framework.saga.models.SagaPipelineContext;
+import com.distributed_task_framework.saga.models.SagaEmbeddedActionContext;
+import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
 import com.distributed_task_framework.saga.utils.ArgumentProviderBuilder;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
@@ -27,32 +27,32 @@ import java.util.Optional;
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class SagaRevertTask implements Task<SagaPipelineContext> {
+public class SagaRevertTask implements Task<SagaEmbeddedPipelineContext> {
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
     SagaHelper sagaHelper;
-    TaskDef<SagaPipelineContext> taskDef;
+    TaskDef<SagaEmbeddedPipelineContext> taskDef;
     Method method;
     Object bean;
 
     @Override
-    public TaskDef<SagaPipelineContext> getDef() {
+    public TaskDef<SagaEmbeddedPipelineContext> getDef() {
         return taskDef;
     }
 
     @Override
-    public void execute(ExecutionContext<SagaPipelineContext> executionContext) throws Exception {
-        SagaPipelineContext sagaPipelineContext = executionContext.getInputMessageOrThrow();
-        SagaActionContext currentSagaActionContext = sagaPipelineContext.getCurrentSagaContext();
-        SagaSchemaArguments sagaSchemaArguments = currentSagaActionContext.getRevertOperationSagaSchemaArguments();
+    public void execute(ExecutionContext<SagaEmbeddedPipelineContext> executionContext) throws Exception {
+        SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext = executionContext.getInputMessageOrThrow();
+        SagaEmbeddedActionContext currentSagaEmbeddedActionContext = sagaEmbeddedPipelineContext.getCurrentSagaContext();
+        SagaSchemaArguments sagaSchemaArguments = currentSagaEmbeddedActionContext.getRevertOperationSagaSchemaArguments();
 
-        byte[] serializedInput = sagaPipelineContext.getRootSagaContext().getSerializedInput();
-        byte[] serializedOutput = currentSagaActionContext.getSerializedOutput();
-        byte[] parentSerializedOutput = sagaPipelineContext.getParentSagaContext()
+        byte[] serializedInput = sagaEmbeddedPipelineContext.getRootSagaContext().getSerializedInput();
+        byte[] serializedOutput = currentSagaEmbeddedActionContext.getSerializedOutput();
+        byte[] parentSerializedOutput = sagaEmbeddedPipelineContext.getParentSagaContext()
                 .flatMap(sagaContext -> Optional.ofNullable(sagaContext.getSerializedOutput()))
                 .orElse(null);
-        var exceptionType = currentSagaActionContext.getExceptionType();
-        byte[] serializedException = currentSagaActionContext.getSerializedException();
+        var exceptionType = currentSagaEmbeddedActionContext.getExceptionType();
+        byte[] serializedException = currentSagaEmbeddedActionContext.getSerializedException();
         var sagaExecutionException = sagaHelper.buildExecutionException(exceptionType, serializedException);
 
         ArgumentProviderBuilder argumentProviderBuilder = new ArgumentProviderBuilder(sagaSchemaArguments);
@@ -93,11 +93,11 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
             );
         }
 
-        scheduleNextRevertIfRequired(sagaPipelineContext, executionContext);
+        scheduleNextRevertIfRequired(sagaEmbeddedPipelineContext, executionContext);
     }
 
     @Override
-    public boolean onFailureWithResult(FailedExecutionContext<SagaPipelineContext> failedExecutionContext) {
+    public boolean onFailureWithResult(FailedExecutionContext<SagaEmbeddedPipelineContext> failedExecutionContext) {
         Throwable throwable = failedExecutionContext.getError();
         boolean isNoRetryException = ExceptionUtils.throwableOfType(throwable, SagaInternalException.class) != null;
         boolean isLastAttempt = failedExecutionContext.isLastAttempt() || isNoRetryException;
@@ -117,21 +117,21 @@ public class SagaRevertTask implements Task<SagaPipelineContext> {
     }
 
     @SneakyThrows
-    private void scheduleNextRevertIfRequired(SagaPipelineContext sagaPipelineContext,
-                                              ExecutionContext<SagaPipelineContext> executionContext) {
-        if (!sagaPipelineContext.hasNext()) {
+    private void scheduleNextRevertIfRequired(SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext,
+                                              ExecutionContext<SagaEmbeddedPipelineContext> executionContext) {
+        if (!sagaEmbeddedPipelineContext.hasNext()) {
             log.info(
                     "scheduleNextRevertIfRequired(): revert chain has been completed for sagaPipelineContext with id=[{}]",
-                    sagaPipelineContext.getSagaId()
+                    sagaEmbeddedPipelineContext.getSagaId()
             );
             return;
         }
 
-        sagaPipelineContext.moveToNext();
-        var currentSagaContext = sagaPipelineContext.getCurrentSagaContext();
+        sagaEmbeddedPipelineContext.moveToNext();
+        var currentSagaContext = sagaEmbeddedPipelineContext.getCurrentSagaContext();
         distributedTaskService.schedule(
                 sagaRegister.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
-                executionContext.withNewMessage(sagaPipelineContext)
+                executionContext.withNewMessage(sagaEmbeddedPipelineContext)
         );
     }
 }

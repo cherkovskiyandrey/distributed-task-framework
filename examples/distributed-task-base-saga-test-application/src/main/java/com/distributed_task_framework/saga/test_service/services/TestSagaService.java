@@ -1,10 +1,10 @@
 package com.distributed_task_framework.saga.test_service.services;
 
-import com.distributed_task_framework.saga.models.SagaTrackId;
 import com.distributed_task_framework.saga.test_service.models.TestDataDto;
 import com.distributed_task_framework.saga.test_service.persistence.entities.Audit;
 
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 public interface TestSagaService {
@@ -17,7 +17,7 @@ public interface TestSagaService {
 
     Audit sagaCall(TestDataDto testDataDto);
 
-    SagaTrackId sagaCallAsync(TestDataDto testDataDto);
+    UUID sagaCallAsync(TestDataDto testDataDto);
 
-    Optional<Audit> sagaCallPollResult(SagaTrackId trackId);
+    Optional<Audit> sagaCallPollResult(UUID trackId);
 }
