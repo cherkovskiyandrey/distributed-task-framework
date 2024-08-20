@@ -11,13 +11,13 @@ import java.util.Collection;
 import java.util.UUID;
 
 @Repository
-public interface NodeStateRepository extends CrudRepository<NodeStateEntity, UUID> {
+public interface NodeStateRepository extends CrudRepository<NodeStateEntity, UUID>, NodeStateExtendedRepository {
 
     @Query("""
-            SELECT node
-            FROM _____dtf_node_state
-            WHERE last_update_date_utc < :obsoleteBoundaryDate
-            """
+        SELECT node
+        FROM _____dtf_node_state
+        WHERE last_update_date_utc < :obsoleteBoundaryDate
+        """
     )
     Collection<UUID> findLostNodes(@Param("obsoleteBoundaryDate") LocalDateTime lostBoundaryDate);
 }

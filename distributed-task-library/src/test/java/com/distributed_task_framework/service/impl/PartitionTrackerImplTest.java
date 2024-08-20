@@ -21,8 +21,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withFixedAfgAndTaskName;
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithAffinityGroupAndTaskName;
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithTaskNameAndWithoutAffinity;
+
 
 @Slf4j
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
@@ -40,7 +41,7 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
     void shouldReinit() {
         //when
         var spec = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.allSetAndOneTask())
+            Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.one())
         );
         var alreadyInReady = taskPopulateAndVerify.populate(0, 5, VirtualQueue.READY, spec);
 
@@ -57,8 +58,8 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
         //when
         setFixedTime(100);
         var partitions = Set.of(
-                Partition.builder().taskName(TASK_1).build(),
-                Partition.builder().affinityGroup(AFG_1).taskName(TASK_1).build()
+            Partition.builder().taskName(TASK_1).build(),
+            Partition.builder().affinityGroup(AFG_1).taskName(TASK_1).build()
         );
 
         //do
@@ -72,10 +73,10 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
     void shouldReturnAll() {
         //when
         var partitions = List.of(
-                createPartition(null, "1", 1L),
-                createPartition("1", "1", 1L),
-                createPartition(null, "1", 2L),
-                createPartition("1", "1", 2L)
+            createPartition(null, "1", 1L),
+            createPartition("1", "1", 1L),
+            createPartition(null, "1", 2L),
+            createPartition("1", "1", 2L)
         );
         partitionRepository.saveAll(partitions);
 
@@ -93,25 +94,25 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
         long currentTimeBucket = 100 / 5;
 
         var spec = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.noneSetWitFixedTask("exist_in_ready_queue"),
-                        Range.closedOpen(1, 2), TaskPopulateAndVerify.GenerationSpec.withFixedAfgAndTaskName("exist_in_ready_queue", "exist_in_ready_queue")
-                )
+                Range.closedOpen(0, 1), oneWithTaskNameAndWithoutAffinity("exist_in_ready_queue"),
+                Range.closedOpen(1, 2), oneWithAffinityGroupAndTaskName("exist_in_ready_queue", "exist_in_ready_queue")
+            )
         );
         taskPopulateAndVerify.populate(0, 2, VirtualQueue.READY, spec);
 
         var expectedToRemainedFromActiveQueue = List.of(
-                createPartition(null, "exist_in_ready_queue", currentTimeBucket - 2),
-                createPartition("exist_in_ready_queue", "exist_in_ready_queue", currentTimeBucket - 2)
+            createPartition(null, "exist_in_ready_queue", currentTimeBucket - 2),
+            createPartition("exist_in_ready_queue", "exist_in_ready_queue", currentTimeBucket - 2)
         );
         var expectedToDeleted = List.of(
-                createPartition(null, "1", currentTimeBucket - 2),
-                createPartition("1", "2", currentTimeBucket - 2)
+            createPartition(null, "1", currentTimeBucket - 2),
+            createPartition("1", "2", currentTimeBucket - 2)
         );
         var expectedBeRemained = List.of(
-                createPartition(null, "3", currentTimeBucket - 1),
-                createPartition("2", "4", currentTimeBucket - 1),
-                createPartition(null, "5", currentTimeBucket),
-                createPartition("3", "6", currentTimeBucket)
+            createPartition(null, "3", currentTimeBucket - 1),
+            createPartition("2", "4", currentTimeBucket - 1),
+            createPartition(null, "5", currentTimeBucket),
+            createPartition("3", "6", currentTimeBucket)
         );
         partitionRepository.saveAll(expectedToRemainedFromActiveQueue);
         partitionRepository.saveAll(expectedToDeleted);
@@ -123,9 +124,9 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
 
         //verify
         var expectedPartitions = ImmutableList.<PartitionEntity>builder()
-                .addAll(expectedToRemainedFromActiveQueue)
-                .addAll(expectedBeRemained)
-                .build();
+            .addAll(expectedToRemainedFromActiveQueue)
+            .addAll(expectedBeRemained)
+            .build();
         verifyRegisteredPartition(partitionMapper.fromEntities(expectedPartitions));
     }
 
@@ -134,21 +135,21 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
         //when
         long currentTimeBucket = 2;
         var expectedToBeRemained = List.of(
-                createPartition(null, "1", currentTimeBucket - 1),
-                createPartition("1", "2", currentTimeBucket - 1),
-                createPartition(null, "1", currentTimeBucket - 1),
-                createPartition("1", "2", currentTimeBucket - 1),
+            createPartition(null, "1", currentTimeBucket - 1),
+            createPartition("1", "2", currentTimeBucket - 1),
+            createPartition(null, "1", currentTimeBucket - 1),
+            createPartition("1", "2", currentTimeBucket - 1),
 
-                createPartition(null, "1", currentTimeBucket),
-                createPartition("1", "2", currentTimeBucket)
+            createPartition(null, "1", currentTimeBucket),
+            createPartition("1", "2", currentTimeBucket)
         );
         var expectedBeDeleted = List.of(
-                createPartition(null, "1", currentTimeBucket),
-                createPartition("1", "2", currentTimeBucket),
-                createPartition(null, "1", currentTimeBucket),
-                createPartition("1", "2", currentTimeBucket),
-                createPartition(null, "1", currentTimeBucket),
-                createPartition("1", "2", currentTimeBucket)
+            createPartition(null, "1", currentTimeBucket),
+            createPartition("1", "2", currentTimeBucket),
+            createPartition(null, "1", currentTimeBucket),
+            createPartition("1", "2", currentTimeBucket),
+            createPartition(null, "1", currentTimeBucket),
+            createPartition("1", "2", currentTimeBucket)
         );
         partitionRepository.saveAll(expectedToBeRemained);
         partitionRepository.saveAll(expectedBeDeleted);
@@ -158,15 +159,15 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
 
         //verify
         var expectedPartitions = ImmutableList.<PartitionEntity>builder()
-                .addAll(expectedToBeRemained)
-                .addAll(expectedBeDeleted)
-                .build();
+            .addAll(expectedToBeRemained)
+            .addAll(expectedBeDeleted)
+            .build();
         verifyRegisteredPartition(partitionMapper.fromEntities(expectedPartitions));
     }
 
 
     private void verifyRegisteredPartitionEntities(Collection<PartitionEntity> expectedPartitions) {
         Assertions.assertThat(partitionRepository.filterExisted(expectedPartitions))
-                .containsExactlyInAnyOrderElementsOf(expectedPartitions);
+            .containsExactlyInAnyOrderElementsOf(expectedPartitions);
     }
 }

@@ -1,5 +1,9 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.exception.CronExpiredException;
+import com.distributed_task_framework.exception.OptimisticLockException;
+import com.distributed_task_framework.exception.TaskConfigurationException;
+import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.JoinTaskMessage;
@@ -7,30 +11,16 @@ import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.model.WorkerContext;
+import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.local_commands.CancelTaskCommand;
+import com.distributed_task_framework.service.impl.local_commands.CreateLinksCommand;
 import com.distributed_task_framework.service.impl.local_commands.FinalizeCommand;
 import com.distributed_task_framework.service.impl.local_commands.ForceRescheduleCommand;
 import com.distributed_task_framework.service.impl.local_commands.RescheduleCommand;
 import com.distributed_task_framework.service.impl.local_commands.SaveCommand;
-import com.google.common.collect.Lists;
-import lombok.AccessLevel;
-import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.util.StringUtils;
-import com.distributed_task_framework.exception.CronExpiredException;
-import com.distributed_task_framework.exception.OptimisticLockException;
-import com.distributed_task_framework.exception.TaskConfigurationException;
-import com.distributed_task_framework.exception.UnknownTaskException;
-import com.distributed_task_framework.persistence.entity.TaskEntity;
-import com.distributed_task_framework.persistence.entity.VirtualQueue;
-import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.service.impl.local_commands.CreateLinksCommand;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
@@ -38,6 +28,13 @@ import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.google.common.collect.Lists;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -88,73 +85,73 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     @Override
     public <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
         return scheduleBaseTxAware(
-                taskDef,
-                executionContext,
-                Duration.ZERO,
-                false,
-                false
+            taskDef,
+            executionContext,
+            Duration.ZERO,
+            false,
+            false
         );
     }
 
     @Override
     public <T> TaskId scheduleFork(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
         return scheduleBaseTxAware(
-                taskDef,
-                executionContext,
-                Duration.ZERO,
-                false,
-                true
+            taskDef,
+            executionContext,
+            Duration.ZERO,
+            false,
+            true
         );
     }
 
     @Override
     public <T> TaskId scheduleImmediately(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
         return scheduleBaseTxAware(
-                taskDef,
-                executionContext,
-                Duration.ZERO,
-                true,
-                false
+            taskDef,
+            executionContext,
+            Duration.ZERO,
+            true,
+            false
         );
     }
 
     @Override
     public <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
         return scheduleBaseTxAware(
-                taskDef,
-                executionContext,
-                delay,
-                false,
-                false
+            taskDef,
+            executionContext,
+            delay,
+            false,
+            false
         );
     }
 
     @Override
     public <T> TaskId scheduleFork(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
         return scheduleBaseTxAware(
-                taskDef,
-                executionContext,
-                delay,
-                false,
-                true
+            taskDef,
+            executionContext,
+            delay,
+            false,
+            true
         );
     }
 
     @Override
     public <T> TaskId scheduleImmediately(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
         return scheduleBaseTxAware(
-                taskDef,
-                executionContext,
-                delay,
-                true,
-                false
+            taskDef,
+            executionContext,
+            delay,
+            true,
+            false
         );
     }
 
     @Override
     public <T> TaskId scheduleJoin(TaskDef<T> taskDef, ExecutionContext<T> executionContext, List<TaskId> joinList) throws Exception {
         RegisteredTask<T> registeredTask = taskRegistryService.<T>getRegisteredLocalTask(taskDef.getTaskName())
-                .orElseThrow(() -> new UnknownTaskException(taskDef));
+            .orElseThrow(() -> new UnknownTaskException(taskDef));
         TaskSettings taskSettings = registeredTask.getTaskSettings();
 
         if (taskSettings.hasCron()) {
@@ -162,22 +159,22 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         }
         if (hasRemoteTasks(joinList)) {
             throw new TaskConfigurationException("It is prohibited to join foreign task, joinTaskDef=[%s], joinList=[%s]".formatted(
-                    taskDef, joinList
+                taskDef, joinList
             ));
         }
         Optional<WorkerContext> currentContext = workerContextManager.getCurrentContext();
         if (hasCronTask(joinList, currentContext)) {
             throw new TaskConfigurationException("It is prohibited to join cron task, joinTaskDef=[%s], joinList=[%s]".formatted(
-                    taskDef, joinList
+                taskDef, joinList
             ));
         }
 
         boolean isInContext = currentContext.isPresent();
         if (!isInContext && !TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("It is prohibited to schedule joinTask not from other task and " +
-                    "without transaction with tasks to join, joinTaskDef=[%s], joinList=[%s]".formatted(
-                            taskDef, joinList
-                    ));
+                "without transaction with tasks to join, joinTaskDef=[%s], joinList=[%s]".formatted(
+                    taskDef, joinList
+                ));
         }
 
         String taskName = taskDef.getTaskName();
@@ -186,38 +183,38 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         LocalDateTime now = LocalDateTime.now(clock);
 
         TaskEntity taskEntity = TaskEntity.builder()
-                .workflowId(executionContext.getWorkflowId())
-                .workflowCreatedDateUtc(
-                        Optional.ofNullable(executionContext.getWorkflowCreatedDateUtc())
-                                .orElse(now)
-                )
-                .affinityGroup(executionContext.getAffinityGroup())
-                .affinity(executionContext.getAffinity())
-                .taskName(taskName)
-                .virtualQueue(VirtualQueue.NEW)
-                .messageBytes(messageBytes)
-                .executionDateUtc(now)
-                .singleton(false)
-                .notToPlan(true)
-                .failures(0)
-                .build();
+            .workflowId(executionContext.getWorkflowId())
+            .workflowCreatedDateUtc(
+                Optional.ofNullable(executionContext.getWorkflowCreatedDateUtc())
+                    .orElse(now)
+            )
+            .affinityGroup(executionContext.getAffinityGroup())
+            .affinity(executionContext.getAffinity())
+            .taskName(taskName)
+            .virtualQueue(VirtualQueue.NEW)
+            .messageBytes(messageBytes)
+            .executionDateUtc(now)
+            .singleton(false)
+            .notToPlan(true)
+            .failures(0)
+            .build();
 
         final TaskId taskId;
         if (isInContext) {
             WorkerContext workerContext = currentContext.get();
             taskEntity = taskEntity.toBuilder()
-                    .id(UUID.randomUUID()) //generate and bind uuid
-                    .createdDateUtc(now)
-                    .build();
+                .id(UUID.randomUUID()) //generate and bind uuid
+                .createdDateUtc(now)
+                .build();
             SaveCommand saveCommand = SaveCommand.of(taskEntity);
             workerContext.getLocalCommands().add(saveCommand);
 
             taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
             CreateLinksCommand createLinksCommand = CreateLinksCommand.builder()
-                    .joinTaskId(taskId)
-                    .joinList(joinList)
-                    .taskLinkManager(taskLinkManager)
-                    .build();
+                .joinTaskId(taskId)
+                .joinList(joinList)
+                .taskLinkManager(taskLinkManager)
+                .build();
             workerContext.getLocalCommands().add(createLinksCommand);
             log.info("scheduleJoin(): postponed command=[{}]", saveCommand);
 
@@ -233,12 +230,12 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private boolean hasCronTask(List<TaskId> joinList, Optional<WorkerContext> currentContext) {
         Set<UUID> joinIdList = joinList.stream()
-                .map(TaskId::getId)
-                .collect(Collectors.toSet());
+            .map(TaskId::getId)
+            .collect(Collectors.toSet());
         Boolean hasCronInContext = currentContext.map(workerContext -> workerContext.hasCronTasksToSave(
-                        joinIdList,
-                        taskRegistryService
-                )
+                joinIdList,
+                taskRegistryService
+            )
         ).orElse(false);
         if (hasCronInContext) {
             return true;
@@ -246,8 +243,8 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
 
         List<TaskEntity> taskToJoinList = taskRepository.findAll(joinIdList);
         return taskToJoinList.stream().anyMatch(taskEntity -> taskRegistryService.getRegisteredLocalTask(taskEntity.getTaskName())
-                .map(regTask -> regTask.getTaskSettings().hasCron())
-                .orElse(false));
+            .map(regTask -> regTask.getTaskSettings().hasCron())
+            .orElse(false));
     }
 
     private boolean hasRemoteTasks(List<TaskId> joinList) {
@@ -287,14 +284,14 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                            boolean isImmediately,
                                            boolean hasToDropJoin) throws Exception {
         return executeTxAware(
-                () -> scheduleBase(
-                        taskDef,
-                        executionContext,
-                        delay,
-                        isImmediately,
-                        hasToDropJoin
-                ),
-                isImmediately
+            () -> scheduleBase(
+                taskDef,
+                executionContext,
+                delay,
+                isImmediately,
+                hasToDropJoin
+            ),
+            isImmediately
         );
     }
 
@@ -307,7 +304,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                     boolean isImmediately,
                                     boolean hasToDropJoin) throws Exception {
         RegisteredTask<T> registeredTask = taskRegistryService.<T>getRegisteredLocalTask(taskDef.getTaskName())
-                .orElseThrow(() -> new UnknownTaskException(taskDef));
+            .orElseThrow(() -> new UnknownTaskException(taskDef));
         String taskName = taskDef.getTaskName();
 
         //tasks natural has a cron - are singleton
@@ -316,7 +313,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
             if (isSingleton) {
                 Collection<TaskEntity> singletonTask = taskRepository.findByName(taskName, 2);
                 if (singletonTask.size() > 1 ||
-                        singletonTask.size() == 1 && !singletonTask.iterator().next().isSingleton()) {
+                    singletonTask.size() == 1 && !singletonTask.iterator().next().isSingleton()) {
                     log.warn("scheduleBase(): singleton task=[{}] already has not-singleton instances", taskName);
                 } else if (singletonTask.size() == 1) {
                     return taskMapper.map(singletonTask.iterator().next(), commonSettings.getAppName());
@@ -330,27 +327,27 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
             String cron = registeredTask.getTaskSettings().getCron();
             if (StringUtils.hasText(cron)) {
                 executionDateUtc = cronService.nextExecutionDate(cron, true)
-                        .orElseThrow(() -> new CronExpiredException(taskDef, cron))
-                        .plus(delay);
+                    .orElseThrow(() -> new CronExpiredException(taskDef, cron))
+                    .plus(delay);
             } else {
                 executionDateUtc = LocalDateTime.now(clock).plus(delay);
             }
 
             TaskEntity taskEntity = TaskEntity.builder()
-                    .workflowId(executionContext.getWorkflowId())
-                    .workflowCreatedDateUtc(
-                            Optional.ofNullable(executionContext.getWorkflowCreatedDateUtc())
-                                    .orElseGet(() -> LocalDateTime.now(clock))
-                    )
-                    .affinityGroup(executionContext.getAffinityGroup())
-                    .affinity(executionContext.getAffinity())
-                    .taskName(taskName)
-                    .virtualQueue(VirtualQueue.NEW)
-                    .messageBytes(messageBytes)
-                    .executionDateUtc(executionDateUtc)
-                    .singleton(isSingleton)
-                    .failures(0)
-                    .build();
+                .workflowId(executionContext.getWorkflowId())
+                .workflowCreatedDateUtc(
+                    Optional.ofNullable(executionContext.getWorkflowCreatedDateUtc())
+                        .orElseGet(() -> LocalDateTime.now(clock))
+                )
+                .affinityGroup(executionContext.getAffinityGroup())
+                .affinity(executionContext.getAffinity())
+                .taskName(taskName)
+                .virtualQueue(VirtualQueue.NEW)
+                .messageBytes(messageBytes)
+                .executionDateUtc(executionDateUtc)
+                .singleton(isSingleton)
+                .failures(0)
+                .build();
 
             final TaskId taskId;
             Optional<WorkerContext> currentContext = workerContextManager.getCurrentContext();
@@ -358,9 +355,9 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
             if (isInContext && !isImmediately) {
                 WorkerContext workerContext = currentContext.get();
                 taskEntity = taskEntity.toBuilder()
-                        .id(UUID.randomUUID()) //generate and bind uuid
-                        .createdDateUtc(LocalDateTime.now(clock))
-                        .build();
+                    .id(UUID.randomUUID()) //generate and bind uuid
+                    .createdDateUtc(LocalDateTime.now(clock))
+                    .build();
                 SaveCommand saveCommand = SaveCommand.of(taskEntity);
                 workerContext.getLocalCommands().add(saveCommand);
                 if (hasToDropJoin) {
@@ -396,12 +393,12 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                    Duration delay,
                                    boolean isImmediately) throws Exception {
         executeTxAware(
-                () -> rescheduleBase(
-                        taskId,
-                        delay,
-                        isImmediately
-                ),
+            () -> rescheduleBase(
+                taskId,
+                delay,
                 isImmediately
+            ),
+            isImmediately
         );
     }
 
@@ -410,16 +407,16 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                     boolean isImmediately) {
         Optional<WorkerContext> currentContextOpt = workerContextManager.getCurrentContext();
         Optional<TaskEntity> currentTaskEntityOpt = currentContextOpt
-                .filter(workerContext -> workerContext.getCurrentTaskId().equals(taskId))
-                .map(WorkerContext::getTaskEntity);
+            .filter(workerContext -> workerContext.getCurrentTaskId().equals(taskId))
+            .map(WorkerContext::getTaskEntity);
         if (currentTaskEntityOpt.isPresent()) {
             WorkerContext workerContext = currentContextOpt.get();
             var taskEntity = currentTaskEntityOpt.get();
             taskEntity = taskEntity.toBuilder()
-                    .assignedWorker(null)
-                    .lastAssignedDateUtc(null)
-                    .executionDateUtc(taskEntity.getExecutionDateUtc().plus(delay))
-                    .build();
+                .assignedWorker(null)
+                .lastAssignedDateUtc(null)
+                .executionDateUtc(taskEntity.getExecutionDateUtc().plus(delay))
+                .build();
             RescheduleCommand rescheduleCommand = RescheduleCommand.of(taskEntity);
             workerContext.getLocalCommands().add(rescheduleCommand);
             log.info("reschedule(): postponed current executing command=[{}]", rescheduleCommand);
@@ -427,12 +424,12 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         }
 
         TaskEntity taskEntity = taskRepository.find(taskId.getId())
-                .orElseThrow(() -> new UnknownTaskException(taskId));
+            .orElseThrow(() -> new UnknownTaskException(taskId));
         taskEntity = taskEntity.toBuilder()
-                .assignedWorker(null)
-                .lastAssignedDateUtc(null)
-                .executionDateUtc(taskEntity.getExecutionDateUtc().plus(delay))
-                .build();
+            .assignedWorker(null)
+            .lastAssignedDateUtc(null)
+            .executionDateUtc(taskEntity.getExecutionDateUtc().plus(delay))
+            .build();
 
         if (currentContextOpt.isPresent() && !isImmediately) {
             WorkerContext workerContext = currentContextOpt.get();
@@ -445,7 +442,6 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @Override
     public <T> void rescheduleByTaskDef(TaskDef<T> taskDef, Duration delay) throws Exception {
         rescheduleByTaskDefBaseTxAware(taskDef, delay, false);
@@ -460,12 +456,12 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                             Duration delay,
                                             boolean isImmediately) throws Exception {
         executeTxAware(
-                () -> rescheduleByTaskDefBase(
-                        taskDef,
-                        delay,
-                        isImmediately
-                ),
+            () -> rescheduleByTaskDefBase(
+                taskDef,
+                delay,
                 isImmediately
+            ),
+            isImmediately
         );
     }
 
@@ -474,23 +470,23 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                              boolean isImmediately) {
         Collection<TaskEntity> taskEntities = taskRepository.findAllByTaskName(taskDef.getTaskName());
         Optional<TaskEntity> currentTaskEntityOpt = workerContextManager.getCurrentContext()
-                .filter(workerContext -> workerContext.getCurrentTaskId().getTaskName().equals(taskDef.getTaskName()))
-                .map(WorkerContext::getTaskEntity);
+            .filter(workerContext -> workerContext.getCurrentTaskId().getTaskName().equals(taskDef.getTaskName()))
+            .map(WorkerContext::getTaskEntity);
         if (currentTaskEntityOpt.isPresent()) {
             TaskEntity currentTaskEntity = currentTaskEntityOpt.get();
             taskEntities = taskEntities.stream()
-                    .filter(taskEntity -> !taskEntity.getId().equals(currentTaskEntity.getId()))
-                    .collect(Collectors.toList());
+                .filter(taskEntity -> !taskEntity.getId().equals(currentTaskEntity.getId()))
+                .collect(Collectors.toList());
         }
 
         taskEntities = taskEntities.stream()
-                .map(taskEntity -> taskEntity.toBuilder()
-                        .assignedWorker(null)
-                        .lastAssignedDateUtc(null)
-                        .executionDateUtc(taskEntity.getExecutionDateUtc().plus(delay))
-                        .build()
-                )
-                .collect(Collectors.toList());
+            .map(taskEntity -> taskEntity.toBuilder()
+                .assignedWorker(null)
+                .lastAssignedDateUtc(null)
+                .executionDateUtc(taskEntity.getExecutionDateUtc().plus(delay))
+                .build()
+            )
+            .collect(Collectors.toList());
 
         List<TaskEntity> tasksAsCommand = Lists.newArrayList();
         List<TaskEntity> tasksToSave = Lists.newArrayList();
@@ -504,18 +500,18 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         }
 
         currentTaskEntityOpt
-                .map(taskEntity -> taskEntity.toBuilder()
-                        .assignedWorker(null)
-                        .lastAssignedDateUtc(null)
-                        .executionDateUtc(taskEntity.getExecutionDateUtc().plus(delay))
-                        .build())
-                .ifPresent(taskEntity -> {
-                    @SuppressWarnings("OptionalGetWithoutIsPresent")
-                    WorkerContext workerContext = currentContext.get();
-                    RescheduleCommand rescheduleCommand = RescheduleCommand.of(taskEntity);
-                    workerContext.getLocalCommands().add(rescheduleCommand);
-                    log.info("rescheduleByTaskDef(): postponed command=[{}]", rescheduleCommand);
-                });
+            .map(taskEntity -> taskEntity.toBuilder()
+                .assignedWorker(null)
+                .lastAssignedDateUtc(null)
+                .executionDateUtc(taskEntity.getExecutionDateUtc().plus(delay))
+                .build())
+            .ifPresent(taskEntity -> {
+                @SuppressWarnings("OptionalGetWithoutIsPresent")
+                WorkerContext workerContext = currentContext.get();
+                RescheduleCommand rescheduleCommand = RescheduleCommand.of(taskEntity);
+                workerContext.getLocalCommands().add(rescheduleCommand);
+                log.info("rescheduleByTaskDef(): postponed command=[{}]", rescheduleCommand);
+            });
 
         if (!tasksAsCommand.isEmpty()) {
             tasksAsCommand.forEach(taskEntity -> {
@@ -544,8 +540,8 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
 
     private boolean cancelTaskExecutionBaseTxAware(TaskId taskId, boolean isImmediately) throws Exception {
         return executeTxAware(
-                () -> cancelTaskExecutionBase(taskId, isImmediately),
-                isImmediately
+            () -> cancelTaskExecutionBase(taskId, isImmediately),
+            isImmediately
         );
     }
 
@@ -558,8 +554,8 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         var taskEntity = taskEntityOpt.get();
         Optional<WorkerContext> currentContextOpt = workerContextManager.getCurrentContext();
         Optional<TaskEntity> currentTaskEntityOpt = currentContextOpt
-                .filter(workerContext -> workerContext.getCurrentTaskId().equals(taskId))
-                .map(WorkerContext::getTaskEntity);
+            .filter(workerContext -> workerContext.getCurrentTaskId().equals(taskId))
+            .map(WorkerContext::getTaskEntity);
         if (currentTaskEntityOpt.isPresent()) {
             WorkerContext workerContext = currentContextOpt.get();
             taskEntity = currentTaskEntityOpt.get();
@@ -598,8 +594,8 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
 
     private <T> boolean cancelAllTaskByTaskIdBaseTxAware(TaskDef<T> taskDef, boolean isImmediately) throws Exception {
         return executeTxAware(
-                () -> cancelAllTaskByTaskDefBase(taskDef, isImmediately),
-                isImmediately
+            () -> cancelAllTaskByTaskDefBase(taskDef, isImmediately),
+            isImmediately
         );
     }
 
@@ -607,13 +603,13 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         Collection<TaskEntity> taskEntities = taskRepository.findAllByTaskName(taskDef.getTaskName());
         Optional<WorkerContext> currentContextOpt = workerContextManager.getCurrentContext();
         Optional<TaskEntity> currentTaskEntityOpt = currentContextOpt
-                .filter(workerContext -> workerContext.getCurrentTaskId().getTaskName().equals(taskDef.getTaskName()))
-                .map(WorkerContext::getTaskEntity);
+            .filter(workerContext -> workerContext.getCurrentTaskId().getTaskName().equals(taskDef.getTaskName()))
+            .map(WorkerContext::getTaskEntity);
         if (currentTaskEntityOpt.isPresent()) {
             TaskEntity currentTaskEntity = currentTaskEntityOpt.get();
             taskEntities = taskEntities.stream()
-                    .filter(taskEntity -> !taskEntity.getId().equals(currentTaskEntity.getId()))
-                    .collect(Collectors.toList());
+                .filter(taskEntity -> !taskEntity.getId().equals(currentTaskEntity.getId()))
+                .toList();
         }
 
         List<TaskEntity> tasksAsCommand = Lists.newArrayList();
@@ -667,12 +663,12 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     @Override
     public <T> boolean isOwnTask(TaskDef<T> taskDef) {
         return commonSettings.getAppName().equals(taskDef.getAppName()) ||
-                !StringUtils.hasText(taskDef.getAppName());
+            !StringUtils.hasText(taskDef.getAppName());
     }
 
     @Override
     public boolean isOwnTask(TaskId taskId) {
         return commonSettings.getAppName().equals(taskId.getAppName()) ||
-                !StringUtils.hasText(taskId.getAppName());
+            !StringUtils.hasText(taskId.getAppName());
     }
 }

@@ -17,10 +17,10 @@ public class CommonSettings {
 
     private static Retry cerateDefaultRetry() {
         return Retry.builder()
-                .retryMode(RetryMode.BACKOFF)
-                .fixed(Fixed.builder().build())
-                .backoff(Backoff.builder().build())
-                .build();
+            .retryMode(RetryMode.BACKOFF)
+            .fixed(Fixed.builder().build())
+            .backoff(Backoff.builder().build())
+            .build();
     }
 
     public static final CommonSettings DEFAULT = CommonSettings.builder().build();
@@ -35,13 +35,13 @@ public class CommonSettings {
 
     private static RegistrySettings createDefaultRegistrySettings() {
         return RegistrySettings.builder()
-                .updateInitialDelayMs(0)
-                .updateFixedDelayMs(4000)
-                .maxInactivityIntervalMs(20000)
-                .cacheExpirationMs(2000)
-                //one metric in 4 sec for 5 minutes = (60/4)*5 = 15*5 = 50+25 = 75 values
-                .cpuCalculatingTimeWindow(Duration.ofMinutes(5))
-                .build();
+            .updateInitialDelayMs(0)
+            .updateFixedDelayMs(4000)
+            .maxInactivityIntervalMs(20000)
+            .cacheExpirationMs(1000)
+            //one metric in 4 sec for 5 minutes = (60/4)*5 = 15*5 = 50+25 = 75 values
+            .cpuCalculatingTimeWindow(Duration.ofMinutes(5))
+            .build();
     }
 
     @Builder.Default
@@ -50,24 +50,24 @@ public class CommonSettings {
     @SuppressWarnings("UnstableApiUsage")
     private static PlannerSettings createDefaultPlannerSettings() {
         return PlannerSettings.builder()
-                .watchdogInitialDelayMs(5000)
-                .watchdogFixedDelayMs(5000)
-                .maxParallelTasksInClusterDefault(PlannerSettings.UNLIMITED_PARALLEL_TASKS)
-                .fetchFactor(2.F) //current tasks + the same with same affinity group and affinity
-                .planFactor(2.F) //twice bigger than free capacity
-                .batchSize(1000)
-                .newBatchSize(300)
-                .deletedBatchSize(300)
-                .pollingDelay(ImmutableRangeMap.<Integer, Integer>builder()
-                        .put(Range.openClosed(-1, 0), 1000)
-                        .put(Range.openClosed(0, 100), 500)
-                        .put(Range.openClosed(100, 1000), 0)
-                        .build()
-                )
-                .affinityGroupScannerTimeOverlap(Duration.ofMinutes(1))
-                .partitionTrackingTimeWindow(Duration.ofMinutes(1))
-                .nodeCpuLoadingLimit(0.95)
-                .build();
+            .watchdogInitialDelayMs(5000)
+            .watchdogFixedDelayMs(5000)
+            .maxParallelTasksInClusterDefault(PlannerSettings.UNLIMITED_PARALLEL_TASKS)
+            .fetchFactor(2.F) //current tasks + the same with same affinity group and affinity
+            .planFactor(2.F) //twice bigger than free capacity
+            .batchSize(1000)
+            .newBatchSize(300)
+            .deletedBatchSize(300)
+            .pollingDelay(ImmutableRangeMap.<Integer, Integer>builder()
+                .put(Range.openClosed(-1, 0), 1000)
+                .put(Range.openClosed(0, 100), 500)
+                .put(Range.openClosed(100, 1000), 0)
+                .build()
+            )
+            .affinityGroupScannerTimeOverlap(Duration.ofMinutes(1))
+            .partitionTrackingTimeWindow(Duration.ofMinutes(1))
+            .nodeCpuLoadingLimit(0.95)
+            .build();
     }
 
     @Builder.Default
@@ -76,14 +76,14 @@ public class CommonSettings {
     @SuppressWarnings("UnstableApiUsage")
     private static WorkerManagerSettings createDefaultWorkerManagerSettings() {
         return WorkerManagerSettings.builder()
-                .maxParallelTasksInNode(100)
-                .manageDelay(ImmutableRangeMap.<Integer, Integer>builder()
-                        .put(Range.openClosed(-1, 0), 1000)
-                        .put(Range.openClosed(0, 50), 500)
-                        .put(Range.openClosed(50, 100), 250)
-                        .build()
-                )
-                .build();
+            .maxParallelTasksInNode(100)
+            .manageDelay(ImmutableRangeMap.<Integer, Integer>builder()
+                .put(Range.openClosed(-1, 0), 1000)
+                .put(Range.openClosed(0, 50), 500)
+                .put(Range.openClosed(50, 100), 250)
+                .build()
+            )
+            .build();
     }
 
     @Builder.Default
@@ -91,9 +91,9 @@ public class CommonSettings {
 
     private static StatSettings createDefaultStatSettings() {
         return StatSettings.builder()
-                .calcInitialDelayMs(10_000)
-                .calcFixedDelayMs(10_000)
-                .build();
+            .calcInitialDelayMs(10_000)
+            .calcFixedDelayMs(10_000)
+            .build();
     }
 
     @Builder.Default
@@ -102,19 +102,19 @@ public class CommonSettings {
     @SuppressWarnings("UnstableApiUsage")
     private static DeliveryManagerSettings createDefaultDeliveryManagerSettings() {
         return DeliveryManagerSettings.builder()
-                .watchdogInitialDelayMs(5000)
-                .watchdogFixedDelayMs(5000)
-                .batchSize(100)
-                .connectionTimeout(Duration.ofSeconds(5))
-                .responseTimeout(Duration.ofSeconds(10))
-                .readTimeout(Duration.ofSeconds(5))
-                .writeTimeout(Duration.ofSeconds(30))
-                .manageDelay(ImmutableRangeMap.<Integer, Integer>builder()
-                        .put(Range.openClosed(-1, 0), 1000)
-                        .put(Range.openClosed(0, 100), 500)
-                        .put(Range.openClosed(100, 1000), 250)
-                        .build())
-                .build();
+            .watchdogInitialDelayMs(5000)
+            .watchdogFixedDelayMs(5000)
+            .batchSize(100)
+            .connectionTimeout(Duration.ofSeconds(5))
+            .responseTimeout(Duration.ofSeconds(10))
+            .readTimeout(Duration.ofSeconds(5))
+            .writeTimeout(Duration.ofSeconds(30))
+            .manageDelay(ImmutableRangeMap.<Integer, Integer>builder()
+                .put(Range.openClosed(-1, 0), 1000)
+                .put(Range.openClosed(0, 100), 500)
+                .put(Range.openClosed(100, 1000), 250)
+                .build())
+            .build();
     }
 
     /**
@@ -259,7 +259,7 @@ public class CommonSettings {
 
         @Builder.Default
         RemoteApps remoteApps = RemoteApps.builder()
-                .build();
+            .build();
 
         /**
          * Initial delay before start to watch by current active planner in ms.

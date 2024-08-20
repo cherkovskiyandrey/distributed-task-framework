@@ -1,6 +1,7 @@
 package com.distributed_task_framework.persistence.repository;
 
 import com.distributed_task_framework.exception.OptimisticLockException;
+import com.distributed_task_framework.persistence.entity.IdVersionEntity;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import org.springframework.stereotype.Repository;
@@ -31,11 +32,5 @@ public interface TaskExtendedRepository {
 
     Collection<TaskEntity> findByName(String taskName, long batchSize);
 
-    void deleteByIds(Collection<UUID> taskIds);
-
-    /**
-     * @param taskEntity
-     * @throws OptimisticLockException
-     */
-    void hardDelete(TaskEntity taskEntity);
+    Collection<IdVersionEntity> deleteByIdVersion(Collection<IdVersionEntity> taskIdVersions);
 }

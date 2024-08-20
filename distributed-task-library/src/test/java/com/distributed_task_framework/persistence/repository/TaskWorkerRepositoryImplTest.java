@@ -38,17 +38,17 @@ class TaskWorkerRepositoryImplTest extends BaseRepositoryTest {
         var workerId = TaskPopulateAndVerify.getNode(0);
         var foreignWorkerId = TaskPopulateAndVerify.getNode(1);
         var knownPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.allSetWithFixedWorker(2, workerId),
-                        Range.closedOpen(1, 2), TaskPopulateAndVerify.GenerationSpec.allSetWithFixedWorker(2, foreignWorkerId)
-                )
+                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.withWorker(2, workerId),
+                Range.closedOpen(1, 2), TaskPopulateAndVerify.GenerationSpec.withWorker(2, foreignWorkerId)
+            )
         );
         var populateNewTasks = taskPopulateAndVerify.populate(0, 10, VirtualQueue.NEW, knownPopulationSpecs);
         var populateReadyTasks = taskPopulateAndVerify.populate(10, 20, VirtualQueue.READY, knownPopulationSpecs);
         var shouldBeIgnored = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, knownPopulationSpecs);
         var shouldBeIgnoredIds = shouldBeIgnored.stream()
-                .filter(taskEntity -> workerId == taskEntity.getAssignedWorker())
-                .map(this::toTaskId)
-                .collect(Collectors.toSet());
+            .filter(taskEntity -> workerId == taskEntity.getAssignedWorker())
+            .map(this::toTaskId)
+            .collect(Collectors.toSet());
         //deleted tasks has to be ignored
         taskPopulateAndVerify.populate(0, 20, VirtualQueue.DELETED, knownPopulationSpecs);
 
@@ -57,41 +57,41 @@ class TaskWorkerRepositoryImplTest extends BaseRepositoryTest {
 
         //verify
         var expectedTasks = Stream.concat(populateNewTasks.stream(), populateReadyTasks.stream())
-                .filter(taskEntity -> workerId == taskEntity.getAssignedWorker())
-                .filter(taskEntity -> !shouldBeIgnoredIds.contains(toTaskId(taskEntity)))
-                .sorted(Comparator.comparing(TaskEntity::getExecutionDateUtc))
-                .limit(10)
-                .toList();
+            .filter(taskEntity -> workerId == taskEntity.getAssignedWorker())
+            .filter(taskEntity -> !shouldBeIgnoredIds.contains(toTaskId(taskEntity)))
+            .sorted(Comparator.comparing(TaskEntity::getExecutionDateUtc))
+            .limit(10)
+            .toList();
         Assertions.assertThat(actualTasks)
-                .usingRecursiveComparison(RecursiveComparisonConfiguration.builder()
-                        .withComparatorForType(new RoundingLocalDateTimeComparator(), LocalDateTime.class)
-                        .build()).isEqualTo(expectedTasks);
+            .usingRecursiveComparison(RecursiveComparisonConfiguration.builder()
+                .withComparatorForType(new RoundingLocalDateTimeComparator(), LocalDateTime.class)
+                .build()).isEqualTo(expectedTasks);
     }
 
     @Test
     void filterCanceled() {
         //when
         var knownPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.allSetAndOneTask(),
-                        Range.closedOpen(1, 2), TaskPopulateAndVerify.GenerationSpec.canceled()
-                )
+                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.one(),
+                Range.closedOpen(1, 2), TaskPopulateAndVerify.GenerationSpec.oneCanceled()
+            )
         );
         var populateNewTasks = taskPopulateAndVerify.populate(0, 10, VirtualQueue.NEW, knownPopulationSpecs);
         var populateDeletedTasks = taskPopulateAndVerify.populate(0, 10, VirtualQueue.DELETED, knownPopulationSpecs);
 
         var taskIdToCheck = ImmutableSet.<TaskId>builder()
-                .addAll(populateNewTasks.stream().map(this::toTaskId).collect(Collectors.toSet()))
-                .addAll(populateDeletedTasks.stream().map(this::toTaskId).collect(Collectors.toSet()))
-                .build();
+            .addAll(populateNewTasks.stream().map(this::toTaskId).collect(Collectors.toSet()))
+            .addAll(populateDeletedTasks.stream().map(this::toTaskId).collect(Collectors.toSet()))
+            .build();
 
         //do
         Set<TaskId> actualTaskIds = repository.filterCanceled(taskIdToCheck);
 
         //verify
         var expectedTaskIds = populateNewTasks.stream()
-                .filter(TaskEntity::isCanceled)
-                .map(this::toTaskId)
-                .toList();
+            .filter(TaskEntity::isCanceled)
+            .map(this::toTaskId)
+            .toList();
         assertThat(actualTaskIds).containsExactlyInAnyOrderElementsOf(expectedTaskIds);
     }
 }

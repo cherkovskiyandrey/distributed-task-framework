@@ -66,15 +66,15 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
         super.init();
         executorService = Executors.newSingleThreadExecutor();
         plannerService = Mockito.spy(new VirtualQueueManagerPlannerImpl(
-                commonSettings,
-                plannerRepository,
-                transactionManager,
-                clusterProvider,
-                taskRepository,
-                partitionTracker,
-                taskMapper,
-                virtualQueueStatHelper,
-                metricHelper
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            taskRepository,
+            partitionTracker,
+            taskMapper,
+            virtualQueueStatHelper,
+            metricHelper
         ));
     }
 
@@ -110,7 +110,7 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
         //when
         setFixedTime();
         List<TaskPopulateAndVerify.PopulationSpec> readyPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.allSetAndOneTask())
+            Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.one())
         );
         var alreadyInReady = taskPopulateAndVerify.populate(0, 5, VirtualQueue.READY, readyPopulationSpecs);
         setFixedTime(1_000); //>taskPopulate.populate(5
@@ -134,45 +134,45 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
         waitForDeletedQueueIsEmpty();
 
         var newToParkedVerifyCtx = TaskPopulateAndVerify.VerifyVirtualQueueContext.builder()
-                .populationSpecRange(Range.closedOpen(0, 10))
-                .expectedVirtualQueueByRange(Map.of(
-                        Range.closedOpen(0, 10),
-                        TaskPopulateAndVerify.ExpectedVirtualQueue.in(VirtualQueue.PARKED)
-                ))
-                .populationSpecs(readyPopulationSpecs)
-                .affectedTaskEntities(newTaskEntities)
-                .build();
+            .populationSpecRange(Range.closedOpen(0, 10))
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 10),
+                TaskPopulateAndVerify.ExpectedVirtualQueue.in(VirtualQueue.PARKED)
+            ))
+            .populationSpecs(readyPopulationSpecs)
+            .affectedTaskEntities(newTaskEntities)
+            .build();
         taskPopulateAndVerify.verifyVirtualQueue(newToParkedVerifyCtx);
 
         var parkedToParkedVerifyCtx = TaskPopulateAndVerify.VerifyVirtualQueueContext.builder()
-                .populationSpecRange(Range.closedOpen(0, 5))
-                .expectedVirtualQueueByRange(Map.of(
-                        Range.closedOpen(0, 10),
-                        TaskPopulateAndVerify.ExpectedVirtualQueue.in(VirtualQueue.PARKED)
-                ))
-                .populationSpecs(readyPopulationSpecs)
-                .affectedTaskEntities(parkedTaskEntities)
-                .build();
+            .populationSpecRange(Range.closedOpen(0, 5))
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 10),
+                TaskPopulateAndVerify.ExpectedVirtualQueue.in(VirtualQueue.PARKED)
+            ))
+            .populationSpecs(readyPopulationSpecs)
+            .affectedTaskEntities(parkedTaskEntities)
+            .build();
         taskPopulateAndVerify.verifyVirtualQueue(parkedToParkedVerifyCtx);
 
         var parkedToReadyAndParkedVerifyCtx = TaskPopulateAndVerify.VerifyVirtualQueueContext.builder()
-                .populationSpecRange(Range.closedOpen(5, 10))
-                .expectedVirtualQueueByRange(Map.of(
-                        Range.closedOpen(0, 1),
-                        TaskPopulateAndVerify.ExpectedVirtualQueue.in(VirtualQueue.READY),
+            .populationSpecRange(Range.closedOpen(5, 10))
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 1),
+                TaskPopulateAndVerify.ExpectedVirtualQueue.in(VirtualQueue.READY),
 
-                        Range.closedOpen(1, 10),
-                        TaskPopulateAndVerify.ExpectedVirtualQueue.in(VirtualQueue.PARKED)
-                ))
-                .populationSpecs(readyPopulationSpecs)
-                .affectedTaskEntities(parkedTaskEntities)
-                .build();
+                Range.closedOpen(1, 10),
+                TaskPopulateAndVerify.ExpectedVirtualQueue.in(VirtualQueue.PARKED)
+            ))
+            .populationSpecs(readyPopulationSpecs)
+            .affectedTaskEntities(parkedTaskEntities)
+            .build();
         var groupedTasks = taskPopulateAndVerify.verifyVirtualQueue(parkedToReadyAndParkedVerifyCtx);
 
         var inReadyTasks = ImmutableList.<TaskEntity>builder()
-                .addAll(alreadyInReady)
-                .addAll(groupedTasks.get(VirtualQueue.READY))
-                .build();
+            .addAll(alreadyInReady)
+            .addAll(groupedTasks.get(VirtualQueue.READY))
+            .build();
         this.verifyRegisteredPartitionFromTask(inReadyTasks);
     }
 

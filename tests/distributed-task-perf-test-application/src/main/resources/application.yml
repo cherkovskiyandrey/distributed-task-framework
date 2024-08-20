@@ -3,12 +3,12 @@ spring:
     include:
       - dtf-perf-test
   datasource:
-    url: jdbc:postgresql://localhost:5432/distributed-task
-    username: distributed-task
-    password: distributed-task
+    url: jdbc:postgresql://${PG_MASTER_HOST:localhost}:${PG_MASTER_PORT:5432}/${PG_DB_NAME:distributed-task}
+    username: ${PG_USERNAME:distributed-task}
+    password: ${PG_PASSWORD:distributed-task}
     hikari:
       minimum-idle: 10
-      maximum-pool-size: 20
+      maximum-pool-size: 100
       data-source-properties:
         rewriteBatchedStatements: true
         useConfigs: maxPerformance
@@ -19,18 +19,37 @@ spring:
     name: test-app
 
 management:
+  custom:
+    enable: true
   health:
     db:
       enabled: false
-  metrics:
-    export:
-      prometheus:
-        enabled: true
+    defaults:
+      enabled: false
+    check-timeout:
+      internal: 1000
+      external: 2000
+  info:
+    env:
+      enabled: true
+    git:
+      mode: full
   endpoints:
     web:
-      base-path: /actuator
+      base-path: '/'
       exposure:
         include: '*'
+      path-mapping:
+        'health': 'health/check'
+        'externalHealth': 'health/check/external'
+        'prometheus': 'metrics'
+  endpoint:
+    health:
+      show-details: always
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 distributed-task:
   enabled: true
@@ -52,7 +71,7 @@ distributed-task:
       new-batch-size: 100
       deleted-batch-size: 100
     worker-manager:
-      max-parallel-tasks-in-node: 100
+      max-parallel-tasks-in-node: 200
       manage-delay:
         0: 500
         1: 10
@@ -67,5 +86,5 @@ distributed-task:
           delay-period: PT10S
           max-retries: 1000
           max-delay: PT5M
-      max-parallel-in-cluster: 100
+      max-parallel-in-cluster: 200
       timeout: PT5M

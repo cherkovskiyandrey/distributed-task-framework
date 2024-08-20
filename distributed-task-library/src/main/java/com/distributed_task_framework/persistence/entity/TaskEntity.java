@@ -1,5 +1,6 @@
 package com.distributed_task_framework.persistence.entity;
 
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,8 +12,8 @@ import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Table;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 
-import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -24,6 +25,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder(toBuilder = true)
 public class TaskEntity {
+    public static final BeanPropertyRowMapper<TaskEntity> TASK_ROW_MAPPER = new BeanPropertyRowMapper<>(TaskEntity.class);
     @Id
     UUID id;
     String taskName;

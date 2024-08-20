@@ -104,11 +104,16 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
+
 @TestConfiguration
 @EnableJdbcAuditing//(dateTimeProviderRef = "auditingDateTimeProvider")
-@EnableJdbcRepositories(basePackageClasses = NodeStateRepository.class,
-        transactionManagerRef = "dtfTransactionManager",
-        jdbcOperationsRef = "dtfNamedParameterJdbcOperations")
+@EnableJdbcRepositories(
+    basePackageClasses = NodeStateRepository.class,
+    transactionManagerRef = DTF_TX_MANAGER,
+    jdbcOperationsRef = DTF_JDBC_OPS
+)
 @EnableTransactionManagement
 @EnableCaching
 public class BaseTestConfiguration {
@@ -207,7 +212,7 @@ public class BaseTestConfiguration {
     @Qualifier("commonRegistryCaffeineConfig")
     public Caffeine<Object, Object> commonRegistryCaffeineConfig(CommonSettings commonSettings) {
         return Caffeine.newBuilder()
-                .expireAfterWrite(commonSettings.getRegistrySettings().getCacheExpirationMs(), TimeUnit.MILLISECONDS);
+            .expireAfterWrite(commonSettings.getRegistrySettings().getCacheExpirationMs(), TimeUnit.MILLISECONDS);
     }
 
     @Bean
@@ -247,53 +252,53 @@ public class BaseTestConfiguration {
     @SneakyThrows
     public CommonSettings commonSettings() {
         return CommonSettings.DEFAULT.toBuilder()
-                .appName("test-app")
-                .registrySettings(CommonSettings.DEFAULT.getRegistrySettings().toBuilder()
-                        .updateInitialDelayMs(1000)
-                        .updateFixedDelayMs(1000)
-                        .maxInactivityIntervalMs(5000)
-                        .cacheExpirationMs(0)
-                        .build()
+            .appName("test-app")
+            .registrySettings(CommonSettings.DEFAULT.getRegistrySettings().toBuilder()
+                .updateInitialDelayMs(1000)
+                .updateFixedDelayMs(1000)
+                .maxInactivityIntervalMs(5000)
+                .cacheExpirationMs(0)
+                .build()
+            )
+            .plannerSettings(CommonSettings.DEFAULT.getPlannerSettings().toBuilder()
+                .batchSize(100)
+                .fetchFactor(2.F)
+                .affinityGroupScannerTimeOverlap(Duration.ofSeconds(1))
+                .partitionTrackingTimeWindow(Duration.ofSeconds(5))
+                .planFactor(2.F)
+                .build()
+            )
+            .workerManagerSettings(CommonSettings.DEFAULT.getWorkerManagerSettings().toBuilder()
+                .maxParallelTasksInNode(10)
+                .build()
+            )
+            .deliveryManagerSettings(CommonSettings.DEFAULT.getDeliveryManagerSettings().toBuilder()
+                .batchSize(100)
+                .remoteApps(CommonSettings.RemoteApps.builder()
+                    .appToUrl(Map.of("foreign-app", new URL("http://foreign-app:8080")))
+                    .build()
                 )
-                .plannerSettings(CommonSettings.DEFAULT.getPlannerSettings().toBuilder()
-                        .batchSize(100)
-                        .fetchFactor(2.F)
-                        .affinityGroupScannerTimeOverlap(Duration.ofSeconds(1))
-                        .partitionTrackingTimeWindow(Duration.ofSeconds(5))
-                        .planFactor(2.F)
-                        .build()
+                .retry(Retry.builder()
+                    .retryMode(RetryMode.FIXED)
+                    .fixed(Fixed.builder()
+                        .delay(Duration.ofSeconds(1))
+                        .maxNumber(4)
+                        .build())
+                    .build()
                 )
-                .workerManagerSettings(CommonSettings.DEFAULT.getWorkerManagerSettings().toBuilder()
-                        .maxParallelTasksInNode(10)
-                        .build()
-                )
-                .deliveryManagerSettings(CommonSettings.DEFAULT.getDeliveryManagerSettings().toBuilder()
-                        .batchSize(100)
-                        .remoteApps(CommonSettings.RemoteApps.builder()
-                                .appToUrl(Map.of("foreign-app", new URL("http://foreign-app:8080")))
-                                .build()
-                        )
-                        .retry(Retry.builder()
-                                .retryMode(RetryMode.FIXED)
-                                .fixed(Fixed.builder()
-                                        .delay(Duration.ofSeconds(1))
-                                        .maxNumber(4)
-                                        .build())
-                                .build()
-                        )
-                        .build()
-                )
-                .build();
+                .build()
+            )
+            .build();
     }
 
     @Bean
     public TaskSettings defaultTaskSettingsForTestOnly() {
         return TaskSettings.DEFAULT.toBuilder()
-                .retry(TaskSettings.DEFAULT.getRetry().toBuilder()
-                        .retryMode(RetryMode.FIXED)
-                        .build()
-                )
-                .build();
+            .retry(TaskSettings.DEFAULT.getRetry().toBuilder()
+                .retryMode(RetryMode.FIXED)
+                .build()
+            )
+            .build();
     }
 
     @Component
@@ -318,14 +323,14 @@ public class BaseTestConfiguration {
                                            CapabilityRepository capabilityRepository,
                                            Clock clock) {
         return new ClusterProviderImpl(
-                commonSettings,
-                capabilityRegisterProvider,
-                transactionManager,
-                cacheManager,
-                nodeStateMapper,
-                nodeStateRepository,
-                capabilityRepository,
-                clock
+            commonSettings,
+            capabilityRegisterProvider,
+            transactionManager,
+            cacheManager,
+            nodeStateMapper,
+            nodeStateRepository,
+            capabilityRepository,
+            clock
         );
     }
 
@@ -335,10 +340,10 @@ public class BaseTestConfiguration {
                                                    PlatformTransactionManager transactionManager,
                                                    ClusterProvider clusterProvider) {
         return new TaskRegistryServiceImpl(
-                commonSettings,
-                registeredTaskRepository,
-                transactionManager,
-                clusterProvider
+            commonSettings,
+            registeredTaskRepository,
+            transactionManager,
+            clusterProvider
         );
     }
 
@@ -364,10 +369,10 @@ public class BaseTestConfiguration {
                                            CommonSettings commonSettings,
                                            TaskSerializer taskSerializer) {
         return new TaskLinkManagerImpl(
-                taskLinkRepository,
-                taskMessageRepository,
-                commonSettings,
-                taskSerializer
+            taskLinkRepository,
+            taskMessageRepository,
+            commonSettings,
+            taskSerializer
         );
     }
 
@@ -398,13 +403,13 @@ public class BaseTestConfiguration {
                                                          MetricHelper metricHelper,
                                                          MeterRegistry meterRegistry) {
         return new VirtualQueueStatHelper(
-                plannerService,
-                commonSettings,
-                taskRegistryService,
-                taskRepository,
-                taskMapper,
-                metricHelper,
-                meterRegistry
+            plannerService,
+            commonSettings,
+            taskRegistryService,
+            taskRepository,
+            taskMapper,
+            metricHelper,
+            meterRegistry
         );
     }
 
@@ -419,33 +424,33 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public PartitionTracker partitionTracker(TaskRepository taskRepository,
+    public PartitionTracker partitionTracker(PlatformTransactionManager platformTransactionManager,
+                                             TaskRepository taskRepository,
                                              PartitionRepository partitionRepository,
                                              PartitionMapper partitionMapper,
                                              CommonSettings commonSettings,
                                              Clock clock) {
         return new PartitionTrackerImpl(
-                taskRepository,
-                partitionRepository,
-                partitionMapper,
-                commonSettings,
-                clock
+            platformTransactionManager,
+            taskRepository,
+            partitionRepository,
+            partitionMapper,
+            commonSettings,
+            clock
         );
     }
 
     @Bean
     @Qualifier("impl")
     public VirtualQueueBaseTaskCommandServiceImpl virtualQueueBaseTaskCommandService(PartitionTracker partitionTracker,
-                                                                                     ClusterProvider clusterProvider,
                                                                                      TaskRepository taskRepository,
                                                                                      WorkerContextManager workerContextManager,
                                                                                      TaskMapper taskMapper) {
         return new VirtualQueueBaseTaskCommandServiceImpl(
-                partitionTracker,
-                clusterProvider,
-                taskRepository,
-                workerContextManager,
-                taskMapper
+            partitionTracker,
+            taskRepository,
+            workerContextManager,
+            taskMapper
         );
     }
 
@@ -453,7 +458,7 @@ public class BaseTestConfiguration {
     @Qualifier("impl")
     public TaskCommandStatHelper taskCommandStatHelper(MetricHelper metricHelper) {
         return new TaskCommandStatHelper(
-                metricHelper
+            metricHelper
         );
     }
 
@@ -477,17 +482,17 @@ public class BaseTestConfiguration {
                                                                               TaskLinkManager taskLinkManager,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
-                workerContextManager,
-                transactionManager,
-                taskRepository,
-                taskMapper,
-                taskRegistryService,
-                taskSerializer,
-                cronService,
-                commonSettings,
-                internalTaskCommandService,
-                taskLinkManager,
-                clock
+            workerContextManager,
+            transactionManager,
+            taskRepository,
+            taskMapper,
+            taskRegistryService,
+            taskSerializer,
+            cronService,
+            commonSettings,
+            internalTaskCommandService,
+            taskLinkManager,
+            clock
         );
     }
 
@@ -499,12 +504,12 @@ public class BaseTestConfiguration {
                                                                                TaskRegistryService taskRegistryService,
                                                                                Clock clock) {
         return new RemoteTaskCommandServiceImpl(
-                workerContextManager,
-                transactionManager,
-                remoteCommandRepository,
-                taskSerializer,
-                taskRegistryService,
-                clock
+            workerContextManager,
+            transactionManager,
+            remoteCommandRepository,
+            taskSerializer,
+            taskRegistryService,
+            clock
         );
     }
 
@@ -513,9 +518,9 @@ public class BaseTestConfiguration {
                                                          List<TaskCommandWithDetectorService> taskCommandServices,
                                                          CommonSettings commonSettings) {
         return new DistributedTaskServiceImpl(
-                taskRegistryService,
-                taskCommandServices,
-                commonSettings
+            taskRegistryService,
+            taskCommandServices,
+            commonSettings
         );
     }
 
@@ -536,20 +541,20 @@ public class BaseTestConfiguration {
                                                          MetricHelper metricHelper,
                                                          Clock clock) {
         return new LocalAtLeastOnceWorker(
-                clusterProvider,
-                workerContextManager,
-                transactionManager,
-                internalTaskCommandService,
-                taskRepository,
-                remoteCommandRepository,
-                dltRepository,
-                taskSerializer,
-                cronService,
-                taskMapper,
-                commonSettings,
-                taskLinkManager,
-                metricHelper,
-                clock
+            clusterProvider,
+            workerContextManager,
+            transactionManager,
+            internalTaskCommandService,
+            taskRepository,
+            remoteCommandRepository,
+            dltRepository,
+            taskSerializer,
+            cronService,
+            taskMapper,
+            commonSettings,
+            taskLinkManager,
+            metricHelper,
+            clock
         );
     }
 
@@ -570,20 +575,20 @@ public class BaseTestConfiguration {
                                                          MetricHelper metricHelper,
                                                          Clock clock) {
         return new LocalExactlyOnceWorker(
-                clusterProvider,
-                workerContextManager,
-                transactionManager,
-                internalTaskCommandService,
-                taskRepository,
-                remoteCommandRepository,
-                dltRepository,
-                taskSerializer,
-                cronService,
-                taskMapper,
-                commonSettings,
-                taskLinkManager,
-                metricHelper,
-                clock
+            clusterProvider,
+            workerContextManager,
+            transactionManager,
+            internalTaskCommandService,
+            taskRepository,
+            remoteCommandRepository,
+            dltRepository,
+            taskSerializer,
+            cronService,
+            taskMapper,
+            commonSettings,
+            taskLinkManager,
+            metricHelper,
+            clock
         );
     }
 
@@ -602,14 +607,14 @@ public class BaseTestConfiguration {
                                        Clock clock,
                                        MetricHelper metricHelper) {
         return new WorkerManagerImpl(
-                commonSettings,
-                clusterProvider,
-                taskRegistryService,
-                taskWorkerFactory,
-                taskRepository,
-                taskMapper,
-                clock,
-                metricHelper
+            commonSettings,
+            clusterProvider,
+            taskRegistryService,
+            taskWorkerFactory,
+            taskRepository,
+            taskMapper,
+            clock,
+            metricHelper
         );
     }
 

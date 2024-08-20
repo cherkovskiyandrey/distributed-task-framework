@@ -15,32 +15,33 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CapabilityExtendedRepositoryImpl implements CapabilityExtendedRepository {
-    private static final String SAVE_OR_UPDATE_BATCH = """
-            INSERT INTO _____dtf_capabilities (
-                id,
-                node_id,
-                value
-            ) VALUES (
-                :id,
-                :nodeId,
-                :value
-            ) ON CONFLICT(id) DO UPDATE
-                SET node_id = :nodeId,
-                value = :value
-            """;
-
     NamedParameterJdbcOperations jdbcTemplate;
 
     public CapabilityExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+
+    private static final String SAVE_OR_UPDATE_BATCH = """
+        INSERT INTO _____dtf_capabilities (
+            id,
+            node_id,
+            value
+        ) VALUES (
+            :id,
+            :nodeId,
+            :value
+        ) ON CONFLICT(id) DO UPDATE
+            SET node_id = :nodeId,
+            value = :value
+        """;
+
     @Override
     public void saveOrUpdateBatch(Set<CapabilityEntity> currentCapabilities) {
         MapSqlParameterSource[] mapSqlParameterSources = currentCapabilities.stream()
-                .map(this::prepareToSave)
-                .map(this::toParameterSource)
-                .toArray(MapSqlParameterSource[]::new);
+            .map(this::prepareToSave)
+            .map(this::toParameterSource)
+            .toArray(MapSqlParameterSource[]::new);
         jdbcTemplate.batchUpdate(SAVE_OR_UPDATE_BATCH, mapSqlParameterSources);
     }
 
