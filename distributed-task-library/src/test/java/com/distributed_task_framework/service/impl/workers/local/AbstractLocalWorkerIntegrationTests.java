@@ -68,10 +68,10 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         //verify
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         verify(mockedTask).execute(argThat(argument ->
-                        taskId.equals(argument.getCurrentTaskId()) &&
-                                taskEntity.getWorkflowId().equals(argument.getWorkflowId()) &&
-                                "hello message".equals(argument.getInputMessageOrThrow())
-                )
+                taskId.equals(argument.getCurrentTaskId()) &&
+                    taskEntity.getWorkflowId().equals(argument.getWorkflowId()) &&
+                    "hello message".equals(argument.getInputMessageOrThrow())
+            )
         );
         verifyTaskIsFinished(taskId);
     }
@@ -89,31 +89,31 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         RegisteredTask<MessageDto> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
 
         String serializedValueAsStr = """
-                {
-                   "text": "hello_world!",
-                   "checkpoints": [1, 2, 3],
-                   "internalEnum": "NEW_VALUE",
-                   "newStringField": "value_for_new_field",
-                   "newIntValue": 123,
-                   "newSubObjectField": {
-                        "newSubObjectStringField": "value_for_new_sub_object_field",
-                        "newSubObjectIntValue": 123
-                   }
-                }
-                """
-                .replaceAll("\\s", "")
-                .replaceAll("\\v", "");
+            {
+               "text": "hello_world!",
+               "checkpoints": [1, 2, 3],
+               "internalEnum": "NEW_VALUE",
+               "newStringField": "value_for_new_field",
+               "newIntValue": 123,
+               "newSubObjectField": {
+                    "newSubObjectStringField": "value_for_new_sub_object_field",
+                    "newSubObjectIntValue": 123
+               }
+            }
+            """
+            .replaceAll("\\s", "")
+            .replaceAll("\\v", "");
         byte[] valueAsBytes = serializedValueAsStr.getBytes(StandardCharsets.UTF_8);
         TaskEntity taskEntity = taskRepository.saveOrUpdate(TaskEntity.builder()
-                .taskName("test")
-                .id(UUID.randomUUID())
-                .workflowId(UUID.randomUUID())
-                .virtualQueue(VirtualQueue.NEW)
-                .workflowCreatedDateUtc(LocalDateTime.now(clock))
-                .createdDateUtc(LocalDateTime.now(clock))
-                .executionDateUtc(LocalDateTime.now(clock))
-                .messageBytes(valueAsBytes)
-                .build()
+            .taskName("test")
+            .id(UUID.randomUUID())
+            .workflowId(UUID.randomUUID())
+            .virtualQueue(VirtualQueue.NEW)
+            .workflowCreatedDateUtc(LocalDateTime.now(clock))
+            .createdDateUtc(LocalDateTime.now(clock))
+            .executionDateUtc(LocalDateTime.now(clock))
+            .messageBytes(valueAsBytes)
+            .build()
         );
 
         //do
@@ -121,17 +121,17 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
 
         //verify
         MessageDto expectedMessageDto = MessageDto.builder()
-                .text("hello_world!")
-                .checkpoint(1)
-                .checkpoint(2)
-                .checkpoint(3)
-                .build();
+            .text("hello_world!")
+            .checkpoint(1)
+            .checkpoint(2)
+            .checkpoint(3)
+            .build();
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         verify(mockedTask).execute(argThat(argument ->
-                        taskId.equals(argument.getCurrentTaskId()) &&
-                                taskEntity.getWorkflowId().equals(argument.getWorkflowId()) &&
-                                expectedMessageDto.equals(argument.getInputMessageOrThrow())
-                )
+                taskId.equals(argument.getCurrentTaskId()) &&
+                    taskEntity.getWorkflowId().equals(argument.getWorkflowId()) &&
+                    expectedMessageDto.equals(argument.getInputMessageOrThrow())
+            )
         );
         verifyLocalTaskIsFinished(taskEntity);
 
@@ -152,15 +152,15 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
 
         RegisteredTask<List<String>> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
         TaskEntity taskEntity = taskRepository.saveOrUpdate(TaskEntity.builder()
-                .taskName("test")
-                .id(UUID.randomUUID())
-                .workflowId(UUID.randomUUID())
-                .virtualQueue(VirtualQueue.NEW)
-                .workflowCreatedDateUtc(LocalDateTime.now(clock))
-                .createdDateUtc(LocalDateTime.now(clock))
-                .executionDateUtc(LocalDateTime.now(clock))
-                .messageBytes(taskSerializer.writeValue(List.of("hello", "world")))
-                .build()
+            .taskName("test")
+            .id(UUID.randomUUID())
+            .workflowId(UUID.randomUUID())
+            .virtualQueue(VirtualQueue.NEW)
+            .workflowCreatedDateUtc(LocalDateTime.now(clock))
+            .createdDateUtc(LocalDateTime.now(clock))
+            .executionDateUtc(LocalDateTime.now(clock))
+            .messageBytes(taskSerializer.writeValue(List.of("hello", "world")))
+            .build()
         );
 
         //do
@@ -169,10 +169,10 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         //verify
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         verify(mockedTask).execute(argThat(argument ->
-                        taskId.equals(argument.getCurrentTaskId()) &&
-                                taskEntity.getWorkflowId().equals(argument.getWorkflowId()) &&
-                                List.of("hello", "world").equals(argument.getInputMessageOrThrow())
-                )
+                taskId.equals(argument.getCurrentTaskId()) &&
+                    taskEntity.getWorkflowId().equals(argument.getWorkflowId()) &&
+                    List.of("hello", "world").equals(argument.getInputMessageOrThrow())
+            )
         );
         verifyLocalTaskIsFinished(taskEntity);
     }
@@ -193,21 +193,21 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         RegisteredTask<MessageDto> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
 
         MessageDto messageDto = MessageDto.builder()
-                .text("hello world!")
-                .checkpoint(1)
-                .checkpoint(2)
-                .checkpoint(2)
-                .build();
+            .text("hello world!")
+            .checkpoint(1)
+            .checkpoint(2)
+            .checkpoint(2)
+            .build();
         TaskEntity taskEntity = taskRepository.saveOrUpdate(TaskEntity.builder()
-                .taskName("test")
-                .id(UUID.randomUUID())
-                .workflowId(UUID.randomUUID())
-                .virtualQueue(VirtualQueue.NEW)
-                .workflowCreatedDateUtc(LocalDateTime.now(clock))
-                .createdDateUtc(LocalDateTime.now(clock))
-                .executionDateUtc(LocalDateTime.now(clock))
-                .messageBytes(taskSerializer.writeValue(messageDto))
-                .build()
+            .taskName("test")
+            .id(UUID.randomUUID())
+            .workflowId(UUID.randomUUID())
+            .virtualQueue(VirtualQueue.NEW)
+            .workflowCreatedDateUtc(LocalDateTime.now(clock))
+            .createdDateUtc(LocalDateTime.now(clock))
+            .executionDateUtc(LocalDateTime.now(clock))
+            .messageBytes(taskSerializer.writeValue(messageDto))
+            .build()
         );
 
         //do
@@ -216,10 +216,10 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         //verify
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         verify(mockedTask).execute(argThat(argument ->
-                        taskId.equals(argument.getCurrentTaskId()) &&
-                                taskEntity.getWorkflowId().equals(argument.getWorkflowId()) &&
-                                messageDto.equals(argument.getInputMessageOrThrow())
-                )
+                taskId.equals(argument.getCurrentTaskId()) &&
+                    taskEntity.getWorkflowId().equals(argument.getWorkflowId()) &&
+                    messageDto.equals(argument.getInputMessageOrThrow())
+            )
         );
         verifyLocalTaskIsFinished(taskEntity);
     }
@@ -246,10 +246,10 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         verifyFirstAttemptTaskOnFailure(mockedTask, taskEntity);
 
         assertThat(taskRepository.find(taskId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next retry time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next retry time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
     }
 
@@ -259,11 +259,11 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
         TaskSettings taskSettings = defaultTaskSettings.toBuilder().build();
         Task<String> mockedTask = TaskGenerator.defineTask(
-                taskDef,
-                m -> {
-                    throw new RuntimeException();
-                },
-                TaskGenerator.interruptedRetry()
+            taskDef,
+            m -> {
+                throw new RuntimeException();
+            },
+            TaskGenerator.interruptedRetry()
         );
         mockedTask = Mockito.spy(mockedTask);
 
@@ -275,8 +275,7 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         getTaskWorker().execute(taskEntity, registeredTask);
 
         //verify
-        TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
-        assertThat(taskRepository.find(taskId.getId())).isEmpty();
+        verifyLocalTaskIsFinished(taskEntity);
     }
 
     @Test
@@ -284,8 +283,8 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         //when
         TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
         TaskSettings taskSettings = defaultTaskSettings.toBuilder()
-                .dltEnabled(true)
-                .build();
+            .dltEnabled(true)
+            .build();
         Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
             throw new RuntimeException();
         });
@@ -304,17 +303,17 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
 
         verifyLocalTaskIsFinished(taskEntity);
         assertThat(dltRepository.findById(taskId.getId())).isPresent()
-                .get()
-                .matches(te -> taskEntity.getTaskName().equals(te.getTaskName()), "task name")
-                .matches(te -> taskEntity.getWorkflowId().equals(te.getWorkflowId()), "workflowId")
-                .matches(te -> te.getFailures() == 6, "failures")
-                .matches(te -> {
-                    try {
-                        return "hello message".equals(taskSerializer.readValue(te.getMessageBytes(), String.class));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }, "input message");
+            .get()
+            .matches(te -> taskEntity.getTaskName().equals(te.getTaskName()), "task name")
+            .matches(te -> taskEntity.getWorkflowId().equals(te.getWorkflowId()), "workflowId")
+            .matches(te -> te.getFailures() == 6, "failures")
+            .matches(te -> {
+                try {
+                    return "hello message".equals(taskSerializer.readValue(te.getMessageBytes(), String.class));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }, "input message");
     }
 
     @Test
@@ -322,7 +321,7 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         //when
         TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
         TaskSettings taskSettings = defaultTaskSettings.toBuilder()
-                .build();
+            .build();
         AtomicInteger receivedAttempts = new AtomicInteger(0);
         Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
             receivedAttempts.set(m.getExecutionAttempt());
@@ -364,9 +363,9 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         //verify
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         verify(mockedTask).execute(argThat(argument ->
-                        taskId.equals(argument.getCurrentTaskId()) &&
-                                taskEntity.getWorkflowId().equals(argument.getWorkflowId())
-                )
+                taskId.equals(argument.getCurrentTaskId()) &&
+                    taskEntity.getWorkflowId().equals(argument.getWorkflowId())
+            )
         );
         verifyCronTaskInRepositoryToNextCall(taskEntity);
     }
@@ -391,10 +390,10 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         //verify
         verifyFirstAttemptCronTaskOnFailure(mockedTask, taskEntity);
         assertThat(taskRepository.find(taskEntity.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next execution time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next execution time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
     }
 
@@ -426,11 +425,11 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         TaskDef<Void> taskDef = TaskDef.privateTaskDef("test-cron", Void.class);
         TaskSettings taskSettings = newRecurrentTaskSettings();
         Task<Void> mockedTask = TaskGenerator.defineTask(
-                taskDef,
-                m -> {
-                    throw new RuntimeException();
-                },
-                TaskGenerator.interruptedRetry()
+            taskDef,
+            m -> {
+                throw new RuntimeException();
+            },
+            TaskGenerator.interruptedRetry()
         );
         mockedTask = Mockito.spy(mockedTask);
         RegisteredTask<Void> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
@@ -450,10 +449,10 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         //when
         TaskDef<Void> taskDef = TaskDef.privateTaskDef("test-cron", Void.class);
         TaskSettings taskSettings = newRecurrentTaskSettings().toBuilder()
-                .retry(Retry.builder()
-                        .retryMode(RetryMode.OFF)
-                        .build())
-                .build();
+            .retry(Retry.builder()
+                .retryMode(RetryMode.OFF)
+                .build())
+            .build();
         Task<Void> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
             throw new RuntimeException();
         });
@@ -484,8 +483,8 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
         TaskEntity taskEntity = saveNewTaskEntity();
         taskEntity = taskEntity.toBuilder()
-                .canceled(true)
-                .build();
+            .canceled(true)
+            .build();
 
         //do
         getTaskWorker().execute(taskEntity, registeredTask);

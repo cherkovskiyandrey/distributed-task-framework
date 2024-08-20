@@ -1,3 +1,7 @@
+plugins {
+    id("com.gorylenko.gradle-git-properties") version "2.4.2"
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'

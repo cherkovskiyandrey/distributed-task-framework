@@ -87,7 +87,7 @@
     },
     {
       "name": "distributed-task.common.registry.cache-expiration-ms",
-      "defaultValue": "2000"
+      "defaultValue": "1000"
     },
     {
       "name": "distributed-task.common.registry.cpu-calculating-time-window",

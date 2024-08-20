@@ -1,5 +1,7 @@
 package com.distributed_task_framework.service.impl.workers;
 
+import com.distributed_task_framework.exception.BatchUpdateException;
+import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
@@ -7,8 +9,21 @@ import com.distributed_task_framework.model.JoinTaskMessageContainer;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.model.WorkerContext;
+import com.distributed_task_framework.persistence.entity.DltEntity;
+import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.repository.DltRepository;
+import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
+import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.CronService;
+import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.InternalTaskCommandService;
+import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.TaskLinkManager;
+import com.distributed_task_framework.service.internal.TaskWorker;
+import com.distributed_task_framework.service.internal.WorkerContextManager;
+import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.utils.CommandHelper;
 import com.fasterxml.jackson.databind.JavaType;
@@ -17,6 +32,7 @@ import com.google.common.collect.Sets;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -26,23 +42,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import com.distributed_task_framework.exception.BatchUpdateException;
-import com.distributed_task_framework.exception.OptimisticLockException;
-import com.distributed_task_framework.persistence.entity.DltEntity;
-import com.distributed_task_framework.persistence.entity.TaskEntity;
-import com.distributed_task_framework.persistence.repository.DltRepository;
-import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
-import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.InternalTaskCommandService;
-import com.distributed_task_framework.service.internal.MetricHelper;
-import com.distributed_task_framework.service.internal.TaskLinkManager;
-import com.distributed_task_framework.service.internal.TaskWorker;
-import com.distributed_task_framework.service.internal.WorkerContextManager;
-import com.distributed_task_framework.settings.CommonSettings;
-import com.distributed_task_framework.settings.TaskSettings;
 
-import jakarta.annotation.Nullable;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -89,11 +89,11 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         Task<T> task = registeredTask.getTask();
         var taskSettings = registeredTask.getTaskSettings();
         workerContextManager.setCurrentContext(WorkerContext.builder()
-                .taskSettings(taskSettings)
-                .workflowId(taskEntity.getWorkflowId())
-                .currentTaskId(taskId)
-                .taskEntity(taskEntity)
-                .build()
+            .taskSettings(taskSettings)
+            .workflowId(taskEntity.getWorkflowId())
+            .currentTaskId(taskId)
+            .taskEntity(taskEntity)
+            .build()
         );
 
         final TaskEntity finalTaskEntity = taskEntity;
@@ -117,31 +117,40 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             getCommonErrorCounter(taskEntity).increment();
             int currentFailures = taskEntity.getFailures() + 1;
             taskEntity = taskEntity.toBuilder()
-                    .failures(currentFailures)
-                    .build();
+                .failures(currentFailures)
+                .build();
             Optional<LocalDateTime> nextTryDateTime = taskSettings.getRetry().nextRetry(currentFailures, clock);
 
             boolean hasToInterruptRetrying = false;
             try {
                 Optional<T> inputMessage = deserializeMessageSilent(
-                        taskId,
-                        taskEntity.getMessageBytes(),
-                        task.getDef().getInputMessageType(),
-                        taskEntity
+                    taskId,
+                    taskEntity.getMessageBytes(),
+                    task.getDef().getInputMessageType(),
+                    taskEntity
                 );
                 List<T> inputJoinTaskMessages = readJoinTaskMessagesSilent(taskEntity, task.getDef().getInputMessageType());
 
-                hasToInterruptRetrying = task.onFailureWithResult(FailedExecutionContext.<T>builder()
-                        .workflowId(taskEntity.getWorkflowId())
-                        .currentTaskId(taskId)
-                        .inputMessage(inputMessage.orElse(null))
-                        .inputJoinTaskMessages(inputJoinTaskMessages)
-                        .error(exception)
-                        .failures(currentFailures)
-                        .isLastAttempt(nextTryDateTime.isEmpty())
-                        .executionAttempt(currentFailures)
-                        .build()
+                var failedExecutionContext = FailedExecutionContext.<T>builder()
+                    .workflowId(taskEntity.getWorkflowId())
+                    .currentTaskId(taskId)
+                    .inputMessage(inputMessage.orElse(null))
+                    .inputJoinTaskMessages(inputJoinTaskMessages)
+                    .error(exception)
+                    .failures(currentFailures)
+                    .isLastAttempt(nextTryDateTime.isEmpty())
+                    .executionAttempt(currentFailures)
+                    .build();
+
+                log.error(
+                    "execute(): before onFailureWithResult for task=[{}]: attempts=[{}], isLastAttempt=[{}]",
+                    taskId,
+                    failedExecutionContext.getFailures(),
+                    failedExecutionContext.isLastAttempt(),
+                    failedExecutionContext.getError()
                 );
+
+                hasToInterruptRetrying = task.onFailureWithResult(failedExecutionContext);
             } catch (Exception innerException) {
                 getEngineErrorCounter(taskEntity).increment();
                 log.error("execute(): error during execution of Task#onFailed handler for task=[{}]", taskId, innerException);
@@ -153,7 +162,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             }
 
             boolean isTheLastAttemptForGeneralTask = !taskSettings.hasCron() &&
-                    (hasToInterruptRetrying || nextTryDateTime.isEmpty());
+                (hasToInterruptRetrying || nextTryDateTime.isEmpty());
 
             if (isTheLastAttemptForGeneralTask) {
                 log.warn("execute(): failed task=[{}] {}", taskId, reasonMessage(hasToInterruptRetrying));
@@ -162,7 +171,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             }
 
             boolean isTheLastAttemptForCronTask = taskSettings.hasCron() &&
-                    (hasToInterruptRetrying || nextTryDateTime.isEmpty());
+                (hasToInterruptRetrying || nextTryDateTime.isEmpty());
             if (isTheLastAttemptForCronTask) {
                 log.warn("execute(): failed recurrent task=[{}] {}, will be rescheduled", taskId, reasonMessage(hasToInterruptRetrying));
                 nextTryDateTime = cronService.nextExecutionDate(taskSettings.getCron(), false);
@@ -175,9 +184,9 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
 
             try {
                 taskEntity = taskEntity.toBuilder()
-                        .assignedWorker(null)
-                        .executionDateUtc(nextTryDateTime.orElseThrow())
-                        .build();
+                    .assignedWorker(null)
+                    .executionDateUtc(nextTryDateTime.orElseThrow())
+                    .build();
                 internalTaskCommandService.forceReschedule(taskEntity);
             } catch (Exception internalException) {
                 logTaskUpdateException(finalTaskEntity, internalException);
@@ -214,13 +223,13 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
 
     private boolean handleConcurrentChanges(TaskEntity taskEntity, Throwable throwable) {
         return handleOptLockException(taskEntity, throwable)
-                || handleBatchUpdateException(taskEntity, throwable);
+            || handleBatchUpdateException(taskEntity, throwable);
     }
 
     private boolean handleOptLockException(TaskEntity taskEntity, Throwable throwable) {
         OptimisticLockException optimisticLockException = ExceptionUtils.throwableOfType(
-                throwable,
-                OptimisticLockException.class
+            throwable,
+            OptimisticLockException.class
         );
 
         // 1. protection from parallel execution - it isn't error of business logic of task
@@ -235,15 +244,15 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
 
     private boolean handleBatchUpdateException(TaskEntity taskEntity, Throwable throwable) {
         BatchUpdateException batchUpdateException = ExceptionUtils.throwableOfType(
-                throwable,
-                BatchUpdateException.class
+            throwable,
+            BatchUpdateException.class
         );
 
         if (batchUpdateException != null && !batchUpdateException.getOptimisticLockTaskIds().isEmpty()) {
             getOptLockCounter(taskEntity).increment();
             log.warn(
-                    "execute(): tasks=[{}] has been executed in parallel or canceled or rescheduled",
-                    batchUpdateException.getOptimisticLockTaskIds()
+                "execute(): tasks=[{}] has been executed in parallel or canceled or rescheduled",
+                batchUpdateException.getOptimisticLockTaskIds()
             );
             return true;
         }
@@ -302,7 +311,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             return Optional.ofNullable(taskSerializer.readValue(messageBytes, inputMessageClass));
         } catch (Exception e) {
             getEngineErrorCounter(finalTaskEntity).increment();
-            log.warn("deserializeMessageSilent(): can't read message for taskId=[{}]", taskId);
+            log.warn("deserializeMessageSilent(): can't read message for taskId=[{}]", taskId, e);
             return Optional.empty();
         }
     }
@@ -311,7 +320,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         try {
             return readJoinTaskMessages(taskEntity, inputMessageType);
         } catch (Exception e) {
-            log.warn("deserializeMessageSilent(): can't read message for taskId=[{}]", taskEntity.getId());
+            log.warn("readJoinTaskMessagesSilent(): can't read message for taskId=[{}]", taskEntity.getId(), e);
             return List.of();
         }
     }
@@ -326,20 +335,20 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             log.info("runInternal(): task=[{}] has been canceled, ignoring and finalize it", taskId);
         } else {
             T inputMessage = taskEntity.getMessageBytes() != null ?
-                    taskSerializer.readValue(taskEntity.getMessageBytes(), task.getDef().getInputMessageType()) :
-                    null;
+                taskSerializer.readValue(taskEntity.getMessageBytes(), task.getDef().getInputMessageType()) :
+                null;
             List<T> inputJoinTaskMessages = readJoinTaskMessages(taskEntity, task.getDef().getInputMessageType());
 
             ExecutionContext<T> executionContext = ExecutionContext.<T>builder()
-                    .workflowId(taskEntity.getWorkflowId())
-                    .workflowCreatedDateUtc(taskEntity.getWorkflowCreatedDateUtc())
-                    .affinity(taskEntity.getAffinity())
-                    .affinityGroup(taskEntity.getAffinityGroup())
-                    .currentTaskId(taskId)
-                    .inputMessage(inputMessage)
-                    .inputJoinTaskMessages(inputJoinTaskMessages)
-                    .executionAttempt(taskEntity.getFailures() + 1)
-                    .build();
+                .workflowId(taskEntity.getWorkflowId())
+                .workflowCreatedDateUtc(taskEntity.getWorkflowCreatedDateUtc())
+                .affinity(taskEntity.getAffinity())
+                .affinityGroup(taskEntity.getAffinityGroup())
+                .currentTaskId(taskId)
+                .inputMessage(inputMessage)
+                .inputJoinTaskMessages(inputJoinTaskMessages)
+                .executionAttempt(taskEntity.getFailures() + 1)
+                .build();
 
             task.execute(executionContext);
         }
@@ -349,7 +358,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         transactionTemplate.executeWithoutResult(status -> {
             WorkerContext currentContext = workerContextManager.getCurrentContext()
-                    .orElseThrow(() -> new IllegalStateException("Context hasn't been set"));
+                .orElseThrow(() -> new IllegalStateException("Context hasn't been set"));
 
             handlePostponedCommands(currentContext);
             handleLinks(currentContext);
@@ -403,8 +412,8 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             return List.of();
         }
         JoinTaskMessageContainer joinTaskMessageContainer = taskSerializer.readValue(
-                taskEntity.getJoinMessageBytes(),
-                JoinTaskMessageContainer.class
+            taskEntity.getJoinMessageBytes(),
+            JoinTaskMessageContainer.class
         );
         List<T> result = Lists.newArrayList();
         for (byte[] message : joinTaskMessageContainer.getRawMessages()) {
@@ -416,12 +425,12 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     @SneakyThrows
     private void handlePostponedCommands(WorkerContext currentContext) {
         CommandHelper.collapseToBatchedCommands(currentContext.getLocalCommands())
-                .forEach(command -> command.execute(internalTaskCommandService));
+            .forEach(command -> command.execute(internalTaskCommandService));
         remoteCommandRepository.saveAll(currentContext.getRemoteCommandsToSend());
         for (var joinTaskMessage : currentContext.getTaskMessagesToSave().values()) {
             taskLinkManager.setJoinMessages(
-                    currentContext.getCurrentTaskId(),
-                    joinTaskMessage
+                currentContext.getCurrentTaskId(),
+                joinTaskMessage
             );
         }
     }
@@ -436,8 +445,8 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             }
             Optional<String> cronOpt = Optional.ofNullable(taskSettings.getCron());
             Optional<LocalDateTime> nextExecutionDate = cronOpt.flatMap(cron -> cronService.nextExecutionDate(
-                    cron,
-                    false
+                cron,
+                false
             ));
 
             if (nextExecutionDate.isEmpty()) {
@@ -446,10 +455,10 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                 return;
             }
             TaskEntity updatedTaskEntity = taskEntity.toBuilder()
-                    .assignedWorker(null)
-                    .failures(0)
-                    .executionDateUtc(nextExecutionDate.get())
-                    .build();
+                .assignedWorker(null)
+                .failures(0)
+                .executionDateUtc(nextExecutionDate.get())
+                .build();
             internalTaskCommandService.schedule(updatedTaskEntity);
             return;
         }
@@ -458,65 +467,65 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
 
     private Timer getRunInternalTimer(TaskEntity taskEntity) {
         return metricHelper.timer(
-                List.of("worker", "run", "timer"),
-                getCommonTags(),
-                taskEntity
+            List.of("worker", "run", "timer"),
+            getCommonTags(),
+            taskEntity
         );
     }
 
     private Counter getCancelCounter(TaskEntity taskEntity) {
         return metricHelper.counter(
-                List.of("worker", "cancel"),
-                getCommonTags(),
-                taskEntity
+            List.of("worker", "cancel"),
+            getCommonTags(),
+            taskEntity
         );
     }
 
     private Counter getOptLockCounter(TaskEntity taskEntity) {
         return metricHelper.counter(
-                List.of("worker", "optLock", "error"),
-                getCommonTags(),
-                taskEntity
+            List.of("worker", "optLock", "error"),
+            getCommonTags(),
+            taskEntity
         );
     }
 
     private Counter getCommonErrorCounter(TaskEntity taskEntity) {
         return metricHelper.counter(
-                List.of("worker", "common", "error"),
-                getCommonTags(),
-                taskEntity
+            List.of("worker", "common", "error"),
+            getCommonTags(),
+            taskEntity
         );
     }
 
     private Counter getEngineErrorCounter(TaskEntity taskEntity) {
         return metricHelper.counter(
-                List.of("worker", "engine", "error"),
-                getCommonTags(),
-                taskEntity
+            List.of("worker", "engine", "error"),
+            getCommonTags(),
+            taskEntity
         );
     }
 
     private Counter getUnexpectedDeletingErrorCounter(TaskEntity taskEntity) {
         return metricHelper.counter(
-                List.of("worker", "unexpectedDeleting", "error"),
-                getCommonTags(),
-                taskEntity
+            List.of("worker", "unexpectedDeleting", "error"),
+            getCommonTags(),
+            taskEntity
         );
     }
 
     private Counter getFinalCompletedTaskCounter(TaskEntity taskEntity) {
         return metricHelper.counter(
-                List.of("worker", "final", "completed"),
-                getCommonTags(),
-                taskEntity
+            List.of("worker", "final", "completed"),
+            getCommonTags(),
+            taskEntity
         );
     }
 
     private Counter getFinalCompletedTaskWithErrorCounter(TaskEntity taskEntity) {
         return metricHelper.counter(
-                List.of("worker", "final", "completed", "error"),
-                getCommonTags(),
-                taskEntity
+            List.of("worker", "final", "completed", "error"),
+            getCommonTags(),
+            taskEntity
         );
     }
 }

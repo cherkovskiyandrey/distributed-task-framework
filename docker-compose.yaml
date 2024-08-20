@@ -6,7 +6,7 @@ services:
     restart: always
     hostname: distributed-task-postgresql
     image: postgres:12.11-alpine
-    command: postgres -c 'shared_preload_libraries=pg_stat_statements' -c 'pg_stat_statements.track=all' -c 'max_connections=100'
+    command: postgres -c 'shared_preload_libraries=pg_stat_statements' -c 'pg_stat_statements.track=all' -c 'max_connections=150'
     environment:
       POSTGRES_USER: distributed-task
       POSTGRES_PASSWORD: distributed-task

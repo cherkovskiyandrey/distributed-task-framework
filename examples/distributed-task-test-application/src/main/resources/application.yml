@@ -4,14 +4,14 @@ spring:
     username: distributed-task
     password: distributed-task
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 10
+      maximum-pool-size: 2
+      minimum-idle: 1
       data-source-properties:
         rewriteBatchedStatements: true
         useConfigs: maxPerformance
-      validation-timeout: 10000
+      validation-timeout: 30000
       keepalive-time: 60000
-      connection-timeout: 10000
+      connection-timeout: 30000
   application:
     name: test-app
 

@@ -7,13 +7,13 @@
         </encoder>
     </appender>
 
-    <appender name="file" class="ch.qos.logback.core.FileAppender">
-        <file>perf-test.log</file>
-        <append>true</append>
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
+<!--    <appender name="file" class="ch.qos.logback.core.FileAppender">-->
+<!--        <file>perf-test.log</file>-->
+<!--        <append>true</append>-->
+<!--        <encoder>-->
+<!--            <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>-->
+<!--        </encoder>-->
+<!--    </appender>-->
 
 <!--        <logger name="impl.service.com.distributed_task_framework.PartitionTrackerImpl" level="debug"/>-->
 <!--    <logger name="impl.service.com.distributed_task_framework.VirtualQueueManagerPlannerImpl" level="debug"/>-->
@@ -22,6 +22,6 @@
 
     <root level="info">
         <appender-ref ref="stdout"/>
-        <appender-ref ref="file"/>
+<!--        <appender-ref ref="file"/>-->
     </root>
 </configuration>

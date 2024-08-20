@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Table;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -20,6 +21,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder(toBuilder = true)
 public class NodeStateEntity {
+    public static final BeanPropertyRowMapper<NodeStateEntity> NODE_STATE_ENTITY_BEAN_PROPERTY_ROW_MAPPER =
+        new BeanPropertyRowMapper<>(NodeStateEntity.class);
     @Id
     UUID node;
     @Version

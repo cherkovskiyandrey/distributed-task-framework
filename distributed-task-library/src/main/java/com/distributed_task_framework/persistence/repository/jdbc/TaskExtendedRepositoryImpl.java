@@ -1,15 +1,17 @@
 package com.distributed_task_framework.persistence.repository.jdbc;
 
 import com.distributed_task_framework.exception.OptimisticLockException;
+import com.distributed_task_framework.persistence.entity.IdVersionEntity;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.utils.JdbcTools;
+import com.distributed_task_framework.utils.SqlParameters;
+import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
@@ -19,7 +21,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,73 +32,72 @@ import static java.lang.String.format;
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
-    public static final BeanPropertyRowMapper<TaskEntity> TASK_ROW_MAPPER = new BeanPropertyRowMapper<>(TaskEntity.class);
-
     NamedParameterJdbcOperations namedParameterJdbcTemplate;
     Clock clock;
 
-    private static final String SAVE_OR_UPDATE_TEMPLATE = """
-            INSERT INTO _____dtf_tasks (
-                id,
-                task_name,
-                workflow_id,
-                affinity,
-                affinity_group,
-                version,
-                created_date_utc,
-                assigned_worker,
-                workflow_created_date_utc,
-                last_assigned_date_utc,
-                execution_date_utc,
-                singleton,
-                not_to_plan,
-                canceled,
-                virtual_queue,
-                deleted_at,
-                join_message_bytes,
-                message_bytes,
-                failures
-            ) VALUES (
-                :id::uuid,
-                :taskName,
-                :workflowId::uuid,
-                :affinity,
-                :affinityGroup,
-                :version,
-                :createdDateUtc,
-                :assignedWorker::uuid,
-                :workflowCreatedDateUtc,
-                :lastAssignedDateUtc,
-                :executionDateUtc,
-                :singleton,
-                :notToPlan,
-                :canceled,
-                :virtualQueue::_____dtf_virtual_queue_type,
-                :deletedAt,
-                :joinMessageBytes,
-                :messageBytes,
-                :failures
-            ) ON CONFLICT (id) DO UPDATE
-                SET
-                    version = excluded.version,
-                    assigned_worker = excluded.assigned_worker,
-                    last_assigned_date_utc = excluded.last_assigned_date_utc,
-                    execution_date_utc = excluded.execution_date_utc,
-                    singleton = excluded.singleton,
-                    not_to_plan = excluded.not_to_plan,
-                    canceled = excluded.canceled,
-                    virtual_queue = excluded.virtual_queue::_____dtf_virtual_queue_type,
-                    deleted_at = excluded.deleted_at,
-                    join_message_bytes = excluded.join_message_bytes,
-                    message_bytes = excluded.message_bytes,
-                    failures = excluded.failures
-            WHERE _____dtf_tasks.version = :expectedVersion
-            """;
-
-    public TaskExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate, Clock clock) {
+    public TaskExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate,
+                                      Clock clock) {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
         this.clock = clock;
     }
+
+    private static final String SAVE_OR_UPDATE_TEMPLATE = """
+        INSERT INTO _____dtf_tasks (
+            id,
+            task_name,
+            workflow_id,
+            affinity,
+            affinity_group,
+            version,
+            created_date_utc,
+            assigned_worker,
+            workflow_created_date_utc,
+            last_assigned_date_utc,
+            execution_date_utc,
+            singleton,
+            not_to_plan,
+            canceled,
+            virtual_queue,
+            deleted_at,
+            join_message_bytes,
+            message_bytes,
+            failures
+        ) VALUES (
+            :id::uuid,
+            :taskName,
+            :workflowId::uuid,
+            :affinity,
+            :affinityGroup,
+            :version,
+            :createdDateUtc,
+            :assignedWorker::uuid,
+            :workflowCreatedDateUtc,
+            :lastAssignedDateUtc,
+            :executionDateUtc,
+            :singleton,
+            :notToPlan,
+            :canceled,
+            :virtualQueue::_____dtf_virtual_queue_type,
+            :deletedAt,
+            :joinMessageBytes,
+            :messageBytes,
+            :failures
+        ) ON CONFLICT (id) DO UPDATE
+            SET
+                version = excluded.version,
+                assigned_worker = excluded.assigned_worker,
+                last_assigned_date_utc = excluded.last_assigned_date_utc,
+                execution_date_utc = excluded.execution_date_utc,
+                singleton = excluded.singleton,
+                not_to_plan = excluded.not_to_plan,
+                canceled = excluded.canceled,
+                virtual_queue = excluded.virtual_queue::_____dtf_virtual_queue_type,
+                deleted_at = excluded.deleted_at,
+                join_message_bytes = excluded.join_message_bytes,
+                message_bytes = excluded.message_bytes,
+                failures = excluded.failures
+        WHERE _____dtf_tasks.version = :expectedVersion
+        """;
 
     @Override
     public TaskEntity saveOrUpdate(TaskEntity taskEntity) {
@@ -117,156 +117,151 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     public Collection<TaskEntity> saveAll(Collection<TaskEntity> taskEntities) {
         List<TaskEntity> preparedTaskEntities = taskEntities.stream().map(this::prepareToSave).toList();
         var sqlParameterSources = preparedTaskEntities.stream()
-                .map(this::toSqlParameterSource)
-                .toArray(MapSqlParameterSource[]::new);
+            .map(this::toSqlParameterSource)
+            .toArray(MapSqlParameterSource[]::new);
         int[] updateResult = namedParameterJdbcTemplate.batchUpdate(SAVE_OR_UPDATE_TEMPLATE, sqlParameterSources);
         return IntStream.range(0, updateResult.length)
-                .mapToObj(i -> updateResult[i] > 0 ? preparedTaskEntities.get(i) : null)
-                .filter(Objects::nonNull).toList();
+            .mapToObj(i -> updateResult[i] > 0 ? preparedTaskEntities.get(i) : null)
+            .filter(Objects::nonNull).toList();
     }
 
     private TaskEntity prepareToSave(TaskEntity taskEntity) {
         return taskEntity.toBuilder()
-                .id(Optional.ofNullable(taskEntity.getId()).orElse(UUID.randomUUID()))
-                .version(Optional.ofNullable(taskEntity.getVersion()).map(v -> v + 1L).orElse(1L))
-                .createdDateUtc(taskEntity.getId() == null ? LocalDateTime.now(clock) : taskEntity.getCreatedDateUtc())
-                .build();
+            .id(Optional.ofNullable(taskEntity.getId()).orElse(UUID.randomUUID()))
+            .version(Optional.ofNullable(taskEntity.getVersion()).map(v -> v + 1L).orElse(1L))
+            .createdDateUtc(taskEntity.getId() == null ? LocalDateTime.now(clock) : taskEntity.getCreatedDateUtc())
+            .build();
     }
 
 
     private static final String FIND_BY_PRIMARY_KEY = """
-            SELECT * FROM _____dtf_tasks
-            WHERE id = :id
-            """;
+        SELECT * FROM _____dtf_tasks
+        WHERE id = :id::uuid
+        """;
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public Optional<TaskEntity> find(UUID taskId) {
         return namedParameterJdbcTemplate.query(
-                FIND_BY_PRIMARY_KEY,
-                Map.of("id", taskId),
-                TASK_ROW_MAPPER
+            FIND_BY_PRIMARY_KEY,
+            SqlParameters.of(TaskEntity.Fields.id, JdbcTools.asNullableString(taskId), Types.VARCHAR),
+            TaskEntity.TASK_ROW_MAPPER
         ).stream().findAny();
     }
 
 
     private static final String UPDATE_TASKS_WITH_VERSION = """
-            UPDATE _____dtf_tasks
-            SET
-                version = :version,
-                assigned_worker = :assignedWorker::uuid
-            WHERE
-            (
-                _____dtf_tasks.id = :id::uuid
-                AND _____dtf_tasks.version = :expectedVersion
-            )
-            """;
+        UPDATE _____dtf_tasks
+        SET
+            version = :version,
+            assigned_worker = :assignedWorker::uuid
+        WHERE
+        (
+            _____dtf_tasks.id = :id::uuid
+            AND _____dtf_tasks.version = :expectedVersion
+        )
+        """;
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public void updateAll(Collection<ShortTaskEntity> plannedTasks) {
         plannedTasks = plannedTasks.stream().map(this::prepareToUpdate).toList();
         var batchArgs = plannedTasks.stream()
-                .map(this::toSqlParameterSource)
-                .toArray(MapSqlParameterSource[]::new);
+            .map(this::toSqlParameterSource)
+            .toArray(MapSqlParameterSource[]::new);
 
         namedParameterJdbcTemplate.batchUpdate(UPDATE_TASKS_WITH_VERSION, batchArgs);
     }
 
     private ShortTaskEntity prepareToUpdate(ShortTaskEntity plannedTask) {
         return plannedTask.toBuilder()
-                .version(plannedTask.getVersion() + 1)
-                .build();
+            .version(plannedTask.getVersion() + 1)
+            .build();
     }
 
     private static final String SELECT_ALL_BY_TASK_NAME = """
-            SELECT * FROM _____dtf_tasks
-            WHERE
-                task_name = :taskName
-                AND deleted_at IS NULL
-            """;
+        SELECT * FROM _____dtf_tasks
+        WHERE
+            task_name = :taskName
+            AND deleted_at IS NULL
+        """;
 
     //USED INDEXES: _____dtf_tasks_tn_afg_vq_edu_idx
     @Override
     public Collection<TaskEntity> findAllByTaskName(String taskName) {
         return namedParameterJdbcTemplate.query(
-                SELECT_ALL_BY_TASK_NAME,
-                Map.of("taskName", taskName),
-                TASK_ROW_MAPPER
+            SELECT_ALL_BY_TASK_NAME,
+            SqlParameters.of(TaskEntity.Fields.taskName, taskName, Types.VARCHAR),
+            TaskEntity.TASK_ROW_MAPPER
         ).stream().toList();
     }
 
 
     private static final String SELECT_BY_NAME = """
-            SELECT *
-            FROM _____dtf_tasks
-            WHERE
-                (task_name = :taskName)
-                AND deleted_at IS NULL
-            LIMIT :batchSize;
-            """;
+        SELECT *
+        FROM _____dtf_tasks
+        WHERE
+            (task_name = :taskName)
+            AND deleted_at IS NULL
+        LIMIT :batchSize;
+        """;
 
     //USED INDEXES: none but very quick because of limit
     @Override
     public Collection<TaskEntity> findByName(String taskName, long batchSize) {
         return namedParameterJdbcTemplate.query(
-                SELECT_BY_NAME,
-                Map.of(
-                        "taskName", taskName,
-                        "batchSize", batchSize
-                ),
-                TASK_ROW_MAPPER
+            SELECT_BY_NAME,
+            SqlParameters.of(
+                TaskEntity.Fields.taskName, taskName, Types.VARCHAR,
+                "batchSize", batchSize, Types.BIGINT
+            ),
+            TaskEntity.TASK_ROW_MAPPER
         ).stream().toList();
     }
 
+
     private static final String SELECT_BY_IDS = """
-            SELECT *
-            FROM _____dtf_tasks
-            WHERE (id = ANY((:ids)::uuid[]))
-            """;
+        SELECT *
+        FROM _____dtf_tasks
+        WHERE (id = ANY((:ids)::uuid[]))
+        """;
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public List<TaskEntity> findAll(Collection<UUID> taskIds) {
         return namedParameterJdbcTemplate.query(
-                SELECT_BY_IDS,
-                Map.of("ids", JdbcTools.UUIDsToStringArray(taskIds)),
-                TASK_ROW_MAPPER
+            SELECT_BY_IDS,
+            SqlParameters.of("ids", JdbcTools.UUIDsToStringArray(taskIds), Types.ARRAY),
+            TaskEntity.TASK_ROW_MAPPER
         ).stream().toList();
     }
 
-    private static final String DELETE_BY_IDS = """
-            DELETE FROM _____dtf_tasks
-            WHERE id = ANY( (:ids)::uuid[] )
-            """;
+
+    //language=postgresql
+    private static final String DELETE_BY_IDS_VERSIONS = """
+        DELETE FROM _____dtf_tasks dt
+        WHERE (dt.id, dt.version) IN (
+            SELECT id, version
+            FROM UNNEST(:id::uuid[], :version::int[])
+            AS tmp(id, version)
+         )
+        RETURNING dt.id, dt.version
+        """;
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
-    public void deleteByIds(Collection<UUID> taskIds) {
-        namedParameterJdbcTemplate.update(
-                DELETE_BY_IDS,
-                Map.of("ids", JdbcTools.UUIDsToStringArray(taskIds))
+    public Collection<IdVersionEntity> deleteByIdVersion(Collection<IdVersionEntity> taskIdVersions) {
+        var taskIds = taskIdVersions.stream().map(IdVersionEntity::getId).toList();
+        var taskVersions = taskIdVersions.stream().map(IdVersionEntity::getVersion).toList();
+        return Sets.newHashSet(namedParameterJdbcTemplate.query(
+                DELETE_BY_IDS_VERSIONS,
+                SqlParameters.of(
+                    TaskEntity.Fields.id, JdbcTools.UUIDsToStringArray(taskIds), Types.ARRAY,
+                    TaskEntity.Fields.version, JdbcTools.toLongArray(taskVersions), Types.ARRAY
+                ),
+                IdVersionEntity.ID_VERSION_ROW_MAPPER
+            )
         );
-    }
-
-    private static final String HARD_DELETE = """
-            DELETE FROM _____dtf_tasks
-            WHERE
-                id = :id::uuid
-                AND version = :version
-            """;
-
-    @Override
-    public void hardDelete(TaskEntity taskEntity) {
-        int updatedRows = namedParameterJdbcTemplate.update(
-                HARD_DELETE,
-                Map.of(
-                        "id", taskEntity.getId(),
-                        "version", taskEntity.getVersion())
-        );
-        if (updatedRows == 0) {
-            throw new OptimisticLockException(format("Can't update=[%s]", taskEntity), TaskEntity.class);
-        }
     }
 
     private MapSqlParameterSource toSqlParameterSource(TaskEntity taskEntity) {

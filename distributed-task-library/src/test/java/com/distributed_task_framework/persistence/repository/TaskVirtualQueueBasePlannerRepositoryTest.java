@@ -37,21 +37,21 @@ class TaskVirtualQueueBasePlannerRepositoryTest extends BaseRepositoryTest {
         //10 * 2 = 20 workers
         var workerId = TaskPopulateAndVerify.getNode(0);
         var knownPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.allSetWithFixedWorker(2, workerId)
-                )
+                Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.withWorker(2, workerId)
+            )
         );
         taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, knownPopulationSpecs);
         Set<String> knownTaskNames = knownPopulationSpecs.stream()
-                .flatMap(populationSpec -> populationSpec.getNameOfTasks().stream())
-                .collect(Collectors.toSet());
+            .flatMap(populationSpec -> populationSpec.getNameOfTasks().stream())
+            .collect(Collectors.toSet());
         Set<UUID> knownNodes = Set.of(workerId);
 
         //deleted task have not been taken into account
         taskPopulateAndVerify.populate(0, 20, VirtualQueue.DELETED, knownPopulationSpecs);
 
         var unknownPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(10, 20), TaskPopulateAndVerify.GenerationSpec.allSetWithWorker(2)
-                )
+                Range.closedOpen(10, 20), TaskPopulateAndVerify.GenerationSpec.withAutoAssignedWorker(2)
+            )
         );
         taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, unknownPopulationSpecs);
 
@@ -60,8 +60,8 @@ class TaskVirtualQueueBasePlannerRepositoryTest extends BaseRepositoryTest {
 
         //verify
         assertThat(nodeTaskActivities)
-                .hasSize(2)
-                .allMatch(nodeTaskActivity -> nodeTaskActivity.getNumber() == 10);
+            .hasSize(2)
+            .allMatch(nodeTaskActivity -> nodeTaskActivity.getNumber() == 10);
     }
 
     @Test
@@ -71,21 +71,21 @@ class TaskVirtualQueueBasePlannerRepositoryTest extends BaseRepositoryTest {
 
         //do
         var partitionStatToPlan = repository.findPartitionStatToPlan(
-                Set.of(),
-                partitions,
-                20
+            Set.of(),
+            partitions,
+            20
         );
 
         //verify
         assertThat(partitionStatToPlan)
-                .filteredOn(stat -> stat.getAffinityGroup() != null && Integer.parseInt(stat.getAffinityGroup()) < 5)
-                .hasSize(10)
-                .allMatch(stat -> stat.getNumber() == 20);
+            .filteredOn(stat -> stat.getAffinityGroup() != null && Integer.parseInt(stat.getAffinityGroup()) < 5)
+            .hasSize(10)
+            .allMatch(stat -> stat.getNumber() == 20);
 
         assertThat(partitionStatToPlan)
-                .filteredOn(stat -> stat.getAffinityGroup() == null || Integer.parseInt(stat.getAffinityGroup()) >= 5)
-                .hasSize(5)
-                .allMatch(stat -> stat.getNumber() == 10);
+            .filteredOn(stat -> stat.getAffinityGroup() == null || Integer.parseInt(stat.getAffinityGroup()) >= 5)
+            .hasSize(5)
+            .allMatch(stat -> stat.getNumber() == 10);
     }
 
     @Test
@@ -93,10 +93,10 @@ class TaskVirtualQueueBasePlannerRepositoryTest extends BaseRepositoryTest {
         //when
         Set<Partition> partitions = prepareDataToPlanInReadyQueue();
         Map<Partition, Integer> partitionLimits = partitions.stream()
-                .collect(Collectors.toMap(
-                        Function.identity(),
-                        entity -> 1
-                ));
+            .collect(Collectors.toMap(
+                Function.identity(),
+                entity -> 1
+            ));
 
         //do
         var shortTaskEntities = repository.loadTasksToPlan(Set.of(), partitionLimits);
@@ -108,8 +108,8 @@ class TaskVirtualQueueBasePlannerRepositoryTest extends BaseRepositoryTest {
     private Set<Partition> prepareDataToPlanInReadyQueue() {
         //5 * 2 = 10 unique afg+taskName
         var knownPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 5), TaskPopulateAndVerify.GenerationSpec.allSet(2)
-                )
+                Range.closedOpen(0, 5), TaskPopulateAndVerify.GenerationSpec.of(2)
+            )
         );
         //200/10 = 20 tasks for each affinityGroup+taskName
         taskPopulateAndVerify.populate(0, 200, VirtualQueue.READY, knownPopulationSpecs);
@@ -117,16 +117,16 @@ class TaskVirtualQueueBasePlannerRepositoryTest extends BaseRepositoryTest {
 
         //5 unique afg+taskName
         var knownPopulationSpecsWithShortSize = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(5, 6), TaskPopulateAndVerify.GenerationSpec.noneSetAndOneTask(),
-                        Range.closedOpen(6, 10), TaskPopulateAndVerify.GenerationSpec.allSetAndOneTask()
-                )
+                Range.closedOpen(5, 6), TaskPopulateAndVerify.GenerationSpec.oneWithoutAffinity(),
+                Range.closedOpen(6, 10), TaskPopulateAndVerify.GenerationSpec.one()
+            )
         );
         //50/5 = 10 tasks for each affinityGroup+taskName
         taskPopulateAndVerify.populate(0, 50, VirtualQueue.READY, knownPopulationSpecsWithShortSize);
 
         return ImmutableSet.<Partition>builder()
-                .addAll(toPartitions(knownPopulationSpecs))
-                .addAll(toPartitions(knownPopulationSpecsWithShortSize))
-                .build();
+            .addAll(toPartitions(knownPopulationSpecs))
+            .addAll(toPartitions(knownPopulationSpecsWithShortSize))
+            .build();
     }
 }

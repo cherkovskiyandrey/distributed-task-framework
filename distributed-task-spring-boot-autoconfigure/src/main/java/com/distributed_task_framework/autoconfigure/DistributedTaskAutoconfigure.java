@@ -79,6 +79,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -123,19 +124,24 @@ import java.util.concurrent.TimeUnit;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
+@Slf4j
 @Configuration
 @ConditionalOnClass(DistributedTaskService.class)
 @EnableConfigurationProperties({
-        DistributedTaskProperties.class
+    DistributedTaskProperties.class
 })
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "true")
-@AutoConfigureAfter({
+@AutoConfigureAfter(
+    value = {
         JdbcTemplateAutoConfiguration.class,
         DataSourceTransactionManagerAutoConfiguration.class
-})
-@EnableJdbcRepositories(basePackageClasses = NodeStateRepository.class,
-        transactionManagerRef = DTF_TX_MANAGER,
-        jdbcOperationsRef = DTF_JDBC_OPS)
+    }
+)
+@EnableJdbcRepositories(
+    basePackageClasses = NodeStateRepository.class,
+    transactionManagerRef = DTF_TX_MANAGER,
+    jdbcOperationsRef = DTF_JDBC_OPS
+)
 @EnableTransactionManagement
 @EnableCaching
 public class DistributedTaskAutoconfigure {
@@ -153,7 +159,7 @@ public class DistributedTaskAutoconfigure {
         return defaultDataSource;
     }
 
-    @ConditionalOnMissingBean(name = "dtfTransactionManager")
+    @ConditionalOnMissingBean(name = DTF_TX_MANAGER)
     @Bean
     public DataSourceTransactionManager dtfTransactionManager(@DtfDataSource DataSource dtfDataSource) {
         return new DataSourceTransactionManager(dtfDataSource);
@@ -251,13 +257,14 @@ public class DistributedTaskAutoconfigure {
     @Qualifier("commonRegistryCaffeineConfig")
     public Caffeine<Object, Object> commonRegistryCaffeineConfig(CommonSettings commonSettings) {
         return Caffeine.newBuilder()
-                .expireAfterWrite(commonSettings.getRegistrySettings().getCacheExpirationMs(), TimeUnit.MILLISECONDS);
+            .expireAfterWrite(commonSettings.getRegistrySettings().getCacheExpirationMs(), TimeUnit.MILLISECONDS);
     }
 
     @Bean
     @ConditionalOnMissingBean
     @Qualifier("commonRegistryCacheManager")
-    public CacheManager commonRegistryCacheManager(@Qualifier("commonRegistryCaffeineConfig") Caffeine<Object, Object> caffeine) {
+    public CacheManager commonRegistryCacheManager(
+        @Qualifier("commonRegistryCaffeineConfig") Caffeine<Object, Object> caffeine) {
         CaffeineCacheManager caffeineCacheManager = new CaffeineCacheManager();
         caffeineCacheManager.setCaffeine(caffeine);
         return caffeineCacheManager;
@@ -319,39 +326,39 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean({PlatformTransactionManager.class})
+    @ConditionalOnBean(name = DTF_TX_MANAGER)
     public ClusterProvider clusterProvider(CommonSettings commonSettings,
                                            @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
-                                           PlatformTransactionManager transactionManager,
+                                           @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                            NodeStateMapper nodeStateMapper,
                                            CacheManager cacheManager,
                                            NodeStateRepository nodeStateRepository,
                                            CapabilityRepository capabilityRepository,
                                            Clock clock) {
         return new ClusterProviderImpl(
-                commonSettings,
-                capabilityRegisterProvider,
-                transactionManager,
-                cacheManager,
-                nodeStateMapper,
-                nodeStateRepository,
-                capabilityRepository,
-                clock
+            commonSettings,
+            capabilityRegisterProvider,
+            transactionManager,
+            cacheManager,
+            nodeStateMapper,
+            nodeStateRepository,
+            capabilityRepository,
+            clock
         );
     }
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean({PlatformTransactionManager.class})
+    @ConditionalOnBean(name = DTF_TX_MANAGER)
     public TaskRegistryService taskRegistryService(CommonSettings commonSettings,
                                                    RegisteredTaskRepository registeredTaskRepository,
-                                                   PlatformTransactionManager transactionManager,
+                                                   @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                    ClusterProvider clusterProvider) {
         return new TaskRegistryServiceImpl(
-                commonSettings,
-                registeredTaskRepository,
-                transactionManager,
-                clusterProvider
+            commonSettings,
+            registeredTaskRepository,
+            transactionManager,
+            clusterProvider
         );
     }
 
@@ -379,10 +386,10 @@ public class DistributedTaskAutoconfigure {
                                            CommonSettings commonSettings,
                                            TaskSerializer taskSerializer) {
         return new TaskLinkManagerImpl(
-                taskLinkRepository,
-                taskMessageRepository,
-                commonSettings,
-                taskSerializer
+            taskLinkRepository,
+            taskMessageRepository,
+            commonSettings,
+            taskSerializer
         );
     }
 
@@ -403,13 +410,13 @@ public class DistributedTaskAutoconfigure {
                                                          MetricHelper metricHelper,
                                                          MeterRegistry meterRegistry) {
         return new VirtualQueueStatHelper(
-                plannerService,
-                commonSettings,
-                taskRegistryService,
-                taskRepository,
-                taskMapper,
-                metricHelper,
-                meterRegistry
+            plannerService,
+            commonSettings,
+            taskRegistryService,
+            taskRepository,
+            taskMapper,
+            metricHelper,
+            meterRegistry
         );
     }
 
@@ -424,7 +431,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public VirtualQueueManagerPlannerImpl virtualQueueManagerPlanner(CommonSettings commonSettings,
                                                                      PlannerRepository plannerRepository,
-                                                                     PlatformTransactionManager transactionManager,
+                                                                     @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                                      ClusterProvider clusterProvider,
                                                                      TaskRepository taskRepository,
                                                                      PartitionTracker partitionTracker,
@@ -432,15 +439,15 @@ public class DistributedTaskAutoconfigure {
                                                                      VirtualQueueStatHelper virtualQueueStatHelper,
                                                                      MetricHelper metricHelper) {
         return new VirtualQueueManagerPlannerImpl(
-                commonSettings,
-                plannerRepository,
-                transactionManager,
-                clusterProvider,
-                taskRepository,
-                partitionTracker,
-                taskMapper,
-                virtualQueueStatHelper,
-                metricHelper
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            taskRepository,
+            partitionTracker,
+            taskMapper,
+            virtualQueueStatHelper,
+            metricHelper
         );
     }
 
@@ -455,7 +462,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public VirtualQueueBaseFairTaskPlannerImpl virtualQueueBaseFairTaskPlanner(CommonSettings commonSettings,
                                                                                PlannerRepository plannerRepository,
-                                                                               PlatformTransactionManager transactionManager,
+                                                                               @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                                                ClusterProvider clusterProvider,
                                                                                TaskRepository taskRepository,
                                                                                PartitionTracker partitionTracker,
@@ -465,17 +472,17 @@ public class DistributedTaskAutoconfigure {
                                                                                Clock clock,
                                                                                MetricHelper metricHelper) {
         return new VirtualQueueBaseFairTaskPlannerImpl(
-                commonSettings,
-                plannerRepository,
-                transactionManager,
-                clusterProvider,
-                taskRepository,
-                partitionTracker,
-                taskRegistryService,
-                taskRouter,
-                virtualQueueStatHelper,
-                clock,
-                metricHelper
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            taskRepository,
+            partitionTracker,
+            taskRegistryService,
+            taskRouter,
+            virtualQueueStatHelper,
+            clock,
+            metricHelper
         );
     }
 
@@ -484,7 +491,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public JoinTaskPlannerImpl joinTaskPlannerService(CommonSettings commonSettings,
                                                       PlannerRepository plannerRepository,
-                                                      PlatformTransactionManager transactionManager,
+                                                      @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                       ClusterProvider clusterProvider,
                                                       TaskLinkManager taskLinkManager,
                                                       TaskRepository taskRepository,
@@ -492,15 +499,15 @@ public class DistributedTaskAutoconfigure {
                                                       JoinTaskStatHelper statHelper,
                                                       Clock clock) {
         return new JoinTaskPlannerImpl(
-                commonSettings,
-                plannerRepository,
-                transactionManager,
-                clusterProvider,
-                taskLinkManager,
-                taskRepository,
-                metricHelper,
-                statHelper,
-                clock
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            taskLinkManager,
+            taskRepository,
+            metricHelper,
+            statHelper,
+            clock
         );
     }
 
@@ -512,12 +519,14 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    public PartitionTracker partitionTracker(TaskRepository taskRepository,
+    public PartitionTracker partitionTracker(@Qualifier(DTF_TX_MANAGER) PlatformTransactionManager platformTransactionManager,
+                                             TaskRepository taskRepository,
                                              PartitionRepository partitionRepository,
                                              PartitionMapper partitionMapper,
                                              CommonSettings commonSettings,
                                              Clock clock) {
         return new PartitionTrackerImpl(
+                platformTransactionManager,
                 taskRepository,
                 partitionRepository,
                 partitionMapper,
@@ -530,16 +539,14 @@ public class DistributedTaskAutoconfigure {
     @Qualifier("impl")
     @ConditionalOnMissingBean
     public VirtualQueueBaseTaskCommandServiceImpl virtualQueueBaseTaskCommandService(PartitionTracker partitionTracker,
-                                                                                     ClusterProvider clusterProvider,
                                                                                      TaskRepository taskRepository,
                                                                                      WorkerContextManager workerContextManager,
                                                                                      TaskMapper taskMapper) {
         return new VirtualQueueBaseTaskCommandServiceImpl(
-                partitionTracker,
-                clusterProvider,
-                taskRepository,
-                workerContextManager,
-                taskMapper
+            partitionTracker,
+            taskRepository,
+            workerContextManager,
+            taskMapper
         );
     }
 
@@ -561,7 +568,7 @@ public class DistributedTaskAutoconfigure {
     @Bean
     @ConditionalOnMissingBean
     public TaskCommandWithDetectorService localTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
-                                                                              PlatformTransactionManager transactionManager,
+                                                                              @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                                               TaskRepository taskRepository,
                                                                               TaskMapper taskMapper,
                                                                               TaskRegistryService taskRegistryService,
@@ -572,35 +579,35 @@ public class DistributedTaskAutoconfigure {
                                                                               @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
-                workerContextManager,
-                transactionManager,
-                taskRepository,
-                taskMapper,
-                taskRegistryService,
-                taskSerializer,
-                cronService,
-                commonSettings,
-                internalTaskCommandService,
-                taskLinkManager,
-                clock
+            workerContextManager,
+            transactionManager,
+            taskRepository,
+            taskMapper,
+            taskRegistryService,
+            taskSerializer,
+            cronService,
+            commonSettings,
+            internalTaskCommandService,
+            taskLinkManager,
+            clock
         );
     }
 
     @Bean
     @ConditionalOnMissingBean
     public RemoteTaskCommandServiceImpl remoteTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
-                                                                             PlatformTransactionManager transactionManager,
+                                                                             @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                                              RemoteCommandRepository remoteCommandRepository,
                                                                              TaskSerializer taskSerializer,
                                                                              TaskRegistryService taskRegistryService,
                                                                              Clock clock) {
         return new RemoteTaskCommandServiceImpl(
-                workerContextManager,
-                transactionManager,
-                remoteCommandRepository,
-                taskSerializer,
-                taskRegistryService,
-                clock
+            workerContextManager,
+            transactionManager,
+            remoteCommandRepository,
+            taskSerializer,
+            taskRegistryService,
+            clock
         );
     }
 
@@ -610,9 +617,9 @@ public class DistributedTaskAutoconfigure {
                                                              List<TaskCommandWithDetectorService> taskCommandServices,
                                                              CommonSettings commonSettings) {
         return new DistributedTaskServiceImpl(
-                taskRegistryService,
-                taskCommandServices,
-                commonSettings
+            taskRegistryService,
+            taskCommandServices,
+            commonSettings
         );
     }
 
@@ -632,11 +639,11 @@ public class DistributedTaskAutoconfigure {
                                                                                    Collection<Task<?>> tasks,
                                                                                    RemoteTasks remoteTasks) {
         return new TaskConfigurationDiscoveryProcessor(
-                properties,
-                distributedTaskService,
-                distributedTaskPropertiesMapper,
-                tasks,
-                remoteTasks
+            properties,
+            distributedTaskService,
+            distributedTaskPropertiesMapper,
+            tasks,
+            remoteTasks
         );
     }
 
@@ -644,7 +651,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public LocalAtLeastOnceWorker localAtLeastOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
-                                                         PlatformTransactionManager transactionManager,
+                                                         @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                          @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
@@ -657,20 +664,20 @@ public class DistributedTaskAutoconfigure {
                                                          MetricHelper metricHelper,
                                                          Clock clock) {
         return new LocalAtLeastOnceWorker(
-                clusterProvider,
-                workerContextManager,
-                transactionManager,
-                internalTaskCommandService,
-                taskRepository,
-                remoteCommandRepository,
-                dltRepository,
-                taskSerializer,
-                cronService,
-                taskMapper,
-                commonSettings,
-                taskLinkManager,
-                metricHelper,
-                clock
+            clusterProvider,
+            workerContextManager,
+            transactionManager,
+            internalTaskCommandService,
+            taskRepository,
+            remoteCommandRepository,
+            dltRepository,
+            taskSerializer,
+            cronService,
+            taskMapper,
+            commonSettings,
+            taskLinkManager,
+            metricHelper,
+            clock
         );
     }
 
@@ -678,7 +685,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public LocalExactlyOnceWorker localExactlyOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
-                                                         PlatformTransactionManager transactionManager,
+                                                         @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                          @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
@@ -691,20 +698,20 @@ public class DistributedTaskAutoconfigure {
                                                          MetricHelper metricHelper,
                                                          Clock clock) {
         return new LocalExactlyOnceWorker(
-                clusterProvider,
-                workerContextManager,
-                transactionManager,
-                internalTaskCommandService,
-                taskRepository,
-                remoteCommandRepository,
-                dltRepository,
-                taskSerializer,
-                cronService,
-                taskMapper,
-                commonSettings,
-                taskLinkManager,
-                metricHelper,
-                clock
+            clusterProvider,
+            workerContextManager,
+            transactionManager,
+            internalTaskCommandService,
+            taskRepository,
+            remoteCommandRepository,
+            dltRepository,
+            taskSerializer,
+            cronService,
+            taskMapper,
+            commonSettings,
+            taskLinkManager,
+            metricHelper,
+            clock
         );
     }
 
@@ -725,14 +732,14 @@ public class DistributedTaskAutoconfigure {
                                        Clock clock,
                                        MetricHelper metricHelper) {
         return new WorkerManagerImpl(
-                commonSettings,
-                clusterProvider,
-                taskRegistryService,
-                taskWorkerFactory,
-                taskRepository,
-                taskMapper,
-                clock,
-                metricHelper
+            commonSettings,
+            clusterProvider,
+            taskRegistryService,
+            taskWorkerFactory,
+            taskRepository,
+            taskMapper,
+            clock,
+            metricHelper
         );
     }
 
@@ -746,18 +753,18 @@ public class DistributedTaskAutoconfigure {
                                            ClusterProvider clusterProvider,
                                            CommandMapper commandMapper,
                                            TaskSerializer taskSerializer,
-                                           PlatformTransactionManager transactionManager,
+                                           @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                            Clock clock) {
         return new DeliveryManagerImpl(
-                commonSettings,
-                remoteTaskWorkerRepository,
-                remoteCommandRepository,
-                dlcRepository,
-                clusterProvider,
-                commandMapper,
-                taskSerializer,
-                transactionManager,
-                clock
+            commonSettings,
+            remoteTaskWorkerRepository,
+            remoteCommandRepository,
+            dlcRepository,
+            clusterProvider,
+            commandMapper,
+            taskSerializer,
+            transactionManager,
+            clock
         );
     }
 
@@ -767,11 +774,12 @@ public class DistributedTaskAutoconfigure {
         public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
             MutablePropertySources propertySources = ((AbstractEnvironment) context.getEnvironment()).getPropertySources();
             long numOfRemoteApp = propertySources.stream()
-                    .filter(propertySource -> propertySource instanceof MapPropertySource)
-                    .map(propertySource -> (MapPropertySource) propertySource)
-                    .flatMap(propertySource -> Arrays.stream(propertySource.getPropertyNames()))
-                    .filter(propName -> propName.startsWith("distributed-task.common.delivery-manager.remote-apps.app-to-url."))
-                    .count();
+                .filter(propertySource -> propertySource instanceof MapPropertySource)
+                .map(propertySource -> (MapPropertySource) propertySource)
+                .flatMap(propertySource -> Arrays.stream(propertySource.getPropertyNames()))
+                .filter(propName -> propName.startsWith(
+                    "distributed-task.common.delivery-manager.remote-apps.app-to-url."))
+                .count();
             return numOfRemoteApp > 0;
         }
     }
