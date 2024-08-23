@@ -22,7 +22,12 @@ import java.util.UUID;
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "false", matchIfMissing = true)
 @Slf4j
 public class DisabledDistributedTaskAutoconfigure {
-    public static final TaskId DUMMY_TASK_ID = new TaskId("stub", "stub", new UUID(0, 0));
+    public static final TaskId DUMMY_TASK_ID = new TaskId(
+            "stub",
+            "stub",
+            new UUID(0, 0),
+            new UUID(0, 0)
+    );
     public static final Page<?> EMPTY_PAGE = Page.empty();
 
     // Build cglib stub.

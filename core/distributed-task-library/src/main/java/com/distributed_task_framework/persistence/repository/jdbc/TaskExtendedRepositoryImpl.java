@@ -234,7 +234,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     public Set<UUID> filterExistedWorkflowIds(Set<UUID> workflowIds) {
         return Sets.newHashSet(namedParameterJdbcTemplate.queryForList(
                         FILTER_EXISTED_WORKFLOW_IDS,
-                        SqlParameters.of(("workflowIds", JdbcTools.UUIDsToStringArray(workflowIds), Types.VARCHAR),
+                        SqlParameters.of("workflowIds", JdbcTools.UUIDsToStringArray(workflowIds), Types.ARRAY),
                         UUID.class
                 )
         );
@@ -253,7 +253,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     public Set<UUID> filterExistedTaskIds(Set<UUID> requestedTaskIds) {
         return Sets.newHashSet(namedParameterJdbcTemplate.queryForList(
                         FILTER_EXISTED_TASK_IDS,
-                        Map.of("ids", JdbcTools.UUIDsToStringArray(requestedTaskIds)),
+                        SqlParameters.of("ids", JdbcTools.UUIDsToStringArray(requestedTaskIds), Types.ARRAY),
                         UUID.class
                 )
         );
