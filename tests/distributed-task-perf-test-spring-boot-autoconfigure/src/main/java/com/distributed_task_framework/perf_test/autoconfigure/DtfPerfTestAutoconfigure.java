@@ -3,6 +3,7 @@ package com.distributed_task_framework.perf_test.autoconfigure;
 import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.DistributedTaskService;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +19,8 @@ import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
+import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
+import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;
 
 @Configuration
 @ConditionalOnClass(DistributedTaskService.class)
@@ -41,6 +44,8 @@ public class DtfPerfTestAutoconfigure {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         objectMapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, true);
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        objectMapper.configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false);
+        objectMapper.configure(SerializationFeature.WRITE_SELF_REFERENCES_AS_NULL, true);
         objectMapper.registerModule(new JavaTimeModule());
         return objectMapper;
     }
