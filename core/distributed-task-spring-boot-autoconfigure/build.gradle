@@ -1,3 +1,20 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+    dependencies {
+        classpath "org.rodnansol:spring-configuration-property-documenter-gradle-plugin:${documenterPluginVersion}"
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+apply plugin: 'org.rodnansol.spring-configuration-property-documenter'
+
 dependencies {
     api "org.springframework.boot:spring-boot"
     api "org.springframework.boot:spring-boot-autoconfigure"
@@ -12,6 +29,22 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+}
+
+tasks.register('generateAdoc') {
+    dependsOn generatePropertyDocument {
+        documentName = "DTF Spring configuration properties"
+        documentDescription = "This is a document about the configuration properties in DTF autoconfiguration module"
+        type = "MARKDOWN"
+        metadataInput = file("build/classes/java/main/META-INF/spring-configuration-metadata.json")
+        outputFile = file("config-prop.md")
+        markdownCustomization {
+//            contentCustomization {
+//                includeEnvFormat = true
+//            }
+            unknownGroupLocalization = "distributed-task"
+        }
     }
 }
 

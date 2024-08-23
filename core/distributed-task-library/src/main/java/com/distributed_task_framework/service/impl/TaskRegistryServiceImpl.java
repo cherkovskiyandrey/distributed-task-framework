@@ -1,7 +1,14 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.exception.TaskConfigurationException;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
+import com.distributed_task_framework.persistence.repository.RegisteredTaskRepository;
+import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.TaskRegistryService;
+import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.common.RemoteStubTask;
 import com.distributed_task_framework.utils.ExecutorUtils;
@@ -10,6 +17,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -19,16 +28,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
-import com.distributed_task_framework.exception.TaskConfigurationException;
-import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
-import com.distributed_task_framework.persistence.repository.RegisteredTaskRepository;
-import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.TaskRegistryService;
-import com.distributed_task_framework.settings.CommonSettings;
-import com.distributed_task_framework.settings.TaskSettings;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -58,23 +58,23 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
         this.transactionManager = transactionManager;
         this.clusterProvider = clusterProvider;
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
-                .setDaemon(false)
-                .setNameFormat("node-st-upd-%d")
-                .setUncaughtExceptionHandler((t, e) -> {
-                    log.error("nodeStateUpdaterErrorHandler(): error when try to update node state", e);
-                    ReflectionUtils.rethrowRuntimeException(e);
-                })
-                .build()
+            .setDaemon(false)
+            .setNameFormat("node-st-upd-%d")
+            .setUncaughtExceptionHandler((t, e) -> {
+                log.error("nodeStateUpdaterErrorHandler(): error when try to update node state", e);
+                ReflectionUtils.rethrowRuntimeException(e);
+            })
+            .build()
         );
     }
 
     @PostConstruct
     public void init() {
         scheduledExecutorService.scheduleWithFixedDelay(
-                ExecutorUtils.wrapRepeatableRunnable(this::publishOrUpdateTasksInCluster),
-                commonSettings.getRegistrySettings().getUpdateInitialDelayMs(),
-                commonSettings.getRegistrySettings().getUpdateFixedDelayMs(),
-                TimeUnit.MILLISECONDS
+            ExecutorUtils.wrapRepeatableRunnable(this::publishOrUpdateTasksInCluster),
+            commonSettings.getRegistrySettings().getUpdateInitialDelayMs(),
+            commonSettings.getRegistrySettings().getUpdateFixedDelayMs(),
+            TimeUnit.MILLISECONDS
         );
     }
 
@@ -105,8 +105,8 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
     public <T> void registerRemoteTask(TaskDef<T> taskDef, TaskSettings taskSettings) {
         validate(taskDef, taskSettings, true);
         RegisteredTask<?> registeredTask = registeredTasks.putIfAbsent(
-                taskDef,
-                RegisteredTask.of(RemoteStubTask.stubFor(taskDef), taskSettings)
+            taskDef,
+            RegisteredTask.of(RemoteStubTask.stubFor(taskDef), taskSettings)
         );
         if (registeredTask != null) {
             throw new TaskConfigurationException("task by taskDef=[%s] already registered".formatted(taskDef));
@@ -184,13 +184,13 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
     @Override
     public Map<UUID, Set<String>> getRegisteredLocalTaskInCluster() {
         return Lists.newArrayList(registeredTaskRepository.findAll()).stream()
-                .collect(Collectors.groupingBy(
-                        RegisteredTaskEntity::getNodeStateId,
-                        Collectors.mapping(
-                                RegisteredTaskEntity::getTaskName,
-                                Collectors.toSet()
-                        )
-                ));
+            .collect(Collectors.groupingBy(
+                RegisteredTaskEntity::getNodeStateId,
+                Collectors.mapping(
+                    RegisteredTaskEntity::getTaskName,
+                    Collectors.toSet()
+                )
+            ));
     }
 
     @VisibleForTesting
@@ -200,24 +200,27 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
     }
 
     private void doPublishOrUpdateTasksInCluster() {
+        if (!clusterProvider.isNodeRegistered()) {
+            return;
+        }
         var nodeId = clusterProvider.nodeId();
         var publishedCurrentTasks = Sets.newHashSet(registeredTaskRepository.findByNodeStateId(nodeId));
         var registeredCurrentTasks = this.registeredTasks.keySet().stream()
-                .filter(this::isLocal)
-                .map(taskDef -> RegisteredTaskEntity.builder()
-                        .nodeStateId(nodeId)
-                        .taskName(taskDef.getTaskName())
-                        .build()
-                )
-                .collect(Collectors.toSet());
+            .filter(this::isLocal)
+            .map(taskDef -> RegisteredTaskEntity.builder()
+                .nodeStateId(nodeId)
+                .taskName(taskDef.getTaskName())
+                .build()
+            )
+            .collect(Collectors.toSet());
 
         boolean hasToBeUpdated = registeredCurrentTasks.size() != publishedCurrentTasks.size() ||
-                Sets.intersection(registeredCurrentTasks, publishedCurrentTasks).size() != publishedCurrentTasks.size();
+            Sets.intersection(registeredCurrentTasks, publishedCurrentTasks).size() != publishedCurrentTasks.size();
         if (hasToBeUpdated) {
             log.info(
-                    "nodeStateUpdater(): set of registered tasks changed from=[{}], to=[{}]",
-                    publishedCurrentTasks,
-                    registeredCurrentTasks
+                "nodeStateUpdater(): set of registered tasks changed from=[{}], to=[{}]",
+                publishedCurrentTasks,
+                registeredCurrentTasks
             );
             registeredTaskRepository.deleteAllByNodeStateId(nodeId);
             registeredTaskRepository.saveOrUpdateBatch(registeredCurrentTasks);

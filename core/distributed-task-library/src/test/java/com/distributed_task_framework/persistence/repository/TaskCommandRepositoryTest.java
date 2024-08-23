@@ -1,6 +1,7 @@
 package com.distributed_task_framework.persistence.repository;
 
 import com.distributed_task_framework.TaskPopulateAndVerify;
+import com.distributed_task_framework.comparator.RoundingLocalDateTimeComparator;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
@@ -35,9 +36,10 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         //when
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.READY);
         var toReschedule = originalTaskEntity.toBuilder()
-                .executionDateUtc(LocalDateTime.now(clock))
-                .assignedWorker(UUID.randomUUID())
-                .build();
+            .executionDateUtc(LocalDateTime.now(clock))
+            .failures(2)
+            .assignedWorker(UUID.randomUUID())
+            .build();
 
         //do
         repository.reschedule(toReschedule);
@@ -51,10 +53,10 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         //when
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.READY);
         var toReschedule = originalTaskEntity.toBuilder()
-                .version(2L)
-                .executionDateUtc(LocalDateTime.now(clock))
-                .assignedWorker(UUID.randomUUID())
-                .build();
+            .version(2L)
+            .executionDateUtc(LocalDateTime.now(clock))
+            .assignedWorker(UUID.randomUUID())
+            .build();
 
         //do
         assertThatThrownBy(() -> repository.reschedule(toReschedule)).isInstanceOf(OptimisticLockException.class);
@@ -68,10 +70,10 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         //when
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.DELETED);
         var toReschedule = originalTaskEntity.toBuilder()
-                .version(2L)
-                .executionDateUtc(LocalDateTime.now(clock))
-                .assignedWorker(UUID.randomUUID())
-                .build();
+            .version(2L)
+            .executionDateUtc(LocalDateTime.now(clock))
+            .assignedWorker(UUID.randomUUID())
+            .build();
 
         //do
         assertThatThrownBy(() -> repository.reschedule(toReschedule)).isInstanceOf(UnknownTaskException.class);
@@ -85,10 +87,11 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         //when
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.READY);
         var toReschedule = originalTaskEntity.toBuilder()
-                .version(10L)
-                .executionDateUtc(LocalDateTime.now(clock))
-                .assignedWorker(UUID.randomUUID())
-                .build();
+            .version(10L)
+            .failures(2)
+            .executionDateUtc(LocalDateTime.now(clock))
+            .assignedWorker(UUID.randomUUID())
+            .build();
 
         //do
         boolean result = repository.forceReschedule(toReschedule);
@@ -103,10 +106,10 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         //when
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.DELETED);
         var toReschedule = originalTaskEntity.toBuilder()
-                .version(10L)
-                .executionDateUtc(LocalDateTime.now(clock))
-                .assignedWorker(UUID.randomUUID())
-                .build();
+            .version(10L)
+            .executionDateUtc(LocalDateTime.now(clock))
+            .assignedWorker(UUID.randomUUID())
+            .build();
 
         //do
         boolean result = repository.forceReschedule(toReschedule);
@@ -121,10 +124,10 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         //when
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.READY);
         var toReschedule = originalTaskEntity.toBuilder()
-                .version(10L)
-                .executionDateUtc(LocalDateTime.now(clock))
-                .assignedWorker(UUID.randomUUID())
-                .build();
+            .version(10L)
+            .executionDateUtc(LocalDateTime.now(clock))
+            .assignedWorker(UUID.randomUUID())
+            .build();
 
         //do
         repository.rescheduleAllIgnoreVersion(List.of(toReschedule));
@@ -138,10 +141,10 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         //when
         var originalTaskEntity = createSimpleTaskEntity(VirtualQueue.DELETED);
         var toReschedule = originalTaskEntity.toBuilder()
-                .version(10L)
-                .executionDateUtc(LocalDateTime.now(clock))
-                .assignedWorker(UUID.randomUUID())
-                .build();
+            .version(10L)
+            .executionDateUtc(LocalDateTime.now(clock))
+            .assignedWorker(UUID.randomUUID())
+            .build();
 
         //do
         repository.rescheduleAllIgnoreVersion(List.of(toReschedule));
@@ -161,10 +164,10 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         //verify
         assertThat(result).isTrue();
         Assertions.assertThat(taskRepository.find(originalTaskEntity.getId()))
-                .isPresent()
-                .get()
-                .matches(TaskEntity::isCanceled)
-                .matches(taskEntity -> taskEntity.getVersion() > originalTaskEntity.getVersion());
+            .isPresent()
+            .get()
+            .matches(TaskEntity::isCanceled)
+            .matches(taskEntity -> taskEntity.getVersion() > originalTaskEntity.getVersion());
     }
 
     @Test
@@ -190,10 +193,10 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
 
         //verify
         Assertions.assertThat(taskRepository.find(originalTaskEntity.getId()))
-                .isPresent()
-                .get()
-                .matches(TaskEntity::isCanceled)
-                .matches(taskEntity -> taskEntity.getVersion() > originalTaskEntity.getVersion());
+            .isPresent()
+            .get()
+            .matches(TaskEntity::isCanceled)
+            .matches(taskEntity -> taskEntity.getVersion() > originalTaskEntity.getVersion());
     }
 
     @Test
@@ -211,21 +214,23 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
 
     private TaskEntity createSimpleTaskEntity(VirtualQueue virtualQueue) {
         var spec = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.allSetAndOneTask()
-                )
+                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.one()
+            )
         );
         var populateNewTasks = taskPopulateAndVerify.populate(0, 1, virtualQueue, spec);
         return populateNewTasks.iterator().next();
     }
 
     private void verifyInRepository(TaskEntity taskEntity) {
+        //noinspection AssertBetweenInconvertibleTypes
         Assertions.assertThat(taskRepository.find(taskEntity.getId()))
-                .isPresent()
-                .get()
-                .usingRecursiveComparison(RecursiveComparisonConfiguration.builder()
-                        .withIgnoredFields("version")
-                        .build()
-                )
-                .isEqualTo(taskEntity);
+            .isPresent()
+            .get()
+            .usingRecursiveComparison(RecursiveComparisonConfiguration.builder()
+                .withComparatorForType(new RoundingLocalDateTimeComparator(), LocalDateTime.class)
+                .withIgnoredFields("version")
+                .build()
+            )
+            .isEqualTo(taskEntity);
     }
 }

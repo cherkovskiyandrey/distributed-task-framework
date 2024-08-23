@@ -19,8 +19,8 @@ public interface RemoteCommandRepository extends CrudRepository<RemoteCommandEnt
     @Query("""
             SELECT * FROM _____dtf_remote_commands
             WHERE app_name = :appName
-            AND send_date_utc <= :sendDateUtc 
-            ORDER BY created_date_utc 
+            AND send_date_utc <= :sendDateUtc
+            ORDER BY created_date_utc
             LIMIT :limit
             """)
     Collection<RemoteCommandEntity> findCommandsToSend(String appName, LocalDateTime sendDateUtc, long limit);

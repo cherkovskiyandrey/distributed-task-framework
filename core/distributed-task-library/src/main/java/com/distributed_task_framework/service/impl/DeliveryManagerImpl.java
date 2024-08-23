@@ -99,7 +99,7 @@ public class DeliveryManagerImpl implements DeliveryManager {
         this.deliverTaskByAppName = Maps.newHashMap();
         this.httpClient = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) commandDeliverySettings.getConnectionTimeout().toMillis())
-                .responseTimeout(commandDeliverySettings.getResponceTimeout())
+                .responseTimeout(commandDeliverySettings.getResponseTimeout())
                 .doOnConnected(conn ->
                         conn.addHandlerLast(new ReadTimeoutHandler(
                                 commandDeliverySettings.getReadTimeout().toMillis(),

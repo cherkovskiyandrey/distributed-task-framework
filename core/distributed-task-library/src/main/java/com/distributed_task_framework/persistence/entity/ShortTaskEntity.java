@@ -1,5 +1,6 @@
 package com.distributed_task_framework.persistence.entity;
 
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +10,6 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.FieldNameConstants;
 import org.springframework.data.relational.core.mapping.Table;
 
-import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.UUID;
@@ -22,9 +22,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder(toBuilder = true)
 public class ShortTaskEntity {
-    public static Comparator<ShortTaskEntity> COMPARATOR = Comparator
-            .comparing(ShortTaskEntity::getCreatedDateUtc)
-            .thenComparing(ShortTaskEntity::getId);
+    public static Comparator<ShortTaskEntity> COMPARATOR = Comparator.comparing(ShortTaskEntity::getId);
 
     UUID id;
     String taskName;

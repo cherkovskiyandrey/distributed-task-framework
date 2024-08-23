@@ -58,17 +58,17 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
     void shouldPeriodicallyUpdateNodeState() {
         //when
         NodeStateEntity nodeStateEntity = waitAndGet(
-                () -> nodeStateRepository.findById(clusterProvider.nodeId()),
-                Optional::isPresent
+            () -> nodeStateRepository.findById(clusterProvider.nodeId()),
+            Optional::isPresent
         ).orElseThrow();
 
         //verify
         waitAndGet(
-                () -> nodeStateRepository.findById(clusterProvider.nodeId()),
-                currentNodeStateOpt -> currentNodeStateOpt
-                        .filter(currentNodeState -> Objects.equals(currentNodeState.getNode(), nodeStateEntity.getNode()))
-                        .filter(currentNodeState -> currentNodeState.getLastUpdateDateUtc().isAfter(nodeStateEntity.getLastUpdateDateUtc()))
-                        .isPresent()
+            () -> nodeStateRepository.findById(clusterProvider.nodeId()),
+            currentNodeStateOpt -> currentNodeStateOpt
+                .filter(currentNodeState -> Objects.equals(currentNodeState.getNode(), nodeStateEntity.getNode()))
+                .filter(currentNodeState -> currentNodeState.getLastUpdateDateUtc().isAfter(nodeStateEntity.getLastUpdateDateUtc()))
+                .isPresent()
         );
     }
 
@@ -78,25 +78,25 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
         final UUID foreignNodeId = UUID.randomUUID();
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             nodeStateRepository.save(NodeStateEntity.builder()
-                    .node(foreignNodeId)
-                    .lastUpdateDateUtc(LocalDateTime.now(clock).minus(Duration.ofMillis(commonSettings.getRegistrySettings().getMaxInactivityIntervalMs())))
-                    .build()
+                .node(foreignNodeId)
+                .lastUpdateDateUtc(LocalDateTime.now(clock).minus(Duration.ofMillis(commonSettings.getRegistrySettings().getMaxInactivityIntervalMs())))
+                .build()
             );
             registeredTaskRepository.save(RegisteredTaskEntity.builder()
-                    .taskName("foreign_task")
-                    .nodeStateId(foreignNodeId)
-                    .build()
+                .taskName("foreign_task")
+                .nodeStateId(foreignNodeId)
+                .build()
             );
         });
 
         //verify
         waitAndGet(
-                () -> nodeStateRepository.findById(foreignNodeId),
-                Optional::isEmpty
+            () -> nodeStateRepository.findById(foreignNodeId),
+            Optional::isEmpty
         );
         waitAndGet(
-                () -> registeredTaskRepository.findByNodeStateId(foreignNodeId),
-                Collection::isEmpty
+            () -> registeredTaskRepository.findByNodeStateId(foreignNodeId),
+            Collection::isEmpty
         );
     }
 
@@ -107,20 +107,20 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
 
         //verify
         List<CapabilityEntity> capabilityEntities = waitAndGet(
-                () -> Lists.newArrayList(capabilityRepository.findAll()),
-                caps -> caps.size() == 2
+            () -> Lists.newArrayList(capabilityRepository.findAll()),
+            caps -> caps.size() == 2
         );
         assertThat(capabilityEntities)
-                .containsExactlyInAnyOrder(
-                        CapabilityEntity.builder()
-                                .nodeId(clusterProvider.nodeId())
-                                .value(Capabilities.___TEST_1.toString())
-                                .build(),
-                        CapabilityEntity.builder()
-                                .nodeId(clusterProvider.nodeId())
-                                .value(Capabilities.___TEST_2.toString())
-                                .build()
-                );
+            .containsExactlyInAnyOrder(
+                CapabilityEntity.builder()
+                    .nodeId(clusterProvider.nodeId())
+                    .value(Capabilities.___TEST_1.toString())
+                    .build(),
+                CapabilityEntity.builder()
+                    .nodeId(clusterProvider.nodeId())
+                    .value(Capabilities.___TEST_2.toString())
+                    .build()
+            );
     }
 
     @Test
@@ -128,11 +128,11 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
         //when
         prepareLocalCapabilities();
         Set<UUID> capabilityEntityIds = waitAndGet(
-                () -> Lists.newArrayList(capabilityRepository.findAll()),
-                caps -> caps.size() == 2
+            () -> Lists.newArrayList(capabilityRepository.findAll()),
+            caps -> caps.size() == 2
         ).stream()
-                .map(CapabilityEntity::getId)
-                .collect(Collectors.toSet());
+            .map(CapabilityEntity::getId)
+            .collect(Collectors.toSet());
 
 
         //do
@@ -140,8 +140,8 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
 
         //verify
         assertThat(capabilityRepository.findAll())
-                .map(CapabilityEntity::getId)
-                .containsExactlyInAnyOrderElementsOf(capabilityEntityIds);
+            .map(CapabilityEntity::getId)
+            .containsExactlyInAnyOrderElementsOf(capabilityEntityIds);
     }
 
     @Test
@@ -153,16 +153,16 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
 
         //verify
         Set<UUID> nodes = waitAndGet(
-                () -> clusterProvider.clusterNodes(),
-                n -> n.size() == 4
+            () -> clusterProvider.clusterNodes(),
+            n -> n.size() == 4
         );
         assertThat(nodes)
-                .containsExactlyInAnyOrderElementsOf(Set.of(
-                        clusterProvider.nodeId(),
-                        firstNode.getNode(),
-                        secondNode.getNode(),
-                        thirdNode.getNode())
-                );
+            .containsExactlyInAnyOrderElementsOf(Set.of(
+                clusterProvider.nodeId(),
+                firstNode.getNode(),
+                secondNode.getNode(),
+                thirdNode.getNode())
+            );
     }
 
     @Test
@@ -174,24 +174,24 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
 
         //verify
         var nodeLoadings = waitAndGet(
-                () -> clusterProvider.currentNodeLoading(),
-                n -> n.size() == 4
+            () -> clusterProvider.currentNodeLoading(),
+            n -> n.size() == 4
         );
         assertThat(nodeLoadings)
-                .containsAll(List.of(
-                        NodeLoading.builder()
-                                .node(firstNode.getNode())
-                                .medianCpuLoading(0.1)
-                                .build(),
-                        NodeLoading.builder()
-                                .node(secondNode.getNode())
-                                .medianCpuLoading(0.5)
-                                .build(),
-                        NodeLoading.builder()
-                                .node(thirdNode.getNode())
-                                .medianCpuLoading(0.95)
-                                .build()
-                ));
+            .containsAll(List.of(
+                NodeLoading.builder()
+                    .node(firstNode.getNode())
+                    .medianCpuLoading(0.1)
+                    .build(),
+                NodeLoading.builder()
+                    .node(secondNode.getNode())
+                    .medianCpuLoading(0.5)
+                    .build(),
+                NodeLoading.builder()
+                    .node(thirdNode.getNode())
+                    .medianCpuLoading(0.95)
+                    .build()
+            ));
     }
 
     @Test
@@ -206,14 +206,14 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
 
         //verify
         Map<UUID, EnumSet<Capabilities>> clusterCapabilities = waitAndGet(
-                () -> clusterProvider.clusterCapabilities(),
-                caps -> caps.size() == 2
+            () -> clusterProvider.clusterCapabilities(),
+            caps -> caps.size() == 2
         );
         assertThat(clusterCapabilities)
-                .containsExactlyInAnyOrderEntriesOf(Map.of(
-                        firstNode.getNode(), EnumSet.of(Capabilities.___TEST_1),
-                        secondNode.getNode(), EnumSet.of(Capabilities.___TEST_1, Capabilities.___TEST_2)
-                ));
+            .containsExactlyInAnyOrderEntriesOf(Map.of(
+                firstNode.getNode(), EnumSet.of(Capabilities.___TEST_1),
+                secondNode.getNode(), EnumSet.of(Capabilities.___TEST_1, Capabilities.___TEST_2)
+            ));
     }
 
     @Test
@@ -229,8 +229,8 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
 
         //do
         waitAndGet(
-                () -> clusterProvider.clusterCapabilities(),
-                caps -> caps.size() == 3
+            () -> clusterProvider.clusterCapabilities(),
+            caps -> caps.size() == 3
         );
 
         //verify
@@ -238,34 +238,11 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
         Assertions.assertThat(clusterProvider.doAllNodesSupport(Capabilities.___TEST_2)).isFalse();
     }
 
-    @Test
-    void shouldCheckDoAllNodesSupportOrEmptyCorrectly() {
-        //when
-        var firstNode = createNode();
-        var secondNode = createNode();
-
-        createNode(); //without any capabilities
-        prepareLocalCapabilities();
-        prepareCapability(firstNode.getNode(), Capabilities.___TEST_1);
-        prepareCapability(secondNode.getNode(), Capabilities.___TEST_1);
-        prepareCapability(secondNode.getNode(), Capabilities.___TEST_2);
-
-        //do
-        waitAndGet(
-                () -> clusterProvider.clusterCapabilities(),
-                caps -> caps.size() == 3
-        );
-
-        //verify
-        Assertions.assertThat(clusterProvider.doAllNodesSupportOrEmpty(Capabilities.___TEST_1)).isTrue();
-        Assertions.assertThat(clusterProvider.doAllNodesSupportOrEmpty(Capabilities.___TEST_2)).isFalse();
-    }
-
     private void prepareCapability(UUID nodeId, Capabilities capabilities) {
         var firstNodeFirstCapability = CapabilityEntity.builder()
-                .nodeId(nodeId)
-                .value(capabilities.toString())
-                .build();
+            .nodeId(nodeId)
+            .value(capabilities.toString())
+            .build();
         capabilityRepository.save(firstNodeFirstCapability);
     }
 
@@ -280,18 +257,18 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
 
     private NodeStateEntity createNode(double cpuLoading) {
         var nodeStateEntity = createNode()
-                .toBuilder()
-                .medianCpuLoading(cpuLoading)
-                .build();
+            .toBuilder()
+            .medianCpuLoading(cpuLoading)
+            .build();
         return nodeStateRepository.save(nodeStateEntity);
     }
 
     private NodeStateEntity createNode() {
         NodeStateEntity nodeStateEntity = NodeStateEntity.builder()
-                .node(UUID.randomUUID())
-                .medianCpuLoading(0.1)
-                .lastUpdateDateUtc(LocalDateTime.now(clock))
-                .build();
+            .node(UUID.randomUUID())
+            .medianCpuLoading(0.1)
+            .lastUpdateDateUtc(LocalDateTime.now(clock))
+            .build();
         return nodeStateRepository.save(nodeStateEntity);
     }
 }

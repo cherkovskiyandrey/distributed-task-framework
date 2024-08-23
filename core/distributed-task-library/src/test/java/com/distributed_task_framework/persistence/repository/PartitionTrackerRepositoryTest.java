@@ -28,9 +28,9 @@ class PartitionTrackerRepositoryTest extends BaseRepositoryTest {
     void shouldReturnActivePartitions() {
         //when
         List<TaskPopulateAndVerify.PopulationSpec> populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.noneSet(2),
-                        Range.closedOpen(1, 3), TaskPopulateAndVerify.GenerationSpec.allSet(2)
-                )
+                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.withoutAffinity(2),
+                Range.closedOpen(1, 3), TaskPopulateAndVerify.GenerationSpec.of(2)
+            )
         );
         taskPopulateAndVerify.populate(0, 100, VirtualQueue.READY, populationSpecs);
 
@@ -39,32 +39,32 @@ class PartitionTrackerRepositoryTest extends BaseRepositoryTest {
 
         //verify
         var expectedResult = List.of(
-                Partition.builder()
-                        .affinityGroup(null)
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + 0)
-                        .build(),
-                Partition.builder()
-                        .affinityGroup(null)
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + 1)
-                        .build(),
+            Partition.builder()
+                .affinityGroup(null)
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + 0)
+                .build(),
+            Partition.builder()
+                .affinityGroup(null)
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + 1)
+                .build(),
 
-                Partition.builder()
-                        .affinityGroup("1")
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + 0)
-                        .build(),
-                Partition.builder()
-                        .affinityGroup("1")
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + 1)
-                        .build(),
+            Partition.builder()
+                .affinityGroup("1")
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + 0)
+                .build(),
+            Partition.builder()
+                .affinityGroup("1")
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + 1)
+                .build(),
 
-                Partition.builder()
-                        .affinityGroup("2")
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + 0)
-                        .build(),
-                Partition.builder()
-                        .affinityGroup("2")
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + 1)
-                        .build()
+            Partition.builder()
+                .affinityGroup("2")
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + 0)
+                .build(),
+            Partition.builder()
+                .affinityGroup("2")
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + 1)
+                .build()
         );
         assertThat(partitionEntities).containsAll(expectedResult);
     }
@@ -73,25 +73,24 @@ class PartitionTrackerRepositoryTest extends BaseRepositoryTest {
     void shouldFilterInReadyVirtualQueue() {
         //when
         List<TaskPopulateAndVerify.PopulationSpec> populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.noneSetAndOneTask(),
-                        Range.closedOpen(1, 2), TaskPopulateAndVerify.GenerationSpec.oneTask(false, true),
-                        Range.closedOpen(2, 3), TaskPopulateAndVerify.GenerationSpec.allSetAndOneTask()
-                )
+                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.oneWithoutAffinity(),
+                Range.closedOpen(2, 3), TaskPopulateAndVerify.GenerationSpec.one()
+            )
         );
         taskPopulateAndVerify.populate(0, 100, VirtualQueue.READY, populationSpecs);
 
         Set<Partition> checkedEntities = Set.of(
-                Partition.builder()
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + "0")
-                        .build(),
-                Partition.builder()
-                        .affinityGroup("2")
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + "0")
-                        .build(),
-                Partition.builder()
-                        .affinityGroup("2")
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + "1")
-                        .build()
+            Partition.builder()
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + "0")
+                .build(),
+            Partition.builder()
+                .affinityGroup("2")
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + "0")
+                .build(),
+            Partition.builder()
+                .affinityGroup("2")
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + "1")
+                .build()
         );
 
         //do
@@ -99,13 +98,13 @@ class PartitionTrackerRepositoryTest extends BaseRepositoryTest {
 
         //verify
         assertThat(actualFilteredEntities).containsExactlyInAnyOrder(
-                Partition.builder()
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + "0")
-                        .build(),
-                Partition.builder()
-                        .affinityGroup("2")
-                        .taskName(TaskPopulateAndVerify.TASK_PREFIX + "0")
-                        .build()
+            Partition.builder()
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + "0")
+                .build(),
+            Partition.builder()
+                .affinityGroup("2")
+                .taskName(TaskPopulateAndVerify.TASK_PREFIX + "0")
+                .build()
         );
     }
 }

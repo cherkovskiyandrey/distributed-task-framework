@@ -16,26 +16,34 @@ import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
+import jakarta.annotation.Nullable;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.StringUtils;
 
-import jakarta.annotation.Nullable;
-import jakarta.annotation.PostConstruct;
 import java.lang.annotation.Annotation;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
+@Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskConfigurationDiscoveryProcessor {
     DistributedTaskProperties properties;
     DistributedTaskService distributedTaskService;
+    ThreadPoolExecutor executor;
     DistributedTaskPropertiesMapper distributedTaskPropertiesMapper;
     Collection<Task<?>> tasks;
     RemoteTasks remoteTasks;
@@ -50,6 +58,13 @@ public class TaskConfigurationDiscoveryProcessor {
         this.distributedTaskPropertiesMapper = distributedTaskPropertiesMapper;
         this.tasks = tasks;
         this.remoteTasks = remoteTasks;
+        this.executor = new ThreadPoolExecutor(
+            0,
+            1,
+            1L,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>()
+        );
     }
 
     @SneakyThrows
@@ -58,6 +73,41 @@ public class TaskConfigurationDiscoveryProcessor {
         registerLocalTasks();
         registerRemoteTasksFromCode();
         //configurations for unknown local tasks just ignore.
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @PreDestroy
+    public void shutdown() throws InterruptedException {
+        log.info("shutdown(): shutdown started");
+        executor.shutdownNow();
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+        log.info("shutdown(): shutdown completed");
+    }
+
+    private void registerLocalTasks() {
+        for (Task<?> task : tasks) {
+            TaskSettings taskSettings = buildTaskSettings(task);
+            distributedTaskService.registerTask(task, taskSettings);
+            if (taskSettings.hasCron()) {
+                //we have to start recurrent task almost immediately
+                //it is important to run async, because otherwise a deadlock will happen in case when
+                //there are fewer db connections in the pool. Because ClusterProviderImpl run async
+                //updateOwnState in a transaction and try to get nodeStateRepository, which
+                //must be created as a bean from spring context, but spring context is blocked until
+                //any @PostConstruct is completed. At the same time here we get spring context lock
+                //and try to obtain transaction:
+                //TaskConfigurationDiscoveryProcessor -> __synchronize(spring factory)__ -> init() -> distributedTaskService.schedule -> taskRepository.findByName -> __getConnection__
+                //ClusterProviderImpl -> __TX(getConnection())__ -> updateOwnState() -> __synchronize(spring factory)__ -> nodeStateRepository.findById()
+                CompletableFuture.runAsync(() -> {
+                        try {
+                            distributedTaskService.schedule(task.getDef(), ExecutionContext.empty());
+                        } catch (Exception ignore) {
+                        }
+                    },
+                    executor
+                );
+            }
+        }
     }
 
     private void registerRemoteTasksFromCode() {
@@ -79,18 +129,18 @@ public class TaskConfigurationDiscoveryProcessor {
 
         var defaultTaskProperties = distributedTaskPropertiesMapper.map(TaskSettings.DEFAULT);
         var defaultConfTaskProperties = taskSettingGroup
-                .map(DistributedTaskProperties.TaskPropertiesGroup::getDefaultProperties)
-                .orElse(null);
+            .map(DistributedTaskProperties.TaskPropertiesGroup::getDefaultProperties)
+            .orElse(null);
 
         var customTaskProperties = distributedTaskPropertiesMapper.map(customSettings);
         var customConfTaskProperties = taskSettingGroup
-                .map(DistributedTaskProperties.TaskPropertiesGroup::getTaskProperties)
-                .map(taskProperties -> taskProperties.get(taskDef.getTaskName()))
-                .orElse(null);
+            .map(DistributedTaskProperties.TaskPropertiesGroup::getTaskProperties)
+            .map(taskProperties -> taskProperties.get(taskDef.getTaskName()))
+            .orElse(null);
 
         defaultTaskProperties = defaultConfTaskProperties != null ?
-                distributedTaskPropertiesMapper.merge(defaultTaskProperties, defaultConfTaskProperties) :
-                defaultTaskProperties;
+            distributedTaskPropertiesMapper.merge(defaultTaskProperties, defaultConfTaskProperties) :
+            defaultTaskProperties;
 
         if (customTaskProperties != null && customConfTaskProperties != null) {
             customTaskProperties = distributedTaskPropertiesMapper.merge(customTaskProperties, customConfTaskProperties);
@@ -99,21 +149,10 @@ public class TaskConfigurationDiscoveryProcessor {
         }
 
         var taskProperties = customTaskProperties != null ?
-                distributedTaskPropertiesMapper.merge(defaultTaskProperties, customTaskProperties) :
-                defaultTaskProperties;
+            distributedTaskPropertiesMapper.merge(defaultTaskProperties, customTaskProperties) :
+            defaultTaskProperties;
 
         return distributedTaskPropertiesMapper.map(taskProperties);
-    }
-
-    private void registerLocalTasks() throws Exception {
-        for (Task<?> task : tasks) {
-            TaskSettings taskSettings = buildTaskSettings(task);
-            distributedTaskService.registerTask(task, taskSettings);
-            if (taskSettings.hasCron()) {
-                //we have to start recurrent task immediately
-                distributedTaskService.schedule(task.getDef(), ExecutionContext.empty());
-            }
-        }
     }
 
     public TaskSettings buildTaskSettings(Task<?> task) {
@@ -123,20 +162,20 @@ public class TaskConfigurationDiscoveryProcessor {
         var customSettings = fillCustomSettings(task);
 
         var defaultConfSettings = taskSettingGroup
-                .map(DistributedTaskProperties.TaskPropertiesGroup::getDefaultProperties)
-                .orElse(null);
+            .map(DistributedTaskProperties.TaskPropertiesGroup::getDefaultProperties)
+            .orElse(null);
         var customConfSettings = taskSettingGroup
-                .map(DistributedTaskProperties.TaskPropertiesGroup::getTaskProperties)
-                .map(taskProperties -> taskProperties.get(task.getDef().getTaskName()))
-                .orElse(null);
+            .map(DistributedTaskProperties.TaskPropertiesGroup::getTaskProperties)
+            .map(taskProperties -> taskProperties.get(task.getDef().getTaskName()))
+            .orElse(null);
 
         defaultSettings = defaultConfSettings != null ?
-                distributedTaskPropertiesMapper.merge(defaultSettings, defaultConfSettings) :
-                defaultSettings;
+            distributedTaskPropertiesMapper.merge(defaultSettings, defaultConfSettings) :
+            defaultSettings;
 
         customSettings = customConfSettings != null ?
-                distributedTaskPropertiesMapper.merge(customSettings, customConfSettings) :
-                customSettings;
+            distributedTaskPropertiesMapper.merge(customSettings, customConfSettings) :
+            customSettings;
 
         var taskSettings = distributedTaskPropertiesMapper.merge(defaultSettings, customSettings);
         return distributedTaskPropertiesMapper.map(taskSettings);
@@ -167,8 +206,8 @@ public class TaskConfigurationDiscoveryProcessor {
         Optional<TaskBackoffRetryPolicy> taskBackoffRetryPolicy = findAnnotation(task, TaskBackoffRetryPolicy.class);
         Optional<RetryOff> retryOffPolicy = findAnnotation(task, RetryOff.class);
         if ((taskFixedRetryPolicy.isPresent() && taskBackoffRetryPolicy.isPresent()) ||
-                (taskFixedRetryPolicy.isPresent() && retryOffPolicy.isPresent()) ||
-                (taskBackoffRetryPolicy.isPresent() && retryOffPolicy.isPresent())
+            (taskFixedRetryPolicy.isPresent() && retryOffPolicy.isPresent()) ||
+            (taskBackoffRetryPolicy.isPresent() && retryOffPolicy.isPresent())
         ) {
             throw new TaskConfigurationException("Only one retry policy is allowed. TaskDef=[%s]".formatted(task.getDef()));
         }
@@ -224,28 +263,28 @@ public class TaskConfigurationDiscoveryProcessor {
 
     private void fillDltMode(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
         findAnnotation(task, TaskDltEnable.class)
-                .ifPresent(taskDltEnable -> taskProperties.setDltEnabled(taskDltEnable.isEnabled()));
+            .ifPresent(taskDltEnable -> taskProperties.setDltEnabled(taskDltEnable.isEnabled()));
     }
 
     private void fillExecutionGuarantees(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
         findAnnotation(task, TaskExecutionGuarantees.class)
-                .ifPresent(executionGuarantees ->
-                        taskProperties.setExecutionGuarantees(executionGuarantees.value().toString())
-                );
+            .ifPresent(executionGuarantees ->
+                taskProperties.setExecutionGuarantees(executionGuarantees.value().toString())
+            );
     }
 
     private void fillConcurrency(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
         findAnnotation(task, TaskConcurrency.class)
-                .ifPresent(taskConcurrency -> {
-                    if (taskConcurrency.maxParallelInCluster() > 0) {
-                        taskProperties.setMaxParallelInCluster(taskConcurrency.maxParallelInCluster());
-                    }
-                });
+            .ifPresent(taskConcurrency -> {
+                if (taskConcurrency.maxParallelInCluster() > 0) {
+                    taskProperties.setMaxParallelInCluster(taskConcurrency.maxParallelInCluster());
+                }
+            });
     }
 
     private void fillSchedule(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
         findAnnotation(task, TaskSchedule.class)
-                .ifPresent(mergedAnnotation -> taskProperties.setCron(mergedAnnotation.cron()));
+            .ifPresent(mergedAnnotation -> taskProperties.setCron(mergedAnnotation.cron()));
     }
 
     /**

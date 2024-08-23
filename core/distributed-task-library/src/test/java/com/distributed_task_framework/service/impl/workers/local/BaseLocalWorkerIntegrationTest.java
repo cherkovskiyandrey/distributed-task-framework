@@ -116,6 +116,7 @@ public abstract class BaseLocalWorkerIntegrationTest extends BaseSpringIntegrati
                 .matches(fCtx -> fCtx.getWorkflowId().equals(taskEntity.getWorkflowId()), "workflowId")
                 .matches(fCtx -> fCtx.getError() != null, "error != null")
                 .matches(fCtx -> fCtx.getError().getClass().equals(RuntimeException.class), "error class")
+                .matches(fCtx -> fCtx.getExecutionAttempt() == 6, "executionAttempt")
                 .matches(fCtx -> "hello message".equals(fCtx.getInputMessageOrThrow()), "message")
         ;
     }

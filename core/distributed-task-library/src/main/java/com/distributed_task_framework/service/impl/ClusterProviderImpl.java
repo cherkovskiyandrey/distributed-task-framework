@@ -3,21 +3,6 @@ package com.distributed_task_framework.service.impl;
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.model.Capabilities;
 import com.distributed_task_framework.model.NodeLoading;
-import com.distributed_task_framework.utils.ExecutorUtils;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.sun.management.OperatingSystemMXBean;
-import lombok.AccessLevel;
-import lombok.experimental.FieldDefaults;
-import lombok.experimental.NonFinal;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.util.ReflectionUtils;
 import com.distributed_task_framework.persistence.entity.CapabilityEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.repository.CapabilityRepository;
@@ -25,9 +10,24 @@ import com.distributed_task_framework.persistence.repository.NodeStateRepository
 import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.settings.CommonSettings;
-
+import com.distributed_task_framework.utils.ExecutorUtils;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.sun.management.OperatingSystemMXBean;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.ReflectionUtils;
+
 import java.lang.management.ManagementFactory;
 import java.time.Clock;
 import java.time.Duration;
@@ -54,7 +54,7 @@ public class ClusterProviderImpl implements ClusterProvider {
     public static final double UNDEFINED_METRIC_VALUE = -1.;
 
     private static final OperatingSystemMXBean OPERATING_SYSTEM_MX_BEAN =
-            (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+        (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
 
     UUID nodeId;
     CommonSettings commonSettings;
@@ -90,13 +90,13 @@ public class ClusterProviderImpl implements ClusterProvider {
         this.currentCpuLoadingMetrics = initCpuLoadingMetricsStore(commonSettings);
         this.clock = clock;
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
-                .setDaemon(false)
-                .setNameFormat("dtf-watchdog-%d")
-                .setUncaughtExceptionHandler((t, e) -> {
-                    log.error("ClusterProviderImpl(): error when try to update", e);
-                    ReflectionUtils.rethrowRuntimeException(e);
-                })
-                .build()
+            .setDaemon(false)
+            .setNameFormat("dtf-watchdog-%d")
+            .setUncaughtExceptionHandler((t, e) -> {
+                log.error("ClusterProviderImpl(): error when try to update", e);
+                ReflectionUtils.rethrowRuntimeException(e);
+            })
+            .build()
         );
     }
 
@@ -111,35 +111,43 @@ public class ClusterProviderImpl implements ClusterProvider {
 
     @PostConstruct
     public void init() {
+        log.info("init(): nodeId=[{}]", nodeId);
         scheduledExecutorService.scheduleWithFixedDelay(
-                ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
-                commonSettings.getRegistrySettings().getUpdateInitialDelayMs(),
-                commonSettings.getRegistrySettings().getUpdateFixedDelayMs(),
-                TimeUnit.MILLISECONDS
+            ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
+            commonSettings.getRegistrySettings().getUpdateInitialDelayMs(),
+            commonSettings.getRegistrySettings().getUpdateFixedDelayMs(),
+            TimeUnit.MILLISECONDS
         );
     }
 
     public void watchdog() {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.executeWithoutResult(status -> updateOwnState());
+        transactionTemplate.executeWithoutResult(status -> {
+                //it is important to update state and capabilities atomically
+                //because some capabilities are known before start the node and immutable
+                //and have to be visible atomically along with node registration
+                updateOwnState();
+                updateCapabilities();
+            }
+        );
         transactionTemplate.executeWithoutResult(status -> cleanObsoleteNodes());
-        transactionTemplate.executeWithoutResult(status -> updateCapabilities());
     }
 
     private void updateOwnState() {
         currentCpuLoadingMeasureAndUpdate();
         Optional<NodeStateEntity> nodeStateEntityOpt = nodeStateRepository.findById(nodeId);
         NodeStateEntity nodeStateEntity = nodeStateEntityOpt
-                .map(currentNodeState -> currentNodeState.toBuilder()
-                        .lastUpdateDateUtc(LocalDateTime.now(clock))
-                        .medianCpuLoading(measureCurrentMedianCpuLoading())
-                        .build())
-                .orElse(
-                        NodeStateEntity.builder()
-                                .node(nodeId)
-                                .lastUpdateDateUtc(LocalDateTime.now(clock))
-                                .build()
-                );
+            .map(currentNodeState -> currentNodeState.toBuilder()
+                .lastUpdateDateUtc(LocalDateTime.now(clock))
+                .medianCpuLoading(measureCurrentMedianCpuLoading())
+                .build())
+            .orElse(
+                NodeStateEntity.builder()
+                    .node(nodeId)
+                    .lastUpdateDateUtc(LocalDateTime.now(clock))
+                    .medianCpuLoading(measureCurrentMedianCpuLoading())
+                    .build()
+            );
         nodeStateRepository.save(nodeStateEntity);
     }
 
@@ -151,45 +159,45 @@ public class ClusterProviderImpl implements ClusterProvider {
 
     private Double measureCurrentMedianCpuLoading() {
         double[] copyCpuLoadingMetrics = Arrays.stream(currentCpuLoadingMetrics)
-                .filter(value -> Double.compare(value, UNDEFINED_METRIC_VALUE) != 0)
-                .toArray();
+            .filter(value -> Double.compare(value, UNDEFINED_METRIC_VALUE) != 0)
+            .toArray();
         Arrays.sort(copyCpuLoadingMetrics);
         double value = copyCpuLoadingMetrics[copyCpuLoadingMetrics.length / 2];
         return Double.compare(value, UNDEFINED_METRIC_VALUE) != 0 ? value : null;
-    }
-
-    private void cleanObsoleteNodes() {
-        LocalDateTime lostBoundaryDate = LocalDateTime.now(clock)
-                .minus(commonSettings.getRegistrySettings().getMaxInactivityIntervalMs(), ChronoUnit.MILLIS);
-        Collection<UUID> lostNodes = nodeStateRepository.findLostNodes(lostBoundaryDate);
-        if (!lostNodes.isEmpty()) {
-            nodeStateRepository.deleteAllById(lostNodes);
-            log.info("cleanObsoleteNodes(): lost nodes has been cleaned [{}]", lostNodes);
-        }
     }
 
     @VisibleForTesting
     void updateCapabilities() {
         Set<CapabilityEntity> publishedCurrentCapabilities = capabilityRepository.findByNodeId(nodeId);
         Set<CapabilityEntity> currentCapabilities = capabilityRegisterProvider.getAllCapabilityRegister().stream()
-                .flatMap(capabilityRegister -> capabilityRegister.capabilities().stream()
-                        .filter(capability -> Capabilities.UNKNOWN != capability)
-                        .map(capability -> CapabilityEntity.builder()
-                                .value(capability.toString())
-                                .nodeId(nodeId)
-                                .build()
-                        )
-                ).collect(Collectors.toSet());
+            .flatMap(capabilityRegister -> capabilityRegister.capabilities().stream()
+                .filter(capability -> Capabilities.UNKNOWN != capability)
+                .map(capability -> CapabilityEntity.builder()
+                    .value(capability.toString())
+                    .nodeId(nodeId)
+                    .build()
+                )
+            ).collect(Collectors.toSet());
         boolean hasToBeUpdated = publishedCurrentCapabilities.size() != currentCapabilities.size() ||
-                Sets.intersection(publishedCurrentCapabilities, currentCapabilities).size() != currentCapabilities.size();
+            Sets.intersection(publishedCurrentCapabilities, currentCapabilities).size() != currentCapabilities.size();
         if (hasToBeUpdated) {
             log.info(
-                    "updateCapabilities(): capabilities changed from=[{}], to=[{}]",
-                    publishedCurrentCapabilities,
-                    currentCapabilities
+                "updateCapabilities(): capabilities changed from=[{}], to=[{}]",
+                publishedCurrentCapabilities,
+                currentCapabilities
             );
             capabilityRepository.deleteAllByNodeId(nodeId);
             capabilityRepository.saveOrUpdateBatch(currentCapabilities);
+        }
+    }
+
+    private void cleanObsoleteNodes() {
+        LocalDateTime lostBoundaryDate = LocalDateTime.now(clock)
+            .minus(commonSettings.getRegistrySettings().getMaxInactivityIntervalMs(), ChronoUnit.MILLIS);
+        Collection<UUID> lostNodes = nodeStateRepository.findLostNodes(lostBoundaryDate);
+        if (!lostNodes.isEmpty()) {
+            nodeStateRepository.deleteAllById(lostNodes);
+            log.info("cleanObsoleteNodes(): lost nodes has been cleaned [{}]", lostNodes);
         }
     }
 
@@ -218,71 +226,58 @@ public class ClusterProviderImpl implements ClusterProvider {
     }
 
     @Override
+    public boolean isNodeRegistered() {
+        return nodeStateRepository.findById(nodeId).isPresent();
+    }
+
+    @Override
     public List<NodeLoading> currentNodeLoading() {
-        return getOrCalculateValue(
-                "currentNodeLoading",
-                () -> Lists.newArrayList(nodeStateRepository.findAll()).stream()
-                        .map(nodeStateMapper::fromEntity)
-                        .toList()
-        );
+        return nodesWithCapabilities().keySet().stream()
+            .map(nodeStateMapper::fromEntity)
+            .toList();
     }
 
     @Override
     public Set<UUID> clusterNodes() {
-        return getOrCalculateValue(
-                "clusterNodes",
-                () -> Lists.newArrayList(nodeStateRepository.findAll()).stream()
-                        .map(NodeStateEntity::getNode)
-                        .collect(Collectors.toSet())
-        );
+        return nodesWithCapabilities().keySet().stream()
+            .map(NodeStateEntity::getNode)
+            .collect(Collectors.toSet());
     }
 
     @Override
     public Map<UUID, EnumSet<Capabilities>> clusterCapabilities() {
+        return nodesWithCapabilities().entrySet().stream()
+            .map(entry -> Pair.of(
+                    entry.getKey().getNode(),
+                    entry.getValue().stream()
+                        .filter(Objects::nonNull)
+                        .map(capabilityEntity -> Capabilities.from(capabilityEntity.getValue()))
+                        .collect(Collectors.toSet())
+                )
+            )
+            .filter(pair -> !pair.getValue().isEmpty())
+            .collect(Collectors.toMap(
+                    Pair::getKey,
+                    pair -> EnumSet.copyOf(pair.getValue())
+                )
+            );
+    }
+
+    //We use one cache for node and it's capabilities in order to atomically see node state
+    private Map<NodeStateEntity, List<CapabilityEntity>> nodesWithCapabilities() {
         return getOrCalculateValue(
-                "clusterCapabilities",
-                () -> Lists.newArrayList(capabilityRepository.findAll()).stream()
-                        .collect(Collectors.groupingBy(
-                                        CapabilityEntity::getNodeId,
-                                        Collectors.mapping(
-                                                entity -> Capabilities.from(entity.getValue()),
-                                                Collectors.collectingAndThen(
-                                                        Collectors.toSet(),
-                                                        EnumSet::copyOf
-                                                )
-                                        )
-                                )
-                        )
+            "clusterNodesAndCapabilities",
+            nodeStateRepository::getAllWithCapabilities
         );
     }
 
     @Override
     public boolean doAllNodesSupport(Capabilities... capabilities) {
-        final var empty = Capabilities.createEmpty();
         EnumSet<Capabilities> searchedCapabilities = Capabilities.createEmpty();
         searchedCapabilities.addAll(Arrays.asList(capabilities));
-        Set<UUID> clusterNodes = clusterNodes();
         Map<UUID, EnumSet<Capabilities>> clusterCapabilities = clusterCapabilities();
-        return !clusterNodes.isEmpty() && clusterNodes.stream()
-                .allMatch(node -> {
-                    EnumSet<Capabilities> nodeCapabilities = clusterCapabilities.getOrDefault(node, empty);
-                    return nodeCapabilities.containsAll(searchedCapabilities);
-                });
-    }
-
-    @Override
-    public boolean doAllNodesSupportOrEmpty(Capabilities... capabilities) {
-        final var empty = Capabilities.createEmpty();
-        EnumSet<Capabilities> searchedCapabilities = Capabilities.createEmpty();
-        searchedCapabilities.addAll(Arrays.asList(capabilities));
-        Set<UUID> clusterNodes = clusterNodes();
-        Map<UUID, EnumSet<Capabilities>> clusterCapabilities = clusterCapabilities();
-        return !clusterNodes.isEmpty() && clusterNodes.stream()
-                .allMatch(node -> {
-                    EnumSet<Capabilities> nodeCapabilities = clusterCapabilities.getOrDefault(node, empty);
-                    return nodeCapabilities.containsAll(searchedCapabilities) ||
-                            nodeCapabilities.isEmpty();
-                });
+        return clusterCapabilities.entrySet().stream()
+            .allMatch(entry -> entry.getValue().containsAll(searchedCapabilities));
     }
 
     private Cache getCommonCache() {
@@ -298,10 +293,10 @@ public class ClusterProviderImpl implements ClusterProvider {
 
         //in order to avoid deadlock between acquiring transaction and calculating of new value
         return new TransactionTemplate(transactionManager).execute(status ->
-                getCommonCache().get(
-                        key,
-                        calculator
-                )
+            getCommonCache().get(
+                key,
+                calculator
+            )
         );
     }
 }

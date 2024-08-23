@@ -9,6 +9,7 @@ import java.util.EnumSet;
  * in order to declare own capabilities. Which have be discovered by any node in cluster.
  */
 public interface CapabilityRegister {
+
     /**
      * Return own capabilities
      *

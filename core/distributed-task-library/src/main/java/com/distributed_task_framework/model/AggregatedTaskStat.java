@@ -1,20 +1,19 @@
 package com.distributed_task_framework.model;
 
+import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import com.distributed_task_framework.persistence.entity.VirtualQueue;
-
-import jakarta.annotation.Nullable;
 
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class AggregatedTaskStat {
     @Nullable
     String affinityGroupName;

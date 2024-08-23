@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Value;
@@ -17,9 +18,9 @@ import org.assertj.core.api.Assertions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 
-import jakarta.annotation.Nullable;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,6 @@ public class TaskPopulateAndVerify {
 
     @Value(staticConstructor = "of")
     public static class GenerationSpec {
-        boolean withAffinityGroup;
         boolean withAffinity;
         int taskNameNumber;
         boolean withWorker;
@@ -88,312 +88,263 @@ public class TaskPopulateAndVerify {
         String fixedTaskName;
 
 
-        public static GenerationSpec allSetAndOneTask() {
+        public static GenerationSpec one() {
             return GenerationSpec.of(
-                    true,
-                    true,
-                    1,
-                    false,
-                    false,
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                true,
+                1,
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec noneSetAndOneTask() {
+        public static GenerationSpec oneWithoutAffinity() {
             return GenerationSpec.of(
-                    false,
-                    false,
-                    1,
-                    false,
-                    false,
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                false,
+                1,
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec allSet(int taskNameNumber) {
+        public static GenerationSpec of(int taskNameNumber) {
             return GenerationSpec.of(
-                    true,
-                    true,
-                    taskNameNumber,
-                    false,
-                    false,
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                true,
+                taskNameNumber,
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec canceled() {
+        public static GenerationSpec withoutAffinity(int taskNameNumber) {
             return GenerationSpec.of(
-                    true,
-                    true,
-                    1,
-                    false,
-                    false,
-                    true,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                false,
+                taskNameNumber,
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+            );
+        }
+
+        public static GenerationSpec oneCanceled() {
+            return GenerationSpec.of(
+                true,
+                1,
+                false,
+                false,
+                true,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
         public static GenerationSpec deferred(int taskNameNumber) {
             return GenerationSpec.of(
-                    true,
-                    true,
-                    taskNameNumber,
-                    false,
-                    true,
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                true,
+                taskNameNumber,
+                false,
+                true,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec allSetWithWorker(int taskNameNumber) {
+        public static GenerationSpec withAutoAssignedWorker(int taskNameNumber) {
             return GenerationSpec.of(
-                    true,
-                    true,
-                    taskNameNumber,
-                    true,
-                    false,
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                true,
+                taskNameNumber,
+                true,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec allSetWithFixedWorker(int taskNameNumber, UUID fixedWorker) {
+        public static GenerationSpec withWorker(int taskNameNumber, UUID fixedWorker) {
             return GenerationSpec.of(
-                    true,
-                    true,
-                    taskNameNumber,
-                    true,
-                    false,
-                    false,
-                    fixedWorker,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                true,
+                taskNameNumber,
+                true,
+                false,
+                false,
+                fixedWorker,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec noneSet(int taskNameNumber) {
+        public static GenerationSpec withWorkerAndWithoutAffinity(int taskNameNumber, UUID fixedWorker) {
             return GenerationSpec.of(
-                    false,
-                    false,
-                    taskNameNumber,
-                    false,
-                    false,
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                false,
+                taskNameNumber,
+                true,
+                false,
+                false,
+                fixedWorker,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec noneSetWitFixedTask(String taskName) {
+        public static GenerationSpec oneWithTaskNameAndWithoutAffinity(String taskName) {
             return GenerationSpec.of(
-                    false,
-                    false,
-                    1,
-                    false,
-                    false,
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    taskName
+                false,
+                1,
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                taskName
             );
         }
 
-        public static GenerationSpec noneSetWithFixedWorker(int taskNameNumber, UUID fixedWorker) {
+        public static GenerationSpec oneWithCreatedDateAndWithoutAffinity(LocalDateTime fixedCreatedDate) {
             return GenerationSpec.of(
-                    false,
-                    false,
-                    taskNameNumber,
-                    true,
-                    false,
-                    false,
-                    fixedWorker,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                false,
+                1,
+                false,
+                false,
+                false,
+                null,
+                fixedCreatedDate,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec oneTask(boolean withAffinityGroup, boolean withAffinity) {
+        public static GenerationSpec withCreatedDateAndWithoutAffinity(int taskNumber,
+                                                                       LocalDateTime fixedCreatedDate) {
             return GenerationSpec.of(
-                    withAffinityGroup,
-                    withAffinity,
-                    1,
-                    false,
-                    false,
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                false,
+                taskNumber,
+                false,
+                false,
+                false,
+                null,
+                fixedCreatedDate,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec withFixedWorker(boolean withAffinityGroup,
-                                                     boolean withAffinity,
-                                                     int taskNumber,
-                                                     UUID fixedWorker) {
+        public static GenerationSpec withWorkerAndWithoutAffinity(UUID fixedWorker, int taskNumber) {
             return GenerationSpec.of(
-                    withAffinityGroup,
-                    withAffinity,
-                    taskNumber,
-                    true,
-                    false,
-                    false,
-                    fixedWorker,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
+                false,
+                taskNumber,
+                false,
+                false,
+                false,
+                fixedWorker,
+                null,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec noneSetAndOneTask(LocalDateTime fixedCreatedDate) {
+        public static GenerationSpec oneWithWorkerAndCreatedDateAndWithoutAffinity(UUID fixedWorker,
+                                                                                   LocalDateTime fixedCreatedDate) {
             return GenerationSpec.of(
-                    false,
-                    false,
-                    1,
-                    false,
-                    false,
-                    false,
-                    null,
-                    fixedCreatedDate,
-                    null,
-                    null,
-                    null,
-                    null
+                false,
+                1,
+                false,
+                false,
+                false,
+                fixedWorker,
+                fixedCreatedDate,
+                null,
+                null,
+                null,
+                null
             );
         }
 
-        public static GenerationSpec withTasks(int taskNumber, LocalDateTime fixedCreatedDate) {
+        public static GenerationSpec oneWithAffinityGroupAndTaskNameAndCreatedDate(String afg,
+                                                                                   String taskName,
+                                                                                   LocalDateTime fixedCreatedDate) {
             return GenerationSpec.of(
-                    false,
-                    false,
-                    taskNumber,
-                    false,
-                    false,
-                    false,
-                    null,
-                    fixedCreatedDate,
-                    null,
-                    null,
-                    null,
-                    null
+                true,
+                1,
+                false,
+                false,
+                false,
+                null,
+                fixedCreatedDate,
+                afg,
+                null,
+                null,
+                taskName
             );
         }
 
-        public static GenerationSpec assigned(UUID fixedWorker, int taskNumber) {
+        public static GenerationSpec oneWithAffinityGroupAndTaskName(String afg, String taskName) {
             return GenerationSpec.of(
-                    false,
-                    false,
-                    taskNumber,
-                    false,
-                    false,
-                    false,
-                    fixedWorker,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
-            );
-        }
-
-        public static GenerationSpec noneSetAndOneTask(UUID fixedWorker, LocalDateTime fixedCreatedDate) {
-            return GenerationSpec.of(
-                    false,
-                    false,
-                    1,
-                    false,
-                    false,
-                    false,
-                    fixedWorker,
-                    fixedCreatedDate,
-                    null,
-                    null,
-                    null,
-                    null
-            );
-        }
-
-        public static GenerationSpec withFixedAfgAndTaskName(String afg, String taskName, LocalDateTime fixedCreatedDate) {
-            return GenerationSpec.of(
-                    true,
-                    true,
-                    1,
-                    false,
-                    false,
-                    false,
-                    null,
-                    fixedCreatedDate,
-                    afg,
-                    null,
-                    null,
-                    taskName
-            );
-        }
-
-        public static GenerationSpec withFixedAfgAndTaskName(String afg, String taskName) {
-            return GenerationSpec.of(
-                    true,
-                    true,
-                    1,
-                    false,
-                    false,
-                    false,
-                    null,
-                    null,
-                    afg,
-                    null,
-                    null,
-                    taskName
+                true,
+                1,
+                false,
+                false,
+                false,
+                null,
+                null,
+                afg,
+                null,
+                null,
+                taskName
             );
         }
     }
@@ -418,59 +369,59 @@ public class TaskPopulateAndVerify {
             GenerationSpec spec = entity.getValue();
 
             List<PopulationSpec> generationList = IntStream.range(fromInclude, toExclude)
-                    .mapToObj(i -> {
-                                final UUID assignedWorker;
-                                if (spec.fixedWorker != null) {
-                                    assignedWorker = spec.fixedWorker;
-                                } else if (spec.withWorker) {
-                                    assignedWorker = getNode(i);
-                                } else {
-                                    assignedWorker = null;
-                                }
+                .mapToObj(i -> {
+                        final UUID assignedWorker;
+                        if (spec.fixedWorker != null) {
+                            assignedWorker = spec.fixedWorker;
+                        } else if (spec.withWorker) {
+                            assignedWorker = getNode(i);
+                        } else {
+                            assignedWorker = null;
+                        }
 
-                                final String affinityGroup;
-                                if (spec.getFixedAffinityGroup() != null) {
-                                    affinityGroup = spec.getFixedAffinityGroup();
-                                } else if (spec.withAffinityGroup) {
-                                    affinityGroup = getAffinityGroup(i);
-                                } else {
-                                    affinityGroup = null;
-                                }
+                        final String affinityGroup;
+                        if (spec.getFixedAffinityGroup() != null) {
+                            affinityGroup = spec.getFixedAffinityGroup();
+                        } else if (spec.withAffinity) {
+                            affinityGroup = getAffinityGroup(i);
+                        } else {
+                            affinityGroup = null;
+                        }
 
-                                final String affinity;
-                                if (spec.getFixedAffinity() != null) {
-                                    affinity = spec.getFixedAffinity();
-                                } else if (spec.withAffinity) {
-                                    affinity = "" + i;
-                                } else {
-                                    affinity = null;
-                                }
+                        final String affinity;
+                        if (spec.getFixedAffinity() != null) {
+                            affinity = spec.getFixedAffinity();
+                        } else if (spec.withAffinity) {
+                            affinity = "" + i;
+                        } else {
+                            affinity = null;
+                        }
 
-                                List<String> taskNames = Lists.newArrayList();
-                                if (spec.getFixedTaskName() != null) {
-                                    taskNames.add(spec.fixedTaskName);
-                                } else {
-                                    taskNames = IntStream.range(0, spec.getTaskNameNumber())
-                                            .mapToObj(TaskPopulateAndVerify::getTaskName)
-                                            .toList();
-                                }
+                        List<String> taskNames = Lists.newArrayList();
+                        if (spec.getFixedTaskName() != null) {
+                            taskNames.add(spec.fixedTaskName);
+                        } else {
+                            taskNames = IntStream.range(0, spec.getTaskNameNumber())
+                                .mapToObj(TaskPopulateAndVerify::getTaskName)
+                                .toList();
+                        }
 
-                                UUID workflowId = spec.getFixedWorkflowId() != null ?
-                                        UUID.nameUUIDFromBytes(spec.getFixedWorkflowId().getBytes()) :
-                                        null;
-                                return PopulationSpec.builder()
-                                        .affinityGroup(affinityGroup)
-                                        .affinity(affinity)
-                                        .nameOfTasks(taskNames)
-                                        .assignedWorker(assignedWorker)
-                                        .fixedCreatedDate(spec.getFixedCreatedDate())
-                                        .fixedWorkflowId(workflowId)
-                                        .deferred(spec.isDeferred())
-                                        .canceled(spec.isCanceled())
-                                        .build();
-                            }
-                    )
-                    .toList();
+                        UUID workflowId = spec.getFixedWorkflowId() != null ?
+                            UUID.nameUUIDFromBytes(spec.getFixedWorkflowId().getBytes()) :
+                            null;
+                        return PopulationSpec.builder()
+                            .affinityGroup(affinityGroup)
+                            .affinity(affinity)
+                            .nameOfTasks(taskNames)
+                            .assignedWorker(assignedWorker)
+                            .fixedCreatedDate(spec.getFixedCreatedDate())
+                            .fixedWorkflowId(workflowId)
+                            .deferred(spec.isDeferred())
+                            .canceled(spec.isCanceled())
+                            .build();
+                    }
+                )
+                .toList();
             result.addAll(generationList);
         }
         return result;
@@ -483,41 +434,55 @@ public class TaskPopulateAndVerify {
         Map<PopulationSpec, Integer> taskIndexMap = Maps.newHashMap();
         int size = toExclude - fromInclude;
         List<TaskEntity> taskEntities = IntStream.range(fromInclude, toExclude)
-                .mapToObj(i -> {
-                            int groupIdx = i % populationSpecs.size();
-                            var populationSpec = populationSpecs.get(groupIdx);
-                            var taskId = taskIndexMap.compute(
-                                    populationSpec,
-                                    (k, prev) -> prev == null ? 0 : (prev + 1) % k.getNameOfTasks().size()
-                            );
-                            LocalDateTime createdDateTime = populationSpec.getFixedCreatedDate() != null ?
-                                    populationSpec.getFixedCreatedDate() :
-                                    LocalDateTime.now(clock).minusSeconds(size).plusSeconds(i);
+            .mapToObj(i -> {
+                    int groupIdx = i % populationSpecs.size();
+                    var populationSpec = populationSpecs.get(groupIdx);
+                    var taskId = taskIndexMap.compute(
+                        populationSpec,
+                        (k, prev) -> prev == null ? 0 : (prev + 1) % k.getNameOfTasks().size()
+                    );
+                    LocalDateTime createdDateTime = populationSpec.getFixedCreatedDate() != null ?
+                        populationSpec.getFixedCreatedDate() :
+                        now().minusSeconds(size).plusSeconds(i);
 
-                            return TaskEntity.builder()
-                                    .taskName(populationSpec.getNameOfTasks().get(taskId))
-                                    .virtualQueue(virtualQueue)
-                                    .deletedAt(VirtualQueue.DELETED.equals(virtualQueue) ? LocalDateTime.now(clock) : null)
-                                    .affinityGroup(populationSpec.getAffinityGroup())
-                                    .affinity(populationSpec.getAffinity())
-                                    .workflowId(populationSpec.fixedWorkflowId != null ? populationSpec.fixedWorkflowId : UUID.randomUUID())
-                                    .assignedWorker(populationSpec.getAssignedWorker())
-                                    .createdDateUtc(createdDateTime)
-                                    .workflowCreatedDateUtc(createdDateTime)
-                                    .executionDateUtc(createdDateTime)
-                                    .notToPlan(populationSpec.isDeferred())
-                                    .canceled(populationSpec.isCanceled())
-                                    .build();
-                        }
-                )
-                .toList();
+                    return TaskEntity.builder()
+                        .taskName(populationSpec.getNameOfTasks().get(taskId))
+                        .virtualQueue(virtualQueue)
+                        .deletedAt(VirtualQueue.DELETED.equals(virtualQueue) ? now() : null)
+                        .affinityGroup(populationSpec.getAffinityGroup())
+                        .affinity(populationSpec.getAffinity())
+                        .workflowId(populationSpec.fixedWorkflowId != null ? populationSpec.fixedWorkflowId : UUID.randomUUID())
+                        .assignedWorker(populationSpec.getAssignedWorker())
+                        .createdDateUtc(createdDateTime)
+                        .workflowCreatedDateUtc(createdDateTime)
+                        .executionDateUtc(createdDateTime)
+                        .notToPlan(populationSpec.isDeferred())
+                        .canceled(populationSpec.isCanceled())
+                        .build();
+                }
+            )
+            .toList();
         return taskExtendedRepository.saveAll(taskEntities);
+    }
+
+    private static LocalDateTime truncateLocalDateTime(LocalDateTime time) {
+        if (time == null)
+            return null;
+
+        return time.truncatedTo(ChronoUnit.MICROS);
+    }
+
+    private LocalDateTime now() {
+        // On Linux it has nanoseconds, which after rounding in DB leads to non-equal dates
+        // https://stackoverflow.com/questions/65594874/java-15-nanoseconds-precision-causing-issues-on-linux-environment
+        return LocalDateTime.now(clock)
+            .truncatedTo(ChronoUnit.MICROS);
     }
 
     public Set<UUID> knownNodes(List<TaskPopulateAndVerify.PopulationSpec> knownPopulationSpecs) {
         return knownPopulationSpecs.stream()
-                .map(TaskPopulateAndVerify.PopulationSpec::getAssignedWorker)
-                .collect(Collectors.toSet());
+            .map(TaskPopulateAndVerify.PopulationSpec::getAssignedWorker)
+            .collect(Collectors.toSet());
     }
 
     @Value
@@ -536,9 +501,9 @@ public class TaskPopulateAndVerify {
         int fromPopulationSpecInclude = ctx.getPopulationSpecRange().lowerEndpoint();
         int toPopulationSpecExclude = ctx.getPopulationSpecRange().upperEndpoint();
         Set<Pair<String, String>> testedAffinityGroupAndAffinity =
-                ctx.getPopulationSpecs().subList(fromPopulationSpecInclude, toPopulationSpecExclude).stream()
-                        .map(spec -> Pair.of(spec.getAffinityGroup(), spec.getAffinity()))
-                        .collect(Collectors.toSet());
+            ctx.getPopulationSpecs().subList(fromPopulationSpecInclude, toPopulationSpecExclude).stream()
+                .map(spec -> Pair.of(spec.getAffinityGroup(), spec.getAffinity()))
+                .collect(Collectors.toSet());
 
         for (var entity : ctx.getExpectedVirtualQueueByRange().entrySet()) {
             int fromLimitInclude = entity.getKey().lowerEndpoint();
@@ -546,20 +511,21 @@ public class TaskPopulateAndVerify {
             ExpectedVirtualQueue expectedVirtualQueue1 = entity.getValue();
             VirtualQueue expectedVirtualQueue = expectedVirtualQueue1.getVirtualQueue();
             Boolean wereMoved = expectedVirtualQueue1.getWereMoved();
+            int groups = toPopulationSpecExclude - fromPopulationSpecInclude;
 
             var testedIds = ctx.getAffectedTaskEntities().stream()
-                    .filter(taskEntity -> testedAffinityGroupAndAffinity.contains(
-                                    Pair.of(taskEntity.getAffinityGroup(), taskEntity.getAffinity())
-                            )
+                .filter(taskEntity -> testedAffinityGroupAndAffinity.contains(
+                        Pair.of(taskEntity.getAffinityGroup(), taskEntity.getAffinity())
                     )
-                    .skip((long) fromLimitInclude * (toPopulationSpecExclude - fromPopulationSpecInclude))
-                    .limit((long) (toLimitExclude - fromLimitInclude) * (toPopulationSpecExclude - fromPopulationSpecInclude))
-                    .map(TaskEntity::getId)
-                    .collect(Collectors.toSet());
+                )
+                .skip((long) fromLimitInclude * groups)
+                .limit((long) (toLimitExclude - fromLimitInclude) * groups)
+                .map(TaskEntity::getId)
+                .collect(Collectors.toSet());
             var testedTasks = taskExtendedRepository.findAll(testedIds);
             Assertions.assertThat(testedTasks)
-                    .map(TaskEntity::getVirtualQueue)
-                    .allMatch(expectedVirtualQueue::equals);
+                .map(TaskEntity::getVirtualQueue)
+                .allMatch(expectedVirtualQueue::equals);
             groupedTasks.put(expectedVirtualQueue, testedTasks);
 
             if (wereMoved == null) {
@@ -567,15 +533,15 @@ public class TaskPopulateAndVerify {
             }
 
             Map<UUID, VirtualQueue> movedIdToVq = ctx.getMovedShortTaskEntities().stream()
-                    .collect(Collectors.toMap(
-                            ShortTaskEntity::getId,
-                            ShortTaskEntity::getVirtualQueue
-                    ));
+                .collect(Collectors.toMap(
+                    ShortTaskEntity::getId,
+                    ShortTaskEntity::getVirtualQueue
+                ));
             if (wereMoved) {
                 assertThat(movedIdToVq.keySet()).containsAll(testedIds);
                 Set<VirtualQueue> movedParked = testedIds.stream()
-                        .map(movedIdToVq::get)
-                        .collect(Collectors.toSet());
+                    .map(movedIdToVq::get)
+                    .collect(Collectors.toSet());
                 assertThat(movedParked).singleElement().isEqualTo(expectedVirtualQueue);
             } else {
                 assertThat(movedIdToVq.keySet()).doesNotContainAnyElementsOf(testedIds);

@@ -72,10 +72,10 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
         TaskId joinTaskId2 = taskMapper.map(joinTaskEntity2, commonSettings.getAppName());
 
         taskLinkRepository.saveAll(
-                List.of(
-                        toJoinTaskLink(joinTaskId1, parentTaskId),
-                        toJoinTaskLink(joinTaskId2, parentTaskId)
-                )
+            List.of(
+                toJoinTaskLink(joinTaskId1, parentTaskId),
+                toJoinTaskLink(joinTaskId2, parentTaskId)
+            )
         );
 
         //do
@@ -84,21 +84,21 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
         //verify
         assertThat(joinTaskId10Ref.get()).isNotNull();
         assertThat(joinTaskId11Ref.get()).isNotNull();
-        assertThat(taskRepository.find(parentTaskEntity.getId())).isEmpty();
+        verifyLocalTaskIsFinished(parentTaskEntity);
         assertThat(taskLinkRepository.filterIntermediateTasks(JdbcTools.UUIDsToStringArray(List.of(parentTaskId.getId()))))
-                .isEmpty();
+            .isEmpty();
         assertThat(taskLinkRepository.findAllByJoinTaskIdIn(List.of(joinTaskId1.getId())))
-                .usingRecursiveFieldByFieldElementComparatorIgnoringFields("id")
-                .containsExactlyInAnyOrder(
-                        toJoinTaskLink(joinTaskId1, joinTaskId10Ref.get()),
-                        toJoinTaskLink(joinTaskId1, joinTaskId11Ref.get())
-                );
+            .usingRecursiveFieldByFieldElementComparatorIgnoringFields("id")
+            .containsExactlyInAnyOrder(
+                toJoinTaskLink(joinTaskId1, joinTaskId10Ref.get()),
+                toJoinTaskLink(joinTaskId1, joinTaskId11Ref.get())
+            );
         assertThat(taskLinkRepository.findAllByJoinTaskIdIn(List.of(joinTaskId2.getId())))
-                .usingRecursiveFieldByFieldElementComparatorIgnoringFields("id")
-                .containsExactlyInAnyOrder(
-                        toJoinTaskLink(joinTaskId2, joinTaskId10Ref.get()),
-                        toJoinTaskLink(joinTaskId2, joinTaskId11Ref.get())
-                );
+            .usingRecursiveFieldByFieldElementComparatorIgnoringFields("id")
+            .containsExactlyInAnyOrder(
+                toJoinTaskLink(joinTaskId2, joinTaskId10Ref.get()),
+                toJoinTaskLink(joinTaskId2, joinTaskId11Ref.get())
+            );
     }
 
     @SneakyThrows
@@ -115,7 +115,7 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
 
             //verify
             assertThatThrownBy(() -> distributedTaskService.scheduleJoin(cronTaskDef, m.withNewMessage("join"), List.of(taskId)))
-                    .isInstanceOf(TaskConfigurationException.class);
+                .isInstanceOf(TaskConfigurationException.class);
         });
 
         RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
@@ -145,7 +145,7 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
 
             //verify
             assertThatThrownBy(() -> distributedTaskService.scheduleJoin(taskDef, m.withNewMessage("join"), List.of(taskId)))
-                    .isInstanceOf(TaskConfigurationException.class);
+                .isInstanceOf(TaskConfigurationException.class);
         });
 
         RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
@@ -184,23 +184,23 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
         TaskId joinTaskId2 = taskMapper.map(joinTaskEntity2, commonSettings.getAppName());
 
         taskLinkRepository.saveAll(
-                List.of(
-                        toJoinTaskLink(joinTaskId1, parentTaskId),
-                        toJoinTaskLink(joinTaskId2, parentTaskId)
-                )
+            List.of(
+                toJoinTaskLink(joinTaskId1, parentTaskId),
+                toJoinTaskLink(joinTaskId2, parentTaskId)
+            )
         );
 
         //do
         getTaskWorker().execute(parentTaskEntity, registeredTask);
 
         //verify
-        assertThat(taskRepository.find(parentTaskEntity.getId())).isEmpty();
+        verifyLocalTaskIsFinished(parentTaskEntity);
         assertThat(taskLinkRepository.findAllByJoinTaskIdIn(List.of(joinTaskId1.getId(), joinTaskId2.getId())))
-                .usingRecursiveFieldByFieldElementComparatorIgnoringFields("id")
-                .containsExactlyInAnyOrder(
-                        toJoinTaskLink(joinTaskId1, parentTaskId).toBuilder().completed(true).build(),
-                        toJoinTaskLink(joinTaskId2, parentTaskId).toBuilder().completed(true).build()
-                );
+            .usingRecursiveFieldByFieldElementComparatorIgnoringFields("id")
+            .containsExactlyInAnyOrder(
+                toJoinTaskLink(joinTaskId1, parentTaskId).toBuilder().completed(true).build(),
+                toJoinTaskLink(joinTaskId2, parentTaskId).toBuilder().completed(true).build()
+            );
     }
 
     @SneakyThrows
@@ -240,14 +240,14 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
         when(taskRegistryService.<String>getRegisteredLocalTask(eq("test"))).thenReturn(Optional.of(registeredTask));
 
         TaskEntity parentTaskEntity = saveNewTaskEntity().toBuilder()
-                .joinMessageBytes(taskSerializer.writeValue(JoinTaskMessageContainer.builder()
-                        .rawMessages(List.of(
-                                taskSerializer.writeValue("Hello"),
-                                taskSerializer.writeValue("world!")
-                        ))
-                        .build())
-                )
-                .build();
+            .joinMessageBytes(taskSerializer.writeValue(JoinTaskMessageContainer.builder()
+                .rawMessages(List.of(
+                    taskSerializer.writeValue("Hello"),
+                    taskSerializer.writeValue("world!")
+                ))
+                .build())
+            )
+            .build();
 
         //do
         getTaskWorker().execute(parentTaskEntity, registeredTask);
@@ -313,27 +313,27 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
         TaskId generalTaskId1 = taskMapper.map(generalTask1, commonSettings.getAppName());
 
         taskLinkRepository.saveAll(
-                List.of(
-                        toJoinTaskLink(joinTask2, generalTaskId1),
-                        toJoinTaskLink(joinTask4, joinTask2),
-                        toJoinTaskLink(joinTask6, joinTask4),
+            List.of(
+                toJoinTaskLink(joinTask2, generalTaskId1),
+                toJoinTaskLink(joinTask4, joinTask2),
+                toJoinTaskLink(joinTask6, joinTask4),
 
-                        toJoinTaskLink(joinTask3, generalTaskId1),
-                        toJoinTaskLink(joinTask5, joinTask3),
+                toJoinTaskLink(joinTask3, generalTaskId1),
+                toJoinTaskLink(joinTask5, joinTask3),
 
-                        toJoinTaskLink(joinTask7, joinTask5),
-                        toJoinTaskLink(joinTask8, joinTask5),
+                toJoinTaskLink(joinTask7, joinTask5),
+                toJoinTaskLink(joinTask8, joinTask5),
 
-                        toJoinTaskLink(joinTask9, joinTask7),
-                        toJoinTaskLink(joinTask10, joinTask7)
-                )
+                toJoinTaskLink(joinTask9, joinTask7),
+                toJoinTaskLink(joinTask10, joinTask7)
+            )
         );
 
         taskMessageRepository.saveAll(
-                List.of(
-                        toMessage(generalTaskId1, joinTask4, "message_for_4"),
-                        toMessage(generalTaskId1, joinTask10, "message_for_10")
-                )
+            List.of(
+                toMessage(generalTaskId1, joinTask4, "message_for_4"),
+                toMessage(generalTaskId1, joinTask10, "message_for_10")
+            )
         );
 
         //do
@@ -381,9 +381,9 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
         TaskId generalTaskId1 = taskMapper.map(generalTask1, commonSettings.getAppName());
 
         taskLinkRepository.saveAll(
-                List.of(
-                        toJoinTaskLink(joinTask2, generalTaskId1)
-                )
+            List.of(
+                toJoinTaskLink(joinTask2, generalTaskId1)
+            )
         );
 
         //do
@@ -391,7 +391,7 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
 
         //verify
         assertThat(taskMessageRepository.findByTaskToJoinIdAndJoinTaskId(generalTaskId1.getId(), joinTask2.getId()))
-                .isEmpty();
+            .isEmpty();
     }
 
     @SneakyThrows
@@ -407,7 +407,7 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
         Task<String> mockedTask = TaskGenerator.defineTask(generalTaskDef, m -> {
             //verify
             assertThatThrownBy(() -> distributedTaskService.getJoinMessagesFromBranch(joinTaskDef))
-                    .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
         });
 
         RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
@@ -424,26 +424,26 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
 
         //verify
         assertThat(taskMessageRepository.findByTaskToJoinIdAndJoinTaskId(generalTaskId1.getId(), joinTask2.getId()))
-                .isEmpty();
+            .isEmpty();
     }
 
     private void assertMessage(TaskId from, TaskId to, @Nullable String message) {
         assertThat(taskMessageRepository.findByTaskToJoinIdAndJoinTaskId(from.getId(), to.getId()))
-                .isPresent()
-                .get()
-                .satisfies(entity -> assertThat(taskSerializer.readValue(entity.getMessage(), String.class))
-                        .isEqualTo(message)
-                );
+            .isPresent()
+            .get()
+            .satisfies(entity -> assertThat(taskSerializer.readValue(entity.getMessage(), String.class))
+                .isEqualTo(message)
+            );
     }
 
     private JoinTaskMessage<String> assertMessage(List<JoinTaskMessage<String>> joinMessagesFromBranch,
                                                   TaskId joinTask,
                                                   @Nullable String message) {
         List<JoinTaskMessage<String>> joinTaskMessages = joinMessagesFromBranch.stream()
-                .filter(realMessage -> realMessage.getTaskId().equals(joinTask))
-                .collect(Collectors.toList());
+            .filter(realMessage -> realMessage.getTaskId().equals(joinTask))
+            .collect(Collectors.toList());
         assertThat(joinTaskMessages).singleElement()
-                .matches(origMessage -> Objects.equals(origMessage.getMessage(), message), "message");
+            .matches(origMessage -> Objects.equals(origMessage.getMessage(), message), "message");
         return joinTaskMessages.get(0);
     }
 }

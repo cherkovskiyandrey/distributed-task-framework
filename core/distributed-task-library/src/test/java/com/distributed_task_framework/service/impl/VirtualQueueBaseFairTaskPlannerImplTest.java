@@ -15,6 +15,7 @@ import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -30,7 +31,6 @@ import org.springframework.data.util.Pair;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
@@ -45,12 +45,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithAffinityGroupAndTaskNameAndCreatedDate;
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithCreatedDateAndWithoutAffinity;
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithWorkerAndCreatedDateAndWithoutAffinity;
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withCreatedDateAndWithoutAffinity;
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withWorkerAndWithoutAffinity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.noneSetAndOneTask;
-import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withFixedAfgAndTaskName;
 
 //todo: tests
 @Slf4j
@@ -90,17 +93,17 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         super.init();
         executorService = Executors.newSingleThreadExecutor();
         plannerService = Mockito.spy(new VirtualQueueBaseFairTaskPlannerImpl(
-                commonSettings,
-                plannerRepository,
-                transactionManager,
-                clusterProvider,
-                taskRepository,
-                partitionTracker,
-                taskRegistryService,
-                new TaskRouter(),
-                virtualQueueStatHelper,
-                clock,
-                metricHelper
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            taskRepository,
+            partitionTracker,
+            taskRegistryService,
+            new TaskRouter(),
+            virtualQueueStatHelper,
+            clock,
+            metricHelper
         ));
         mockNodeCpuLoading(0.1);
     }
@@ -141,12 +144,12 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
 
         log.info("shouldPlanUnplannedTasks(): begging of population");
         var readyPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.noneSetAndOneTask(LocalDateTime.now(clock)))
+            Range.closedOpen(0, 1), oneWithCreatedDateAndWithoutAffinity(LocalDateTime.now(clock)))
         );
         var unplannedTasks = taskPopulateAndVerify.populate(0, 10, VirtualQueue.READY, readyPopulationSpecs);
 
         var delayedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.noneSetAndOneTask(LocalDateTime.now(clock).plusHours(1)))
+            Range.closedOpen(0, 1), oneWithCreatedDateAndWithoutAffinity(LocalDateTime.now(clock).plusHours(1)))
         );
         var delayedTasks = taskPopulateAndVerify.populate(0, 10, VirtualQueue.READY, delayedPopulationSpecs);
         log.info("shouldPlanUnplannedTasks(): finished population");
@@ -169,7 +172,7 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         log.info("shouldPlanOrphanedTasks(): begging of population");
         UUID lostNodeId = UUID.randomUUID();
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.noneSetAndOneTask(lostNodeId, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 1), oneWithWorkerAndCreatedDateAndWithoutAffinity(lostNodeId, LocalDateTime.now(clock)))
         );
         var unplannedTasks = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, unplannedPopulationSpecs);
         log.info("shouldPlanOrphanedTasks(): finished population");
@@ -190,7 +193,7 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         registerPartition(List.of(TASK_0, TASK_1));
 
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 2), TaskPopulateAndVerify.GenerationSpec.withTasks(2, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 2), withCreatedDateAndWithoutAffinity(2, LocalDateTime.now(clock)))
         );
         var unplannedTasks = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, unplannedPopulationSpecs);
 
@@ -201,11 +204,11 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
 
         //verify
         Collection<TaskEntity> haveToPlannedTasks = unplannedTasks.stream()
-                .filter(taskEntity -> TASK_0.equals(taskEntity.getTaskName()))
-                .toList();
+            .filter(taskEntity -> TASK_0.equals(taskEntity.getTaskName()))
+            .toList();
         Collection<TaskEntity> unknownTasks = unplannedTasks.stream()
-                .filter(taskEntity -> TASK_1.equals(taskEntity.getTaskName()))
-                .toList();
+            .filter(taskEntity -> TASK_1.equals(taskEntity.getTaskName()))
+            .toList();
 
         verifyAllHaveCurrentNodeWorker(haveToPlannedTasks);
         verifyAllHaveNotWorker(unknownTasks);
@@ -217,20 +220,20 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         TaskDef<String> taskDef1 = TaskDef.privateTaskDef(TASK_0, String.class);
         TaskDef<String> taskDef2 = TaskDef.privateTaskDef(TASK_1, String.class);
         waitForNodeIsRegistered(List.of(
-                        Pair.of(taskDef1, defaultTaskSettings.toBuilder().maxParallelInCluster(2).build()),
-                        Pair.of(taskDef2, defaultTaskSettings.toBuilder().maxParallelInCluster(3).build())
-                )
+                Pair.of(taskDef1, defaultTaskSettings.toBuilder().maxParallelInCluster(2).build()),
+                Pair.of(taskDef2, defaultTaskSettings.toBuilder().maxParallelInCluster(3).build())
+            )
         );
         registerPartition(List.of(TASK_0, TASK_1));
 
         log.info("shouldApplyRestrictionsWhenPlan(): begging of population");
         var alreadyPlannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 2), TaskPopulateAndVerify.GenerationSpec.assigned(clusterProvider.nodeId(), 2))
+            Range.closedOpen(0, 2), withWorkerAndWithoutAffinity(clusterProvider.nodeId(), 2))
         );
         taskPopulateAndVerify.populate(0, 2, VirtualQueue.READY, alreadyPlannedPopulationSpecs);
 
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 2), TaskPopulateAndVerify.GenerationSpec.withTasks(2, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 2), withCreatedDateAndWithoutAffinity(2, LocalDateTime.now(clock)))
         );
         taskPopulateAndVerify.populate(0, 200, VirtualQueue.READY, unplannedPopulationSpecs);
         log.info("shouldApplyRestrictionsWhenPlan(): finished population");
@@ -242,9 +245,9 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         //verify
         waitFor(() -> invocationVerifier.get() > 1);
         Assertions.assertThat(filterAssigned(taskRepository.findAllByTaskName(taskDef1.getTaskName())))
-                .hasSize(2);
+            .hasSize(2);
         Assertions.assertThat(filterAssigned(taskRepository.findAllByTaskName(taskDef2.getTaskName())))
-                .hasSize(3);
+            .hasSize(3);
     }
 
     @Test
@@ -253,20 +256,20 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         TaskDef<String> taskDef1 = TaskDef.privateTaskDef(TASK_0, String.class);
         TaskDef<String> taskDef2 = TaskDef.privateTaskDef(TASK_1, String.class);
         waitForNodeIsRegistered(List.of(
-                        Pair.of(taskDef1, defaultTaskSettings.toBuilder().maxParallelInCluster(2).build()),
-                        Pair.of(taskDef2, defaultTaskSettings.toBuilder().build())
-                )
+                Pair.of(taskDef1, defaultTaskSettings.toBuilder().maxParallelInCluster(2).build()),
+                Pair.of(taskDef2, defaultTaskSettings.toBuilder().build())
+            )
         );
         registerPartition(List.of(TASK_0, TASK_1));
 
         log.info("shouldApplyRestrictionsWhenPlan(): begging of population");
         var alreadyPlannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 2), TaskPopulateAndVerify.GenerationSpec.assigned(clusterProvider.nodeId(), 2))
+            Range.closedOpen(0, 2), withWorkerAndWithoutAffinity(clusterProvider.nodeId(), 2))
         );
         taskPopulateAndVerify.populate(0, 3, VirtualQueue.READY, alreadyPlannedPopulationSpecs);
 
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 2), TaskPopulateAndVerify.GenerationSpec.withTasks(2, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 2), withCreatedDateAndWithoutAffinity(2, LocalDateTime.now(clock)))
         );
         taskPopulateAndVerify.populate(0, 200, VirtualQueue.READY, unplannedPopulationSpecs);
         log.info("shouldApplyRestrictionsWhenPlan(): finished population");
@@ -279,9 +282,9 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         //verify
         waitFor(() -> invocationVerifier.get() > 1);
         Assertions.assertThat(filterAssigned(taskRepository.findAllByTaskName(taskDef1.getTaskName())))
-                .hasSize(2);
+            .hasSize(2);
         Assertions.assertThat(filterAssigned(taskRepository.findAllByTaskName(taskDef2.getTaskName())))
-                .hasSize(15); //was 1 + free capacity=7 * planFactor = 14
+            .hasSize(15); //was 1 + free capacity=7 * planFactor = 14
     }
 
     @Test
@@ -293,21 +296,21 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
 
         log.info("shouldNotPlanWhenNotToPlanIsSet(): begging of population");
         TaskEntity unplannedTask = TaskEntity.builder()
-                .taskName(TASK_0)
-                .virtualQueue(VirtualQueue.READY)
-                .workflowId(UUID.randomUUID())
-                .workflowCreatedDateUtc(LocalDateTime.now(clock))
-                .executionDateUtc(LocalDateTime.now(clock))
-                .build();
+            .taskName(TASK_0)
+            .virtualQueue(VirtualQueue.READY)
+            .workflowId(UUID.randomUUID())
+            .workflowCreatedDateUtc(LocalDateTime.now(clock))
+            .executionDateUtc(LocalDateTime.now(clock))
+            .build();
         unplannedTask = taskRepository.saveOrUpdate(unplannedTask);
         TaskEntity unplannedTaskWithNotToPlanFlag = TaskEntity.builder()
-                .taskName(TASK_0)
-                .virtualQueue(VirtualQueue.READY)
-                .workflowId(UUID.randomUUID())
-                .workflowCreatedDateUtc(LocalDateTime.now(clock))
-                .executionDateUtc(LocalDateTime.now(clock))
-                .notToPlan(true)
-                .build();
+            .taskName(TASK_0)
+            .virtualQueue(VirtualQueue.READY)
+            .workflowId(UUID.randomUUID())
+            .workflowCreatedDateUtc(LocalDateTime.now(clock))
+            .executionDateUtc(LocalDateTime.now(clock))
+            .notToPlan(true)
+            .build();
         unplannedTaskWithNotToPlanFlag = taskRepository.saveOrUpdate(unplannedTaskWithNotToPlanFlag);
         log.info("shouldNotPlanWhenNotToPlanIsSet(): finished population");
 
@@ -317,13 +320,13 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         //verify
         TaskEntity finalUnplannedTask = unplannedTask;
         waitFor(() -> taskRepository.find(finalUnplannedTask.getId())
-                .map(shortTaskEntity -> clusterProvider.nodeId().equals(shortTaskEntity.getAssignedWorker()))
-                .orElse(false)
+            .map(shortTaskEntity -> clusterProvider.nodeId().equals(shortTaskEntity.getAssignedWorker()))
+            .orElse(false)
         );
         Assertions.assertThat(taskRepository.find(unplannedTaskWithNotToPlanFlag.getId()))
-                .map(shortTaskEntity -> shortTaskEntity.getAssignedWorker() == null)
-                .isPresent()
-                .contains(true);
+            .map(shortTaskEntity -> shortTaskEntity.getAssignedWorker() == null)
+            .isPresent()
+            .contains(true);
     }
 
     //canceled flag is handled by worker itself
@@ -336,13 +339,13 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
 
         log.info("shouldPlanWhenCanceledFlag(): begging of population");
         TaskEntity unplannedTask = TaskEntity.builder()
-                .taskName(TASK_0)
-                .virtualQueue(VirtualQueue.READY)
-                .workflowId(UUID.randomUUID())
-                .workflowCreatedDateUtc(LocalDateTime.now(clock))
-                .executionDateUtc(LocalDateTime.now(clock))
-                .canceled(true)
-                .build();
+            .taskName(TASK_0)
+            .virtualQueue(VirtualQueue.READY)
+            .workflowId(UUID.randomUUID())
+            .workflowCreatedDateUtc(LocalDateTime.now(clock))
+            .executionDateUtc(LocalDateTime.now(clock))
+            .canceled(true)
+            .build();
         unplannedTask = taskRepository.saveOrUpdate(unplannedTask);
         log.info("shouldPlanWhenCanceledFlag(): finished population");
 
@@ -367,13 +370,13 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         log.info("shouldPlanFairlyWhenDifferentTasks(): begging of population");
         var firstDateTime = LocalDateTime.now(clock).minusHours(2);
         var firstPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.withFixedAfgAndTaskName(AFG_1, TASK_0, firstDateTime))
+            Range.closedOpen(0, 1), oneWithAffinityGroupAndTaskNameAndCreatedDate(AFG_1, TASK_0, firstDateTime))
         );
         var firstTasks = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, firstPopulationSpecs);
 
         var secondDateTime = LocalDateTime.now(clock).minusHours(1);
         var secondPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.withFixedAfgAndTaskName(AFG_1, TASK_1, secondDateTime))
+            Range.closedOpen(0, 1), oneWithAffinityGroupAndTaskNameAndCreatedDate(AFG_1, TASK_1, secondDateTime))
         );
         var secondTasks = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, secondPopulationSpecs);
         log.info("shouldPlanFairlyWhenDifferentTasks(): finished population");
@@ -402,13 +405,13 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         log.info("shouldPlanFairlyWhenDifferentTasks(): begging of population");
         var firstDateTime = LocalDateTime.now(clock).minusHours(2);
         var firstPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.withFixedAfgAndTaskName(AFG_1, TASK_0, firstDateTime))
+            Range.closedOpen(0, 1), oneWithAffinityGroupAndTaskNameAndCreatedDate(AFG_1, TASK_0, firstDateTime))
         );
         var firstTasks = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, firstPopulationSpecs);
 
         var secondDateTime = LocalDateTime.now(clock).minusHours(1);
         var secondPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.withFixedAfgAndTaskName(AFG_2, TASK_0, secondDateTime))
+            Range.closedOpen(0, 1), oneWithAffinityGroupAndTaskNameAndCreatedDate(AFG_2, TASK_0, secondDateTime))
         );
         var secondTasks = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, secondPopulationSpecs);
         log.info("shouldPlanFairlyWhenDifferentTasks(): finished population");
@@ -430,58 +433,58 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
     void shouldNotPlanAndHandleLimitsCorrectlyWhenOneNodeIsOverloaded() {
         //when
         doReturn(Map.of(
-                NODE0, Set.of(TASK_0, TASK_1),
-                NODE1, Set.of(TASK_0, TASK_1),
-                NODE2, Set.of(TASK_0, TASK_1, TASK_2) //TASK_2 hasn't to be planned
+            NODE0, Set.of(TASK_0, TASK_1),
+            NODE1, Set.of(TASK_0, TASK_1),
+            NODE2, Set.of(TASK_0, TASK_1, TASK_2) //TASK_2 hasn't to be planned
         ))
-                .when(taskRegistryService).getRegisteredLocalTaskInCluster();
+            .when(taskRegistryService).getRegisteredLocalTaskInCluster();
 
         doReturn(Optional.of(TaskSettings.builder()
-                .maxParallelInCluster(10)
-                .build())
+            .maxParallelInCluster(10)
+            .build())
         ).when(taskRegistryService).getLocalTaskParameters(eq(TASK_0));
 
         doReturn(Optional.of(TaskSettings.builder()
-                .maxParallelInCluster(10)
-                .build())
+            .maxParallelInCluster(10)
+            .build())
         ).when(taskRegistryService).getLocalTaskParameters(eq(TASK_1));
 
         doReturn(Optional.of(TaskSettings.builder()
-                .maxParallelInCluster(10)
-                .build())
+            .maxParallelInCluster(10)
+            .build())
         ).when(taskRegistryService).getLocalTaskParameters(eq(TASK_2));
 
         doReturn(NODE0).when(clusterProvider).nodeId();
         Mockito.doReturn(List.of(
-                NodeLoading.builder().node(NODE0).medianCpuLoading(0.10).build(),
-                NodeLoading.builder().node(NODE1).medianCpuLoading(0.10).build(),
-                NodeLoading.builder().node(NODE2).medianCpuLoading(0.98).build() //node is overloaded
+            NodeLoading.builder().node(NODE0).medianCpuLoading(0.10).build(),
+            NodeLoading.builder().node(NODE1).medianCpuLoading(0.10).build(),
+            NodeLoading.builder().node(NODE2).medianCpuLoading(0.98).build() //node is overloaded
         )).when(clusterProvider).currentNodeLoading();
 
         registerPartition(List.of(TASK_0, TASK_1, TASK_2));
 
         log.info("shouldNotPlanAndHandleLimitsCorrectlyWhenOneNodeIsOverloaded(): begging of population");
         var alreadyPlannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                        Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.assigned(NODE0, 3),
-                        Range.closedOpen(1, 2), TaskPopulateAndVerify.GenerationSpec.assigned(NODE1, 3),
-                        Range.closedOpen(2, 3), TaskPopulateAndVerify.GenerationSpec.assigned(NODE2, 3)
-                )
+                Range.closedOpen(0, 1), withWorkerAndWithoutAffinity(NODE0, 3),
+                Range.closedOpen(1, 2), withWorkerAndWithoutAffinity(NODE1, 3),
+                Range.closedOpen(2, 3), withWorkerAndWithoutAffinity(NODE2, 3)
+            )
         );
         taskPopulateAndVerify.populate(
-                0,
-                18, //3 tasks for each spec * 3 spec = 9. let to be tasks 6 for each spec: 9*2 = 18
-                VirtualQueue.READY,
-                alreadyPlannedPopulationSpecs
+            0,
+            18, //3 tasks for each spec * 3 spec = 9. let to be tasks 6 for each spec: 9*2 = 18
+            VirtualQueue.READY,
+            alreadyPlannedPopulationSpecs
         );
 
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-                Range.closedOpen(0, 3), TaskPopulateAndVerify.GenerationSpec.withTasks(3, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 3), withCreatedDateAndWithoutAffinity(3, LocalDateTime.now(clock)))
         );
         var unplannedTasks = taskPopulateAndVerify.populate(
-                0,
-                100,
-                VirtualQueue.READY,
-                unplannedPopulationSpecs
+            0,
+            100,
+            VirtualQueue.READY,
+            unplannedPopulationSpecs
         );
         log.info("shouldNotPlanAndHandleLimitsCorrectlyWhenOneNodeIsOverloaded(): finished population");
 
@@ -490,31 +493,31 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
 
         //verify
         verifyAllHaveAnyNodeWorker(unplannedTasks.stream()
-                        .filter(taskEntity -> TASK_0.equals(taskEntity.getTaskName()))
-                        .limit(4)
-                        .toList(),
-                Set.of(NODE0, NODE1)
+                .filter(taskEntity -> TASK_0.equals(taskEntity.getTaskName()))
+                .limit(4)
+                .toList(),
+            Set.of(NODE0, NODE1)
         );
         verifyAllHaveAnyNodeWorker(unplannedTasks.stream()
-                        .filter(taskEntity -> TASK_1.equals(taskEntity.getTaskName()))
-                        .limit(4)
-                        .toList(),
-                Set.of(NODE0, NODE1)
+                .filter(taskEntity -> TASK_1.equals(taskEntity.getTaskName()))
+                .limit(4)
+                .toList(),
+            Set.of(NODE0, NODE1)
         );
 
         verifyAllHaveNotWorker(unplannedTasks.stream()
-                .filter(taskEntity -> TASK_0.equals(taskEntity.getTaskName()))
-                .skip(4)
-                .toList()
+            .filter(taskEntity -> TASK_0.equals(taskEntity.getTaskName()))
+            .skip(4)
+            .toList()
         );
         verifyAllHaveNotWorker(unplannedTasks.stream()
-                .filter(taskEntity -> TASK_1.equals(taskEntity.getTaskName()))
-                .skip(4)
-                .toList()
+            .filter(taskEntity -> TASK_1.equals(taskEntity.getTaskName()))
+            .skip(4)
+            .toList()
         );
         verifyAllHaveNotWorker(unplannedTasks.stream()
-                .filter(taskEntity -> TASK_2.equals(taskEntity.getTaskName()))
-                .toList()
+            .filter(taskEntity -> TASK_2.equals(taskEntity.getTaskName()))
+            .toList()
         );
     }
 
@@ -540,10 +543,10 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
 
     private void registerPartition(@Nullable String affinityGroup, String taskName) {
         partitionRepository.save(PartitionEntity.builder()
-                .affinityGroup(affinityGroup)
-                .taskName(taskName)
-                .timeBucket(1L)
-                .build()
+            .affinityGroup(affinityGroup)
+            .taskName(taskName)
+            .timeBucket(1L)
+            .build()
         );
     }
 
@@ -559,15 +562,15 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         Set<UUID> taskIds = taskEntitiesToVerify.stream().map(TaskEntity::getId).collect(Collectors.toSet());
         Set<String> taskNames = taskEntitiesToVerify.stream().map(TaskEntity::getTaskName).collect(Collectors.toSet());
         waitFor(() -> {
-                    List<TaskEntity> taskEntities = taskNames.stream()
-                            .flatMap(taskName -> taskRepository.findAllByTaskName(taskName).stream())
-                            .filter(shortTaskEntity -> taskIds.contains(shortTaskEntity.getId()))
-                            .toList();
-                    return taskEntities.size() == taskIds.size() &&
-                            taskEntities.stream()
-                                    .allMatch(t -> workers.isEmpty() && t.getAssignedWorker() == null ||
-                                            t.getAssignedWorker() != null && workers.contains(t.getAssignedWorker()));
-                }
+                List<TaskEntity> taskEntities = taskNames.stream()
+                    .flatMap(taskName -> taskRepository.findAllByTaskName(taskName).stream())
+                    .filter(shortTaskEntity -> taskIds.contains(shortTaskEntity.getId()))
+                    .toList();
+                return taskEntities.size() == taskIds.size() &&
+                    taskEntities.stream()
+                        .allMatch(t -> workers.isEmpty() && t.getAssignedWorker() == null ||
+                            t.getAssignedWorker() != null && workers.contains(t.getAssignedWorker()));
+            }
         );
     }
 }

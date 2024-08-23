@@ -2,6 +2,7 @@ package com.distributed_task_framework.persistence.repository;
 
 import com.distributed_task_framework.model.AffinityGroupStat;
 import com.distributed_task_framework.model.AffinityGroupWrapper;
+import com.distributed_task_framework.persistence.entity.IdVersionEntity;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
@@ -10,10 +11,10 @@ import com.google.common.annotations.VisibleForTesting;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 public interface VirtualQueueManagerPlannerRepository {
 
@@ -26,9 +27,9 @@ public interface VirtualQueueManagerPlannerRepository {
 
     List<ShortTaskEntity> moveNewToReady(Set<AffinityGroupStat> affinityGroupStats);
 
-    Set<UUID> readyToHardDelete(int batchSize);
+    Set<IdVersionEntity> readyToHardDelete(int batchSize);
 
-    List<ShortTaskEntity> moveParkedToReady(int batchSize);
+    List<ShortTaskEntity> moveParkedToReady(Collection<IdVersionEntity> idVersionEntities);
 
     @VisibleForTesting
     int countOfTasksInVirtualQueue(VirtualQueue virtualQueue);

@@ -1,11 +1,13 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.model.Capabilities;
 import com.distributed_task_framework.model.Partition;
 import com.distributed_task_framework.model.WorkerContext;
 import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -14,16 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.DirtiesContext;
 
-import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.eq;
 
 @Slf4j
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
@@ -48,26 +47,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleToNewWhenInTaskContextButVQBIsNotActive() {
+    void shouldScheduleToReadyWhenInTaskContextButCtxTaskInReady() {
         //when
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task = createNewTask("1", "1", workflowId);
-
-        inWorkerContext(ctxTask);
-
-        //do
-        task = taskCommandService.schedule(task);
-
-        //verify
-        verifyInQueue(task.getId(), VirtualQueue.NEW);
-        verifyPartitionRepositoryIsEmpty();
-    }
-
-    @Test
-    void shouldScheduleToReadyWhenInTaskContextVQBIsActiveButCtxTaskInReady() {
-        //when
-        turnOnVQB();
         UUID workflowId = UUID.randomUUID();
         var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
         var task = createNewTask("1", "1", workflowId);
@@ -83,9 +64,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleToParkedWhenInTaskContextVQBIsActiveWorkflowIdIsOther() {
+    void shouldScheduleToParkedWhenInTaskContextWorkflowIdIsOther() {
         //when
-        turnOnVQB();
         var ctxTask = createNewTask("1", "1", UUID.randomUUID(), VirtualQueue.READY);
         var task = createNewTask("1", "1", UUID.randomUUID());
 
@@ -100,9 +80,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleToNewWhenInTaskContextVQBIsActiveAffinityIsOther() {
+    void shouldScheduleToNewWhenInTaskContextAffinityIsOther() {
         //when
-        turnOnVQB();
         UUID workflowId = UUID.randomUUID();
         var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
         var task = createNewTask("1", "2", workflowId);
@@ -118,9 +97,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleToActiveWhenInTaskContextVQBIsActiveAffinityGroupAndAffinityIsNull() {
+    void shouldScheduleToActiveWhenInTaskContextAffinityGroupAndAffinityIsNull() {
         //when
-        turnOnVQB();
         UUID workflowId = UUID.randomUUID();
         var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
         var task = createNewTask(null, null, workflowId);
@@ -133,24 +111,6 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
         //verify
         verifyInQueue(task.getId(), VirtualQueue.READY);
         verifyRegisteredPartition(null, TASK_NAME);
-    }
-
-    @Test
-    void shouldScheduleToNewWhenInTaskContextVQBIsActiveAffinityGroupIsNull() {
-        //when
-        turnOnVQB();
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task = createNewTask(null, "1", workflowId);
-
-        inWorkerContext(ctxTask);
-
-        //do
-        task = taskCommandService.schedule(task);
-
-        //verify
-        verifyInQueue(task.getId(), VirtualQueue.NEW);
-        verifyPartitionRepositoryIsEmpty();
     }
 
     @Test
@@ -168,27 +128,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleAllToNewWhenInTaskContextButVQBIsNotActive() {
+    void shouldScheduleAllToReadyWhenInTaskContextButCtxTaskInReady() {
         //when
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task1 = createNewTask("1", "1", workflowId);
-        var task2 = createNewTask("1", "1", workflowId);
-
-        inWorkerContext(ctxTask);
-
-        //do
-        var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
-
-        //verify
-        verifyInQueue(toIds(tasks), VirtualQueue.NEW);
-        verifyPartitionRepositoryIsEmpty();
-    }
-
-    @Test
-    void shouldScheduleAllToReadyWhenInTaskContextVQBIsActiveButCtxTaskInReady() {
-        //when
-        turnOnVQB();
         UUID workflowId = UUID.randomUUID();
         var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
         var task1 = createNewTask("1", "1", workflowId);
@@ -205,9 +146,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleAllToParkedWhenInTaskContextVQBIsActiveWorkflowIdIsOther() {
+    void shouldScheduleAllToParkedWhenInTaskContextWorkflowIdIsOther() {
         //when
-        turnOnVQB();
         var ctxTask = createNewTask("1", "1", UUID.randomUUID(), VirtualQueue.READY);
         var task1 = createNewTask("1", "1", UUID.randomUUID());
         var task2 = createNewTask("1", "1", UUID.randomUUID());
@@ -223,9 +163,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleAllToNewWhenInTaskContextVQBIsActiveAffinityIsOther() {
+    void shouldScheduleAllToNewWhenInTaskContextAffinityIsOther() {
         //when
-        turnOnVQB();
         UUID workflowId = UUID.randomUUID();
         var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
         var task1 = createNewTask("1", "2", workflowId);
@@ -242,9 +181,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleAllToActiveWhenInTaskContextVQBIsReadyAffinityGroupAndAffinityIsNull() {
+    void shouldScheduleAllToActiveWhenInTaskContextAffinityGroupAndAffinityIsNull() {
         //when
-        turnOnVQB();
         UUID workflowId = UUID.randomUUID();
         var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
         var task1 = createNewTask(null, null, workflowId);
@@ -261,44 +199,10 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     @Test
-    void shouldScheduleToNewWhenInTaskContextVQBIsReadyAffinityGroupIsNull() {
-        //when
-        turnOnVQB();
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task1 = createNewTask(null, "1", workflowId);
-        var task2 = createNewTask(null, "1", workflowId);
-
-        inWorkerContext(ctxTask);
-
-        //do
-        var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
-
-        //verify
-        verifyInQueue(toIds(tasks), VirtualQueue.NEW);
-        verifyPartitionRepositoryIsEmpty();
-    }
-
-    @Test
-    void shouldHardDeleteWhenFinalizeAndVqbIsNotActive() {
+    void shouldSoftDeleteWhenFinalize() {
         //when
         var task = createNewTask("1", "2", UUID.randomUUID(), VirtualQueue.NEW);
         task = taskRepository.saveOrUpdate(task);
-
-        //do
-        taskCommandService.finalize(task);
-
-        //verify
-        Assertions.assertThat(taskRepository.findById(task.getId())).isEmpty();
-        verifyPartitionRepositoryIsEmpty();
-    }
-
-    @Test
-    void shouldSoftDeleteWhenFinalizeAndVqbIsActive() {
-        //when
-        var task = createNewTask("1", "2", UUID.randomUUID(), VirtualQueue.NEW);
-        task = taskRepository.saveOrUpdate(task);
-        turnOnVQB();
 
         //do
         taskCommandService.finalize(task);
@@ -312,14 +216,10 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
 
     private void inWorkerContext(TaskEntity taskEntity) {
         doReturn(Optional.of(
-                WorkerContext.builder()
-                        .taskEntity(taskEntity)
-                        .build()
+            WorkerContext.builder()
+                .taskEntity(taskEntity)
+                .build()
         )).when(workerContextManager).getCurrentContext();
-    }
-
-    private void turnOnVQB() {
-        doReturn(true).when(clusterProvider).doAllNodesSupport(eq(Capabilities.VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_V1));
     }
 
     private TaskEntity createNewTask(String afg, String affinity) {
@@ -332,15 +232,15 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
 
     private TaskEntity createNewTask(String afg, String affinity, UUID workflowId, VirtualQueue virtualQueue) {
         return TaskEntity.builder()
-                .taskName(TASK_NAME)
-                .affinityGroup(afg)
-                .affinity(affinity)
-                .workflowId(workflowId)
-                .virtualQueue(virtualQueue)
-                .executionDateUtc(LocalDateTime.now(clock))
-                .workflowCreatedDateUtc(LocalDateTime.now(clock))
-                .createdDateUtc(LocalDateTime.now(clock))
-                .build();
+            .taskName(TASK_NAME)
+            .affinityGroup(afg)
+            .affinity(affinity)
+            .workflowId(workflowId)
+            .virtualQueue(virtualQueue)
+            .executionDateUtc(LocalDateTime.now(clock))
+            .workflowCreatedDateUtc(LocalDateTime.now(clock))
+            .createdDateUtc(LocalDateTime.now(clock))
+            .build();
     }
 
     private void verifyInQueue(UUID taskId, VirtualQueue virtualQueue) {
@@ -349,8 +249,8 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
 
     private void verifyInQueue(Collection<UUID> taskIds, VirtualQueue virtualQueue) {
         Assertions.assertThat(taskRepository.findAllById(taskIds))
-                .hasSize(taskIds.size())
-                .allMatch(taskEntity -> virtualQueue == taskEntity.getVirtualQueue());
+            .hasSize(taskIds.size())
+            .allMatch(taskEntity -> virtualQueue == taskEntity.getVirtualQueue());
     }
 
     private void verifyPartitionRepositoryIsEmpty() {
@@ -359,12 +259,12 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
 
     private void verifyRegisteredPartition(@Nullable String affinityGroup, String taskName) {
         var expectedPartition = Partition.builder()
-                .affinityGroup(affinityGroup)
-                .taskName(taskName)
-                .build();
+            .affinityGroup(affinityGroup)
+            .taskName(taskName)
+            .build();
         Assertions.assertThat(partitionRepository.findAll())
-                .map(partitionMapper::fromEntity)
-                .singleElement()
-                .isEqualTo(expectedPartition);
+            .map(partitionMapper::fromEntity)
+            .singleElement()
+            .isEqualTo(expectedPartition);
     }
 }

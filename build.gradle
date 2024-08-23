@@ -21,6 +21,7 @@ configure(subprojects) { project ->
         testcontainersVersion = '1.19.6'
         cronUtilsVersion = '9.1.6'
         caffeineVersion = '3.0.5'
+        documenterPluginVersion = '0.7.1'
     }
 
     apply plugin: 'maven-publish'
@@ -58,6 +59,9 @@ configure(subprojects) { project ->
 
     test {
         useJUnitPlatform()
+        testLogging {
+            exceptionFormat = 'full'
+        }
     }
 
     java {
@@ -92,6 +96,9 @@ configure(libs) { project ->
 
     test {
         maxHeapSize = "2048m"
+        testLogging {
+            exceptionFormat = 'full'
+        }
     }
 }
 

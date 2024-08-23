@@ -1,18 +1,5 @@
 package com.distributed_task_framework.service.impl;
 
-import com.distributed_task_framework.utils.ExecutorUtils;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Timer;
-import lombok.AccessLevel;
-import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.util.ReflectionUtils;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.persistence.entity.PlannerEntity;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
@@ -20,9 +7,22 @@ import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.settings.CommonSettings;
-
+import com.distributed_task_framework.utils.ExecutorUtils;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.ReflectionUtils;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -64,24 +64,24 @@ public abstract class AbstractPlannerImpl implements PlannerService {
         this.optLockErrorCounter = metricHelper.counter(List.of("planner", "optlock", "error"), commonTags);
         this.plannedTaskCounter = metricHelper.counter(List.of("planner", "tasks", "planned"), commonTags);
         this.watchdogExecutorService = Executors.newSingleThreadScheduledExecutor(
-                new ThreadFactoryBuilder()
-                        .setDaemon(false)
-                        .setNameFormat("shed-watch-%d")
-                        .setUncaughtExceptionHandler((t, e) -> {
-                            log.error("scheduleWatchdog(): error when watch by schedule table", e);
-                            ReflectionUtils.rethrowRuntimeException(e);
-                        })
-                        .build()
+            new ThreadFactoryBuilder()
+                .setDaemon(false)
+                .setNameFormat("shed-watch-%d")
+                .setUncaughtExceptionHandler((t, e) -> {
+                    log.error("scheduleWatchdog(): error when watch by schedule table", e);
+                    ReflectionUtils.rethrowRuntimeException(e);
+                })
+                .build()
         );
         this.plannerExecutorService = Executors.newSingleThreadExecutor(
-                new ThreadFactoryBuilder()
-                        .setDaemon(false)
-                        .setNameFormat("planner-" + shortName() + "-%d")
-                        .setUncaughtExceptionHandler((t, e) -> {
-                            log.error("planner(): error when run planning", e);
-                            ReflectionUtils.rethrowRuntimeException(e);
-                        })
-                        .build()
+            new ThreadFactoryBuilder()
+                .setDaemon(false)
+                .setNameFormat("planner-" + shortName() + "-%d")
+                .setUncaughtExceptionHandler((t, e) -> {
+                    log.error("planner(): error when run planning", e);
+                    ReflectionUtils.rethrowRuntimeException(e);
+                })
+                .build()
         );
     }
 
@@ -102,6 +102,9 @@ public abstract class AbstractPlannerImpl implements PlannerService {
     protected void beforeStartLoop() {
     }
 
+    protected void afterError() {
+    }
+
     abstract int processInLoop();
 
     protected void afterStartLoop() {
@@ -110,10 +113,10 @@ public abstract class AbstractPlannerImpl implements PlannerService {
     @PostConstruct
     public void init() {
         watchdogExecutorService.scheduleWithFixedDelay(
-                ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
-                commonSettings.getPlannerSettings().getWatchdogInitialDelayMs(),
-                commonSettings.getPlannerSettings().getWatchdogFixedDelayMs(),
-                TimeUnit.MILLISECONDS
+            ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
+            commonSettings.getPlannerSettings().getWatchdogInitialDelayMs(),
+            commonSettings.getPlannerSettings().getWatchdogFixedDelayMs(),
+            TimeUnit.MILLISECONDS
         );
     }
 
@@ -153,12 +156,12 @@ public abstract class AbstractPlannerImpl implements PlannerService {
             if (clusterProvider.nodeId().equals(activePlanner.getNodeStateId())) {
                 if (planningLoopFuture == null) {
                     log.warn("watchdog(): \"{}\" planner=[{}] hasn't been started right after was assigned, starting...",
-                            name(), clusterProvider.nodeId()
+                        name(), clusterProvider.nodeId()
                     );
                     startPlanner();
                 } else if (planningLoopFuture.isDone()) {
                     log.error("watchdog(): \"{}\" planner=[{}] has been completed abnormally, restart it",
-                            name(), clusterProvider.nodeId()
+                        name(), clusterProvider.nodeId()
                     );
                     startPlanner();
                 }
@@ -167,7 +170,7 @@ public abstract class AbstractPlannerImpl implements PlannerService {
             }
             if (planningLoopFuture != null) {
                 log.error("watchdog(): \"{}\" planner conflict detected: nodeId=[{}], concurrentPlannerNodeId=[{}]",
-                        name(), clusterProvider.nodeId(), activePlanner.getNodeStateId()
+                    name(), clusterProvider.nodeId(), activePlanner.getNodeStateId()
                 );
                 stopPlanner(planningLoopFuture);
             }
@@ -176,9 +179,9 @@ public abstract class AbstractPlannerImpl implements PlannerService {
         log.info("watchdog(): {} can't detect active planner, try to become it", name());
         try {
             plannerRepository.save(PlannerEntity.builder()
-                    .groupName(groupName())
-                    .nodeStateId(clusterProvider.nodeId())
-                    .build()
+                .groupName(groupName())
+                .nodeStateId(clusterProvider.nodeId())
+                .build()
             );
         } catch (Exception exception) {
             log.info("watchdog(): \"{}\" nodeId=[{}] can't become an active planner", name(), clusterProvider.nodeId());
@@ -189,7 +192,7 @@ public abstract class AbstractPlannerImpl implements PlannerService {
             log.info("watchdog(): \"{}\" nodeId=[{}] is an active planner", name(), clusterProvider.nodeId());
         } else {
             log.warn("watchdog(): \"{}\" nodeId=[{}] is an active planner and has already started plannerLoop",
-                    name(), clusterProvider.nodeId()
+                name(), clusterProvider.nodeId()
             );
         }
     }
@@ -211,15 +214,17 @@ public abstract class AbstractPlannerImpl implements PlannerService {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         try {
+            boolean hasError = false;
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-long beginTime = System.currentTimeMillis();
+                    if (hasError) {
+                        hasError = false;
+                        afterError();
+                    }
                     int taskNumber = planningTime.recordCallable(() -> inTransaction() ?
-                            transactionTemplate.execute(status -> processInLoop()) :
-                            processInLoop()
+                        transactionTemplate.execute(status -> processInLoop()) :
+                        processInLoop()
                     );
-//log.info("planningLoop(): \"{}\" time={}", name(), Duration.ofMillis(System.currentTimeMillis() - beginTime));
-
                     if (taskNumber > 0) {
                         plannedTaskCounter.increment(taskNumber);
                         log.info("planningLoop(): \"{}\", taskNumber=[{}]", name(), taskNumber);
@@ -228,11 +233,13 @@ long beginTime = System.currentTimeMillis();
                 } catch (OptimisticLockException exception) {
                     optLockErrorCounter.increment();
                     log.info("planningLoop(): \"{}\" concurrent access detected=[{}]", name(), exception.getMessage());
+                    hasError = true;
                 } catch (InterruptedException e) {
                     log.info("planningLoop(): {} has been interrupted.", name());
                     return;
                 } catch (Exception e) {
                     log.error("planningLoop(): \"{}\" ", name(), e);
+                    hasError = true;
                 }
             }
         } finally {
@@ -249,7 +256,6 @@ long beginTime = System.currentTimeMillis();
         taskNumber = Math.min(taskNumber, maxInConfig);
         Integer delayMs = commonSettings.getPlannerSettings().getPollingDelay().get(taskNumber);
         if (delayMs > 0) {
-//log.info("sleep(): \"{}\" gonna to sleep {} ms", name(), delayMs);
             TimeUnit.MILLISECONDS.sleep(delayMs);
         }
     }
