@@ -4,9 +4,11 @@ package com.distributed_task_framework.saga;
 import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
 import com.distributed_task_framework.saga.configurations.SagaConfiguration;
 import com.distributed_task_framework.saga.mappers.ContextMapper;
+import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
 import com.distributed_task_framework.saga.services.SagaContextDiscovery;
 import com.distributed_task_framework.saga.services.SagaContextService;
+import com.distributed_task_framework.saga.services.SagaEntryPoint;
 import com.distributed_task_framework.saga.services.SagaProcessor;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.services.SagaTaskFactory;
@@ -19,12 +21,16 @@ import com.distributed_task_framework.saga.services.impl.SagaTaskFactoryImpl;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.mapstruct.factory.Mappers;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
@@ -34,14 +40,22 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.time.Clock;
+import java.util.concurrent.TimeUnit;
+
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Configuration
-@ConditionalOnClass(SagaProcessor.class)
+@ConditionalOnClass(SagaEntryPoint.class)
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "true")
 @AutoConfigureAfter(
-        DistributedTaskAutoconfigure.class
+    DistributedTaskAutoconfigure.class
 )
-@EnableJdbcRepositories(basePackageClasses = SagaContextRepository.class)
+@EnableJdbcRepositories(
+    basePackageClasses = SagaContextRepository.class,
+    transactionManagerRef = DTF_TX_MANAGER,
+    jdbcOperationsRef = DTF_JDBC_OPS
+)
 @EnableTransactionManagement
 @EnableAspectJAutoProxy(proxyTargetClass = true)
 @EnableConfigurationProperties(value = SagaConfiguration.class)
@@ -51,12 +65,6 @@ public class SagaAutoconfiguration {
     @ConditionalOnMissingBean
     public Clock distributedTaskInternalClock() {
         return Clock.systemUTC();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public ContextMapper contextMapper() {
-        return Mappers.getMapper(ContextMapper.class);
     }
 
     //it is important to return exactly SagaContextDiscoveryImpl type in order to allow spring to detect
@@ -69,17 +77,46 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaContextService sagaResultService(SagaContextRepository sagaContextRepository,
-                                                SagaHelper sagaHelper,
-                                                ContextMapper contextMapper,
-                                                Clock clock,
-                                                SagaConfiguration sagaConfiguration) {
+    @Qualifier("commonSagaCaffeineConfig")
+    public Caffeine<Object, Object> commonSagaCaffeineConfig(SagaConfiguration sagaConfiguration) {
+        return Caffeine.newBuilder()
+            .expireAfterWrite(sagaConfiguration.getCommons().getCacheExpiration().toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @Qualifier("commonSagaCacheManager")
+    public CacheManager commonSagaCacheManager(@Qualifier("commonSagaCaffeineConfig") Caffeine<Object, Object> caffeine) {
+        CaffeineCacheManager caffeineCacheManager = new CaffeineCacheManager();
+        caffeineCacheManager.setCaffeine(caffeine);
+        return caffeineCacheManager;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ContextMapper contextMapper() {
+        return Mappers.getMapper(ContextMapper.class);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SagaContextService sagaContextService(DistributedTaskService distributedTaskService,
+                                                 SagaContextRepository sagaContextRepository,
+                                                 DlsSagaContextRepository dlsSagaContextRepository,
+                                                 SagaHelper sagaHelper,
+                                                 ContextMapper contextMapper,
+                                                 @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                 Clock clock,
+                                                 SagaConfiguration sagaConfiguration) {
         return new SagaContextServiceImpl(
-                sagaContextRepository,
-                sagaHelper,
-                contextMapper,
-                clock,
-                sagaConfiguration
+            distributedTaskService,
+            sagaContextRepository,
+            dlsSagaContextRepository,
+            sagaHelper,
+            contextMapper,
+            transactionManager,
+            clock,
+            sagaConfiguration
         );
     }
 
@@ -92,10 +129,10 @@ public class SagaAutoconfiguration {
                                          SagaContextDiscovery sagaContextDiscovery,
                                          SagaTaskFactory sagaTaskFactory) {
         return new SagaRegisterImpl(
-                distributedTaskService,
-                taskRegistryService,
-                sagaContextDiscovery,
-                sagaTaskFactory
+            distributedTaskService,
+            taskRegistryService,
+            sagaContextDiscovery,
+            sagaTaskFactory
         );
     }
 
@@ -107,17 +144,17 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaProcessor sagaProcessor(PlatformTransactionManager transactionManager,
+    public SagaProcessor sagaProcessor(@Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                        SagaRegister sagaRegister,
                                        DistributedTaskService distributedTaskService,
                                        SagaContextService sagaContextService,
                                        SagaHelper sagaHelper) {
         return new SagaProcessorImpl(
-                transactionManager,
-                sagaRegister,
-                distributedTaskService,
-                sagaContextService,
-                sagaHelper
+            transactionManager,
+            sagaRegister,
+            distributedTaskService,
+            sagaContextService,
+            sagaHelper
         );
     }
 
@@ -129,11 +166,11 @@ public class SagaAutoconfiguration {
                                            SagaContextService sagaContextService,
                                            SagaHelper sagaHelper) {
         return new SagaTaskFactoryImpl(
-                sagaRegister,
-                distributedTaskService,
-                sagaContextService,
-                taskSerializer,
-                sagaHelper
+            sagaRegister,
+            distributedTaskService,
+            sagaContextService,
+            taskSerializer,
+            sagaHelper
         );
     }
 }

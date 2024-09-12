@@ -1,6 +1,6 @@
 package com.distributed_task_framework.saga.annotations;
 
-import com.distributed_task_framework.saga.services.SagaProcessor;
+import com.distributed_task_framework.saga.services.SagaEntryPoint;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
 /**
  * Used in order to mark any method in spring bean as method which can
  * be used in saga transaction as revert step.
- * Saga transaction is build via {@link SagaProcessor}.
+ * Saga transaction is build via {@link SagaEntryPoint}.
  * <br>
  * IMPORTANT: take into account that spring generate proxy around such methods.
  * As a result you have to pay attention how to invoke it from the same bean.

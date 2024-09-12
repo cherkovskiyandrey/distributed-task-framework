@@ -195,6 +195,8 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
             return 0;
         }
 
+        //todo: the problem will arise when number of task-types is more than plannerSettings.getNewBatchSize
+        // (100 is default), for saga this number can be greater!!!
         var affinityGroupsToMoveFromNew = calcAffinityGroupsToMoveFromNew(affinityGroupInNewStats);
         log.info("processNewQueue(): affinityGroupsToMoveFromNew=[{}]", affinityGroupsToMoveFromNew);
         var movedTasks = Objects.requireNonNull(moveNewToReadyTime.recordCallable(

@@ -7,8 +7,8 @@ import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
 import com.distributed_task_framework.saga.models.SagaEmbeddedActionContext;
 import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
-import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.services.SagaContextService;
+import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
 import com.distributed_task_framework.saga.utils.ArgumentProviderBuilder;
 import com.distributed_task_framework.saga.utils.SagaArguments;
@@ -97,6 +97,8 @@ public class SagaTask implements Task<SagaEmbeddedPipelineContext> {
                         sagaEmbeddedPipelineContext.getSagaId(),
                         taskSerializer.writeValue(result)
                 );
+            } else {
+                sagaContextService.setCompleted(sagaEmbeddedPipelineContext.getSagaId());
             }
             return; //last task in sequence
         }
@@ -112,6 +114,7 @@ public class SagaTask implements Task<SagaEmbeddedPipelineContext> {
                 sagaRegister.resolveByTaskName(nextSagaContext.getSagaMethodTaskName()),
                 executionContext.withNewMessage(sagaEmbeddedPipelineContext)
         );
+        sagaContextService.track(sagaEmbeddedPipelineContext);
     }
 
     @SneakyThrows
@@ -164,6 +167,7 @@ public class SagaTask implements Task<SagaEmbeddedPipelineContext> {
                     sagaRegister.resolveByTaskName(currentSagaEmbeddedActionContext.getSagaRevertMethodTaskName()),
                     failedExecutionContext.withNewMessage(sagaEmbeddedPipelineContext)
             );
+            sagaContextService.track(sagaEmbeddedPipelineContext);
         }
 
         return isLastAttempt;

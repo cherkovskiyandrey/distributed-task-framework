@@ -7,7 +7,6 @@ import com.distributed_task_framework.model.JoinTaskMessage;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
-import com.distributed_task_framework.utils.ConsumerWith2Exception;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskCommandService;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
@@ -15,6 +14,8 @@ import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
+import com.distributed_task_framework.utils.BiPredicateWithException;
+import com.distributed_task_framework.utils.ConsumerWith2Exception;
 import com.distributed_task_framework.utils.ConsumerWithException;
 import com.distributed_task_framework.utils.FunctionWithException;
 import lombok.AccessLevel;
@@ -27,10 +28,11 @@ import org.springframework.data.domain.Pageable;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
@@ -83,9 +85,9 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     @Override
     public boolean unregisterTask(String taskName) {
         return unregisterTask(TaskDef.publicTaskDef(
-                commonSettings.getAppName(),
-                taskName,
-                Void.class
+            commonSettings.getAppName(),
+            taskName,
+            Void.class
         ));
     }
 
@@ -111,149 +113,187 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     @Override
     public <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.schedule(taskDef, executionContext)
+            taskDef,
+            taskCommandService -> taskCommandService.schedule(taskDef, executionContext)
         );
     }
 
     @Override
     public <T> TaskId scheduleFork(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.scheduleFork(taskDef, executionContext)
+            taskDef,
+            taskCommandService -> taskCommandService.scheduleFork(taskDef, executionContext)
         );
     }
 
     @Override
     public <T> TaskId scheduleImmediately(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.scheduleImmediately(taskDef, executionContext)
+            taskDef,
+            taskCommandService -> taskCommandService.scheduleImmediately(taskDef, executionContext)
         );
     }
 
     @Override
     public <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.schedule(taskDef, executionContext, delay)
+            taskDef,
+            taskCommandService -> taskCommandService.schedule(taskDef, executionContext, delay)
         );
     }
 
     @Override
     public <T> TaskId scheduleFork(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.scheduleFork(taskDef, executionContext, delay)
+            taskDef,
+            taskCommandService -> taskCommandService.scheduleFork(taskDef, executionContext, delay)
         );
     }
 
     @Override
     public <T> TaskId scheduleImmediately(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.scheduleImmediately(taskDef, executionContext, delay)
+            taskDef,
+            taskCommandService -> taskCommandService.scheduleImmediately(taskDef, executionContext, delay)
         );
     }
 
     @Override
     public <T> TaskId scheduleJoin(TaskDef<T> taskDef, ExecutionContext<T> executionContext, List<TaskId> joinList) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.scheduleJoin(taskDef, executionContext, joinList)
+            taskDef,
+            taskCommandService -> taskCommandService.scheduleJoin(taskDef, executionContext, joinList)
         );
     }
 
     @Override
     public <T> List<JoinTaskMessage<T>> getJoinMessagesFromBranch(TaskDef<T> taskDef) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.getJoinMessagesFromBranch(taskDef)
+            taskDef,
+            taskCommandService -> taskCommandService.getJoinMessagesFromBranch(taskDef)
         );
     }
 
     @Override
     public <T> void setJoinMessageToBranch(JoinTaskMessage<T> joinTaskMessage) {
         routeAndRun(
-                joinTaskMessage.getTaskId(),
-                (Consumer<TaskCommandService>) taskCommandService -> taskCommandService.setJoinMessageToBranch(joinTaskMessage)
+            joinTaskMessage.getTaskId(),
+            (Consumer<TaskCommandService>) taskCommandService -> taskCommandService.setJoinMessageToBranch(joinTaskMessage)
         );
     }
 
     @Override
     public void reschedule(TaskId taskId, Duration delay) throws Exception {
         routeAndRun(
-                taskId,
-                (ConsumerWithException<TaskCommandService, Exception>)
-                        taskCommandService -> taskCommandService.reschedule(taskId, delay)
+            taskId,
+            (ConsumerWithException<TaskCommandService, Exception>)
+                taskCommandService -> taskCommandService.reschedule(taskId, delay)
         );
     }
 
     @Override
     public void rescheduleImmediately(TaskId taskId, Duration delay) throws Exception {
         routeAndRun(
-                taskId,
-                (ConsumerWithException<TaskCommandService, Exception>)
-                        taskCommandService -> taskCommandService.rescheduleImmediately(taskId, delay)
+            taskId,
+            (ConsumerWithException<TaskCommandService, Exception>)
+                taskCommandService -> taskCommandService.rescheduleImmediately(taskId, delay)
         );
     }
 
     @Override
     public <T> void rescheduleByTaskDef(TaskDef<T> taskDef, Duration delay) throws Exception {
         routeAndRun(
-                taskDef,
-                taskCommandService -> taskCommandService.rescheduleByTaskDef(taskDef, delay)
+            taskDef,
+            taskCommandService -> taskCommandService.rescheduleByTaskDef(taskDef, delay)
         );
     }
 
     @Override
     public <T> void rescheduleByTaskDefImmediately(TaskDef<T> taskDef, Duration delay) throws Exception {
         routeAndRun(
-                taskDef,
-                taskCommandService -> taskCommandService.rescheduleByTaskDefImmediately(taskDef, delay)
+            taskDef,
+            taskCommandService -> taskCommandService.rescheduleByTaskDefImmediately(taskDef, delay)
         );
     }
 
     @Override
     public boolean cancelTaskExecution(TaskId taskId) throws Exception {
         return routeAndCall(
-                taskId,
-                taskCommandService -> taskCommandService.cancelTaskExecution(taskId)
+            taskId,
+            taskCommandService -> taskCommandService.cancelTaskExecution(taskId)
         );
     }
 
     @Override
     public boolean cancelTaskExecutionImmediately(TaskId taskId) throws Exception {
         return routeAndCall(
-                taskId,
-                taskCommandService -> taskCommandService.cancelTaskExecutionImmediately(taskId)
+            taskId,
+            taskCommandService -> taskCommandService.cancelTaskExecutionImmediately(taskId)
         );
     }
 
     @Override
     public <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.cancelAllTaskByTaskDef(taskDef)
+            taskDef,
+            taskCommandService -> taskCommandService.cancelAllTaskByTaskDef(taskDef)
         );
     }
 
     @Override
     public <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) throws Exception {
         return routeAndCall(
-                taskDef,
-                taskCommandService -> taskCommandService.cancelAllTaskByTaskDefImmediately(taskDef)
+            taskDef,
+            taskCommandService -> taskCommandService.cancelAllTaskByTaskDefImmediately(taskDef)
         );
     }
 
     @Override
-    public boolean cancelWorkflow(UUID workflowId) {
-        throw new UnsupportedOperationException("Isn't supported yet");
+    public boolean cancelWorkflowByTaskId(TaskId taskId) throws Exception {
+        return routeAndCall(
+            taskId,
+            taskCommandService -> taskCommandService.cancelWorkflowByTaskId(taskId)
+        );
     }
 
     @Override
-    public boolean cancelWorkflowImmediately(UUID workflowId) {
-        throw new UnsupportedOperationException("Isn't supported yet");
+    public boolean cancelWorkflowByTaskIdImmediately(TaskId taskId) throws Exception {
+        return routeAndCall(
+            taskId,
+            taskCommandService -> taskCommandService.cancelWorkflowByTaskIdImmediately(taskId)
+        );
+    }
+
+    @Override
+    public boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) throws Exception {
+        return groupToRouteAndCall(
+            taskIds,
+            (taskCommandService, groupedTaskIds) -> cancelAllWorkflowByTaskId(groupedTaskIds)
+        );
+    }
+
+    @Override
+    public boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
+        return groupToRouteAndCall(
+            taskIds,
+            (taskCommandService, groupedTaskIds) -> cancelAllWorkflowByTaskIdImmediately(groupedTaskIds)
+        );
+    }
+
+    private boolean groupToRouteAndCall(List<TaskId> taskIds,
+                                        BiPredicateWithException<TaskCommandWithDetectorService, List<TaskId>, Exception> action) throws Exception {
+        Map<Optional<TaskCommandWithDetectorService>, List<TaskId>> serviceToTasks = taskIds.stream()
+            .collect(Collectors.groupingBy(this::detectService));
+
+        var unknownTaskIds = serviceToTasks.getOrDefault(Optional.<TaskCommandWithDetectorService>empty(), List.of());
+        if (!unknownTaskIds.isEmpty()) {
+            throw new UnknownTaskException(unknownTaskIds.get(0));
+        }
+        boolean result = true;
+        for (var entry : serviceToTasks.entrySet()) {
+            result &= action.test(entry.getKey().orElseThrow(), entry.getValue());
+        }
+        return result;
     }
 
     @Override
@@ -274,36 +314,36 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     @Override
     public void waitCompletion(TaskId taskId) throws TimeoutException, InterruptedException {
         routeAndRun(
-                taskId,
-                (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
-                        taskCommandService -> taskCommandService.waitCompletion(taskId)
+            taskId,
+            (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
+                taskCommandService -> taskCommandService.waitCompletion(taskId)
         );
     }
 
     @Override
     public void waitCompletion(TaskId taskId, Duration timeout) throws TimeoutException, InterruptedException {
         routeAndRun(
-                taskId,
-                (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
-                        taskCommandService -> taskCommandService.waitCompletion(taskId, timeout)
+            taskId,
+            (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
+                taskCommandService -> taskCommandService.waitCompletion(taskId, timeout)
         );
     }
 
     @Override
     public void waitCompletionAllWorkflow(TaskId taskId) throws TimeoutException, InterruptedException {
         routeAndRun(
-                taskId,
-                (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
-                        taskCommandService -> taskCommandService.waitCompletionAllWorkflow(taskId)
+            taskId,
+            (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
+                taskCommandService -> taskCommandService.waitCompletionAllWorkflow(taskId)
         );
     }
 
     @Override
     public void waitCompletionAllWorkflow(TaskId taskId, Duration timeout) throws TimeoutException, InterruptedException {
         routeAndRun(
-                taskId,
-                (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
-                        taskCommandService -> taskCommandService.waitCompletionAllWorkflow(taskId, timeout)
+            taskId,
+            (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
+                taskCommandService -> taskCommandService.waitCompletionAllWorkflow(taskId, timeout)
         );
     }
 
@@ -369,5 +409,11 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
             }
         }
         throw new UnknownTaskException(taskId);
+    }
+
+    private Optional<TaskCommandWithDetectorService> detectService(TaskId taskId) {
+        return taskCommandServices.stream()
+            .filter(taskCommandService -> taskCommandService.isOwnTask(taskId))
+            .findFirst();
     }
 }

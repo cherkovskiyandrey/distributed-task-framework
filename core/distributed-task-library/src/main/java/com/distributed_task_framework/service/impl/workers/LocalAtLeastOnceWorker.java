@@ -100,7 +100,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         try {
             getRunInternalTimer(finalTaskEntity).record(() -> runInternal(finalTaskEntity, registeredTask));
         } catch (Exception exception) {
-            //think about recurrent tasks and there cancellation
+            //think about recurrent tasks and there's cancellation
             //think about not to cancel expired tasks, because they can be retried successfully
             //think about interrupting of canceled tasks from WorkerManagerImpl
             //add ability to handle unrecoverable errors

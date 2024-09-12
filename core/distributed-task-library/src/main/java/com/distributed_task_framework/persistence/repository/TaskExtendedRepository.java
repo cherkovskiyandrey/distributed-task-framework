@@ -31,6 +31,8 @@ public interface TaskExtendedRepository {
 
     Collection<TaskEntity> findAllByTaskName(String taskName);
 
+    Collection<TaskEntity> findAllByWorkflowIds(Collection<UUID> workflowIds);
+
     Collection<TaskEntity> findByName(String taskName, long batchSize);
 
     Set<UUID> filterExistedWorkflowIds(Set<UUID> workflowIds);

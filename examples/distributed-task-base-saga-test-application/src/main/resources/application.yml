@@ -59,6 +59,40 @@ distributed-task:
       timeout: PT10S
 
   saga:
-    result:
-      empty-result-deprecation-timeout: PT2M
-      result-deprecation-timeout: PT2M
+    commons:
+      cache-expiration: PT30S
+    context:
+      completed-timeout: PT30S
+      expiration-timeout: PT30M
+    saga-properties-group:
+      test:
+        expiration-timeout: PT3M
+    saga-method-properties-group:
+      default-saga-method-properties:
+        retry:
+          fixed:
+            delay: PT1S
+            max-interval: PT5S
+            max-number: 5
+          retry-mode: FIXED
+        max-parallel-in-cluster: 100
+        timeout: PT10M
+      saga-method-properties:
+        createLocal:
+          retry:
+            fixed:
+              delay: PT1S
+              max-interval: PT5S
+              max-number: 5
+            retry-mode: FIXED
+          max-parallel-in-cluster: 100
+          timeout: PT10M
+        deleteLocal:
+          retry:
+            fixed:
+              delay: PT1S
+              max-interval: PT5S
+              max-number: 5
+            retry-mode: FIXED
+          max-parallel-in-cluster: 100
+          timeout: PT10M

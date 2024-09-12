@@ -36,21 +36,25 @@ public class SagaFlowImpl<T> implements SagaFlow<T> {
 
     @Override
     public Optional<T> get() throws TimeoutException, SagaExecutionException, InterruptedException {
+        if (sagaContextService.isCompleted(sagaId)) {
+            return sagaContextService.getSagaResult(sagaId, resultType);
+        }
         waitCompletion();
         return sagaContextService.getSagaResult(sagaId, resultType);
     }
 
     @Override
     public Optional<T> get(Duration duration) throws TimeoutException, SagaExecutionException, InterruptedException {
+        if (sagaContextService.isCompleted(sagaId)) {
+            return sagaContextService.getSagaResult(sagaId, resultType);
+        }
         waitCompletion(duration);
         return sagaContextService.getSagaResult(sagaId, resultType);
     }
 
     @Override
     public boolean isCompleted() {
-        //todo
-        //throw new UnsupportedOperationException();
-        return true;
+        return sagaContextService.isCompleted(sagaId);
     }
 
     @Override

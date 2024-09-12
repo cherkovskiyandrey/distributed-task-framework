@@ -8,9 +8,12 @@ import java.util.UUID;
 
 public interface ExtendedSagaContextRepository {
 
+    @SuppressWarnings("UnusedReturnValue")
     SagaContextEntity saveOrUpdate(SagaContextEntity sagaContextEntity);
 
-    List<UUID> removeHanging(Duration delay);
+    List<SagaContextEntity> findExpired();
 
-    List<UUID> removeExpired(Duration delay);
+    List<UUID> removeCompleted(Duration delay);
+
+    void removeAll(List<UUID> sagaIds);
 }

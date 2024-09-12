@@ -12,8 +12,11 @@ import java.util.UUID;
 @Builder
 public class SagaContext {
     UUID sagaId;
+    String userName;
     LocalDateTime createdDateUtc;
     @Nullable
     LocalDateTime completedDateUtc;
+    LocalDateTime expirationDateUtc;
     TaskId rootTaskId;
+    SagaEmbeddedPipelineContext lastPipelineContext;
 }

@@ -108,6 +108,4 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
     );
 
     SagaFlow<PARENT_OUTPUT> start();
-
-    SagaFlow<PARENT_OUTPUT> startWithAffinity(String affinityGroup, String affinity);
 }

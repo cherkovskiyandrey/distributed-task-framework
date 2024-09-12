@@ -8,7 +8,6 @@ import com.distributed_task_framework.model.TaskId;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 public interface TaskCommandService {
@@ -221,6 +220,8 @@ public interface TaskCommandService {
      */
     <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) throws Exception;
 
+    //todo: tests
+
     /**
      * Cancel all current tasks related to workflow.
      * When invoked from task itself real scheduling will be postponed until task is in progress.
@@ -228,17 +229,39 @@ public interface TaskCommandService {
      * @param workflowId
      * @return
      */
-    boolean cancelWorkflow(UUID workflowId);
+    boolean cancelWorkflowByTaskId(TaskId taskId) throws Exception;
 
     /**
-     * The same as {@link this#cancelWorkflow(UUID)} but when invoked from
+     * The same as {@link this#cancelWorkflowByTaskId(TaskId)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
-     * @param workflowId
+     * @param taskId
      * @return
      */
-    boolean cancelWorkflowImmediately(UUID workflowId);
+    boolean cancelWorkflowByTaskIdImmediately(TaskId taskId) throws Exception;
+
+    //todo: tests
+
+    /**
+     * The same as {@link this#cancelWorkflowByTaskId(TaskId)} but for batch.
+     *
+     * @param taskIds
+     * @return
+     */
+    boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) throws Exception;
+
+    //todo: tests
+
+    /**
+     * The same as {@link this#cancelAllWorkflowByTaskId(List)} but when invoked from
+     * task then is implemented immediately without waiting for the end of current task.
+     * Only one exception: current task.
+     *
+     * @param taskIds
+     * @return
+     */
+    boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception;
 
     /**
      * Wait until task referenced by taskId is completed.

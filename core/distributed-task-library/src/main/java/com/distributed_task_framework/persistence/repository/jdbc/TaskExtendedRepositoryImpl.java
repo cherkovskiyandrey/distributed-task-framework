@@ -8,7 +8,6 @@ import com.distributed_task_framework.persistence.repository.TaskExtendedReposit
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -199,6 +198,25 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     }
 
 
+    //language=postgresql
+    private static final String SELECT_ALL_BY_WORKFLOW_ID = """
+        SELECT * FROM _____dtf_tasks
+        WHERE
+            workflow_id IN ((:workflowId)::uuid[])
+            AND deleted_at IS NULL
+        """;
+
+    //USED INDEXES: _____dtf_tasks_wid_idx
+    @Override
+    public Collection<TaskEntity> findAllByWorkflowIds(Collection<UUID> workflowIds) {
+        return namedParameterJdbcTemplate.query(
+            SELECT_ALL_BY_WORKFLOW_ID,
+            SqlParameters.of(TaskEntity.Fields.workflowId, JdbcTools.UUIDsToStringArray(workflowIds), Types.ARRAY),
+            TaskEntity.TASK_ROW_MAPPER
+        ).stream().toList();
+    }
+
+
     private static final String SELECT_BY_NAME = """
         SELECT *
         FROM _____dtf_tasks
@@ -223,39 +241,39 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
 
     //language=postgresql
     private static final String FILTER_EXISTED_WORKFLOW_IDS = """
-            SELECT workflow_id
-            FROM _____dtf_tasks
-            WHERE workflow_id = any((:workflowIds)::uuid[])
-            AND deleted_at ISNULL
-            """;
+        SELECT workflow_id
+        FROM _____dtf_tasks
+        WHERE workflow_id = any((:workflowIds)::uuid[])
+        AND deleted_at ISNULL
+        """;
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_wid_idx
     @Override
     public Set<UUID> filterExistedWorkflowIds(Set<UUID> workflowIds) {
         return Sets.newHashSet(namedParameterJdbcTemplate.queryForList(
-                        FILTER_EXISTED_WORKFLOW_IDS,
-                        SqlParameters.of("workflowIds", JdbcTools.UUIDsToStringArray(workflowIds), Types.ARRAY),
-                        UUID.class
-                )
+                FILTER_EXISTED_WORKFLOW_IDS,
+                SqlParameters.of("workflowIds", JdbcTools.UUIDsToStringArray(workflowIds), Types.ARRAY),
+                UUID.class
+            )
         );
     }
 
     //language=postgresql
     private static final String FILTER_EXISTED_TASK_IDS = """
-            SELECT id
-            FROM _____dtf_tasks
-            WHERE id = any((:ids)::uuid[])
-            AND deleted_at ISNULL
-            """;
+        SELECT id
+        FROM _____dtf_tasks
+        WHERE id = any((:ids)::uuid[])
+        AND deleted_at ISNULL
+        """;
 
     //SUPPOSED USED INDEXES: pkey
     @Override
     public Set<UUID> filterExistedTaskIds(Set<UUID> requestedTaskIds) {
         return Sets.newHashSet(namedParameterJdbcTemplate.queryForList(
-                        FILTER_EXISTED_TASK_IDS,
-                        SqlParameters.of("ids", JdbcTools.UUIDsToStringArray(requestedTaskIds), Types.ARRAY),
-                        UUID.class
-                )
+                FILTER_EXISTED_TASK_IDS,
+                SqlParameters.of("ids", JdbcTools.UUIDsToStringArray(requestedTaskIds), Types.ARRAY),
+                UUID.class
+            )
         );
     }
 

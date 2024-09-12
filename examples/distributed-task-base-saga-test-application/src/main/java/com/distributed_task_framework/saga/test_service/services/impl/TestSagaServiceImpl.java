@@ -25,6 +25,7 @@ import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
+
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Slf4j
 @Component
@@ -55,7 +58,7 @@ public class TestSagaServiceImpl implements TestSagaService {
     TestSagaServiceImpl testSagaService;
 
     //naive and straightforward approach
-    @Transactional
+    @Transactional(transactionManager = DTF_TX_MANAGER)
     @Override
     public Audit naiveSagaCall(TestDataDto testDataDto) {
         TestDataEntity data = TestDataEntity.builder()
@@ -119,6 +122,11 @@ public class TestSagaServiceImpl implements TestSagaService {
 
     private SagaFlow<Audit> sagaCallBase(TestDataDto testDataDto) {
         return sagaProcessor
+                .createWithAffinity(
+                        "test",
+                        TEST_DATA_MANAGEMENT,
+                        "" + testDataDto.getId()
+                )
                 .registerToRun(
                         testSagaService::createLocal,
                         testSagaService::deleteLocal,
@@ -133,11 +141,18 @@ public class TestSagaServiceImpl implements TestSagaService {
                         testSagaService::deleteOnRemoteServiceTwo
                 )
                 .thenRun(testSagaService::saveAudit)
-                .startWithAffinity(TEST_DATA_MANAGEMENT, "" + testDataDto.getId());
+                .start();
     }
 
-    @Transactional
-    @SagaMethod(name = "createLocal", noRetryFor = OptimisticLockingFailureException.class)
+    @SneakyThrows
+    @Transactional(transactionManager = DTF_TX_MANAGER)
+    @SagaMethod(
+        name = "createLocal",
+        noRetryFor = {
+            OptimisticLockingFailureException.class,
+            DuplicateKeyException.class
+        }
+    )
     public SagaRevertableDto<TestDataEntity> createLocal(TestDataDto testDataDto) {
         TestDataEntity testDataEntity = TestDataEntity.builder()
                 .id(testDataDto.getId())
@@ -146,13 +161,15 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .build();
         throwExceptionIfRequired(1, testDataDto);
 
+        //TimeUnit.SECONDS.sleep(90);
+
         return SagaRevertableDto.<TestDataEntity>builder()
                 .prevValue(testDataRepository.findById(testDataEntity.getId()).orElse(null))
                 .newValue(testDataRepository.save(testDataEntity))
                 .build();
     }
 
-    @Transactional
+    @Transactional(transactionManager = DTF_TX_MANAGER)
     @SagaRevertMethod(name = "deleteLocal")
     public void deleteLocal(TestDataDto input,
                             @Nullable SagaRevertableDto<TestDataEntity> output,

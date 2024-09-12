@@ -17,22 +17,36 @@ import java.time.Duration;
 @NoArgsConstructor
 @ConfigurationProperties(prefix = "distributed-task.saga")
 public class SagaConfiguration {
+
     @Builder.Default
-    Result result = Result.builder().build();
+    Common commons = Common.builder().build();
+
+    @Builder.Default
+    Context context = Context.builder().build();
 
     @Validated
     @Data
     @Builder(toBuilder = true)
     @AllArgsConstructor(access = AccessLevel.PUBLIC)
     @NoArgsConstructor
-    public static class Result {
+    public static class Common {
+        @Builder.Default
+        Duration cacheExpiration = Duration.ofSeconds(1);
+    }
+
+    @Validated
+    @Data
+    @Builder(toBuilder = true)
+    @AllArgsConstructor(access = AccessLevel.PUBLIC)
+    @NoArgsConstructor
+    public static class Context {
         @Builder.Default
         Duration resultScanInitialDelay = Duration.ofSeconds(10);
         @Builder.Default
         Duration resultScanFixedDelay = Duration.ofSeconds(10);
         @Builder.Default
-        Duration emptyResultDeprecationTimeout = Duration.ofMinutes(1);
+        Duration completedTimeout = Duration.ofMinutes(1);
         @Builder.Default
-        Duration resultDeprecationTimeout = Duration.ofMinutes(1);
+        Duration expirationTimeout = Duration.ofHours(1);
     }
 }

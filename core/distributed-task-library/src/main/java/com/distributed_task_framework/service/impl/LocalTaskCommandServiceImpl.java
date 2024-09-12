@@ -9,25 +9,19 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.JoinTaskMessage;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.exception.CronExpiredException;
-import com.distributed_task_framework.exception.OptimisticLockException;
-import com.distributed_task_framework.exception.TaskConfigurationException;
-import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.model.WorkerContext;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.service.impl.local_commands.FinalizeCommand;
-import com.distributed_task_framework.service.impl.local_commands.RescheduleCommand;
-import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.impl.local_commands.CancelTaskCommand;
-import com.distributed_task_framework.service.impl.local_commands.CreateLinksCommand;
 import com.distributed_task_framework.service.impl.local_commands.CreateLinksCommand;
 import com.distributed_task_framework.service.impl.local_commands.FinalizeCommand;
 import com.distributed_task_framework.service.impl.local_commands.ForceRescheduleCommand;
+import com.distributed_task_framework.service.impl.local_commands.RescheduleCommand;
 import com.distributed_task_framework.service.impl.local_commands.SaveCommand;
+import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
@@ -36,6 +30,8 @@ import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -401,8 +397,8 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     }
 
     void rescheduleBaseTxAware(TaskId taskId,
-                                   Duration delay,
-                                   boolean isImmediately) throws Exception {
+                               Duration delay,
+                               boolean isImmediately) throws Exception {
         executeTxAware(
             () -> rescheduleBase(
                 taskId,
@@ -611,31 +607,78 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     }
 
     private <T> boolean cancelAllTaskByTaskDefBase(TaskDef<T> taskDef, boolean isImmediately) {
-        Collection<TaskEntity> taskEntities = taskRepository.findAllByTaskName(taskDef.getTaskName());
         Optional<WorkerContext> currentContextOpt = workerContextManager.getCurrentContext();
+        Collection<TaskEntity> taskEntities = taskRepository.findAllByTaskName(taskDef.getTaskName());
         Optional<TaskEntity> currentTaskEntityOpt = currentContextOpt
             .filter(workerContext -> workerContext.getCurrentTaskId().getTaskName().equals(taskDef.getTaskName()))
             .map(WorkerContext::getTaskEntity);
-        if (currentTaskEntityOpt.isPresent()) {
-            TaskEntity currentTaskEntity = currentTaskEntityOpt.get();
+
+        return cancelAllTasks(taskEntities, currentTaskEntityOpt.orElse(null), isImmediately);
+    }
+
+    @Override
+    public boolean cancelWorkflowByTaskId(TaskId taskId) throws Exception {
+        return cancelAllWorkflowByTaskIdTxAware(List.of(taskId), false);
+    }
+
+    @Override
+    public boolean cancelWorkflowByTaskIdImmediately(TaskId taskId) throws Exception {
+        return cancelAllWorkflowByTaskIdTxAware(List.of(taskId), true);
+    }
+
+    @Override
+    public boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) throws Exception {
+        return cancelAllWorkflowByTaskIdTxAware(taskIds, false);
+    }
+
+    @Override
+    public boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
+        return cancelAllWorkflowByTaskIdTxAware(taskIds, true);
+    }
+
+    private boolean cancelAllWorkflowByTaskIdTxAware(List<TaskId> taskIds, boolean isImmediately) throws Exception {
+        return executeTxAware(
+            () -> cancelWorkflowByTaskIdBase(taskIds, isImmediately),
+            isImmediately
+        );
+    }
+
+    private boolean cancelWorkflowByTaskIdBase(List<TaskId> taskIds, boolean isImmediately) {
+        Optional<WorkerContext> currentContextOpt = workerContextManager.getCurrentContext();
+        var workflowIds = taskIds.stream()
+            .map(TaskId::getWorkflowId)
+            .collect(Collectors.toSet());
+        var taskIdSet = Sets.newHashSet(taskIds);
+        Collection<TaskEntity> taskEntities = taskRepository.findAllByWorkflowIds(workflowIds);
+        Optional<TaskEntity> currentTaskEntityOpt = currentContextOpt
+            .filter(workerContext -> taskIdSet.contains(workerContext.getCurrentTaskId()))
+            .map(WorkerContext::getTaskEntity);
+
+        return cancelAllTasks(taskEntities, currentTaskEntityOpt.orElse(null), isImmediately);
+    }
+
+    private boolean cancelAllTasks(Collection<TaskEntity> taskEntities,
+                                   @Nullable TaskEntity currentTaskEntity,
+                                   boolean isImmediately) {
+        Optional<WorkerContext> currentContextOpt = workerContextManager.getCurrentContext();
+        List<TaskEntity> tasksAsCommand = Lists.newArrayList();
+        List<TaskEntity> tasksToDelete = Lists.newArrayList();
+
+        if (currentTaskEntity != null) {
             taskEntities = taskEntities.stream()
                 .filter(taskEntity -> !taskEntity.getId().equals(currentTaskEntity.getId()))
                 .toList();
-        }
 
-        List<TaskEntity> tasksAsCommand = Lists.newArrayList();
-        List<TaskEntity> tasksToDelete = Lists.newArrayList();
-        currentTaskEntityOpt.ifPresent(taskId -> {
-            WorkerContext workerContext = currentContextOpt.get();
+            WorkerContext workerContext = currentContextOpt.orElseThrow();
             var currentTaskId = workerContext.getCurrentTaskId();
             if (workerContext.isCurrentTaskCron()) {
                 FinalizeCommand finalizeCommand = FinalizeCommand.of(workerContext.getTaskEntity());
                 workerContext.getLocalCommands().add(finalizeCommand);
-                log.info("cancelTaskExecution(): cancel current cron task=[{}]", currentTaskId);
+                log.info("cancelAllTasks(): cancel current cron task=[{}]", currentTaskId);
             } else {
-                log.info("cancelTaskExecution(): cancel current executing task=[{}] doesn't make sense", currentTaskId);
+                log.info("cancelAllTasks(): cancel current executing task=[{}] doesn't make sense", currentTaskId);
             }
-        });
+        }
 
         Optional<WorkerContext> currentContext = workerContextManager.getCurrentContext();
         boolean isInContext = currentContext.isPresent();
@@ -650,25 +693,15 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
             tasksAsCommand.forEach(taskEntity -> {
                 CancelTaskCommand cancelTaskCommand = CancelTaskCommand.of(taskEntity);
                 workerContext.getLocalCommands().add(cancelTaskCommand);
-                log.info("cancelAllTaskByTaskDefBase(): postponed command=[{}]", cancelTaskCommand);
+                log.info("cancelAllTasks(): postponed command=[{}]", cancelTaskCommand);
             });
         }
 
         if (!tasksToDelete.isEmpty()) {
             internalTaskCommandService.cancelAll(tasksToDelete);
-            log.info("cancelAllTaskByTaskDefBase(): taskEntities=[{}]", tasksToDelete);
+            log.info("cancelAllTasks(): taskEntities=[{}]", tasksToDelete);
         }
         return !tasksAsCommand.isEmpty() || !tasksToDelete.isEmpty();
-    }
-
-    @Override
-    public boolean cancelWorkflow(UUID workflowId) {
-        throw new UnsupportedOperationException("Isn't supported yet");
-    }
-
-    @Override
-    public boolean cancelWorkflowImmediately(UUID workflowId) {
-        throw new UnsupportedOperationException("Isn't supported yet");
     }
 
     @Override

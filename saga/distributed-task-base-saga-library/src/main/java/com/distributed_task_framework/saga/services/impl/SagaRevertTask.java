@@ -3,6 +3,7 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.saga.services.SagaContextService;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.utils.SagaArguments;
@@ -30,6 +31,7 @@ import java.util.Optional;
 public class SagaRevertTask implements Task<SagaEmbeddedPipelineContext> {
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
+    SagaContextService sagaContextService;
     SagaHelper sagaHelper;
     TaskDef<SagaEmbeddedPipelineContext> taskDef;
     Method method;
@@ -133,5 +135,6 @@ public class SagaRevertTask implements Task<SagaEmbeddedPipelineContext> {
                 sagaRegister.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
                 executionContext.withNewMessage(sagaEmbeddedPipelineContext)
         );
+        sagaContextService.track(sagaEmbeddedPipelineContext);
     }
 }

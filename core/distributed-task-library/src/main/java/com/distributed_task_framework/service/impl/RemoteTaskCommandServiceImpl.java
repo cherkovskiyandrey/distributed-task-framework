@@ -275,12 +275,22 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public boolean cancelWorkflow(UUID workflowId) {
+    public boolean cancelWorkflowByTaskId(TaskId taskId) {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 
     @Override
-    public boolean cancelWorkflowImmediately(UUID workflowId) {
+    public boolean cancelWorkflowByTaskIdImmediately(TaskId taskId) {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 
