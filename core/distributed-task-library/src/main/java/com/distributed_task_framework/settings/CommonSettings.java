@@ -3,8 +3,13 @@ package com.distributed_task_framework.settings;
 import com.google.common.collect.ImmutableRangeMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.Value;
+import lombok.With;
 
 import java.net.URL;
 import java.time.Duration;
@@ -17,7 +22,7 @@ public class CommonSettings {
 
     private static Retry cerateDefaultRetry() {
         return Retry.builder()
-                .retryMode(RetryMode.FIXED) //todo: pls change to backoff
+                .retryMode(RetryMode.FIXED)
                 .fixed(Fixed.builder().build())
                 .backoff(Backoff.builder().build())
                 .build();

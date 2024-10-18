@@ -9,13 +9,15 @@ import com.distributed_task_framework.autoconfigure.annotation.TaskFixedRetryPol
 import com.distributed_task_framework.autoconfigure.annotation.TaskSchedule;
 import com.distributed_task_framework.autoconfigure.annotation.TaskTimeout;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
-import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
 import com.distributed_task_framework.exception.TaskConfigurationException;
 import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
+import com.distributed_task_framework.utils.ReflectionHelper;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -23,11 +25,8 @@ import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.aop.support.AopUtils;
-import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.StringUtils;
 
-import java.lang.annotation.Annotation;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Optional;
@@ -45,17 +44,20 @@ public class TaskConfigurationDiscoveryProcessor {
     DistributedTaskService distributedTaskService;
     ThreadPoolExecutor executor;
     DistributedTaskPropertiesMapper distributedTaskPropertiesMapper;
+    DistributedTaskPropertiesMerger distributedTaskPropertiesMerger;
     Collection<Task<?>> tasks;
     RemoteTasks remoteTasks;
 
     public TaskConfigurationDiscoveryProcessor(DistributedTaskProperties properties,
                                                DistributedTaskService distributedTaskService,
                                                DistributedTaskPropertiesMapper distributedTaskPropertiesMapper,
+                                               DistributedTaskPropertiesMerger distributedTaskPropertiesMerger,
                                                Collection<Task<?>> tasks,
                                                RemoteTasks remoteTasks) {
         this.properties = properties;
         this.distributedTaskService = distributedTaskService;
         this.distributedTaskPropertiesMapper = distributedTaskPropertiesMapper;
+        this.distributedTaskPropertiesMerger = distributedTaskPropertiesMerger;
         this.tasks = tasks;
         this.remoteTasks = remoteTasks;
         this.executor = new ThreadPoolExecutor(
@@ -124,76 +126,61 @@ public class TaskConfigurationDiscoveryProcessor {
         }
     }
 
-    private TaskSettings buildRemoteTaskSettings(TaskDef<?> taskDef, @Nullable TaskSettings customSettings) {
-        var taskSettingGroup = Optional.ofNullable(properties.getTaskPropertiesGroup());
+    public TaskSettings buildTaskSettings(Task<?> task) {
+        return buildTaskSettingsBase(task.getDef(), fillCustomProperties(task));
+    }
 
-        var defaultTaskProperties = distributedTaskPropertiesMapper.map(TaskSettings.DEFAULT);
-        var defaultConfTaskProperties = taskSettingGroup
+    private TaskSettings buildRemoteTaskSettings(TaskDef<?> taskDef, @Nullable TaskSettings customCodeTaskSettings) {
+        var customCodeTaskProperties = distributedTaskPropertiesMapper.map(customCodeTaskSettings);
+        customCodeTaskProperties = customCodeTaskProperties != null ?
+            customCodeTaskProperties :
+            new DistributedTaskProperties.TaskProperties();
+        return buildTaskSettingsBase(taskDef, customCodeTaskProperties);
+    }
+
+    private TaskSettings buildTaskSettingsBase(TaskDef<?> taskDef,
+                                               DistributedTaskProperties.TaskProperties customCodeTaskProperties) {
+        var taskPropertiesGroup = Optional.ofNullable(properties.getTaskPropertiesGroup());
+
+        var defaultCodeTaskProperties = distributedTaskPropertiesMapper.map(TaskSettings.DEFAULT);
+
+        var defaultConfTaskProperties = taskPropertiesGroup
             .map(DistributedTaskProperties.TaskPropertiesGroup::getDefaultProperties)
             .orElse(null);
-
-        var customTaskProperties = distributedTaskPropertiesMapper.map(customSettings);
-        var customConfTaskProperties = taskSettingGroup
+        var customConfTaskProperties = taskPropertiesGroup
             .map(DistributedTaskProperties.TaskPropertiesGroup::getTaskProperties)
             .map(taskProperties -> taskProperties.get(taskDef.getTaskName()))
             .orElse(null);
 
-        defaultTaskProperties = defaultConfTaskProperties != null ?
-            distributedTaskPropertiesMapper.merge(defaultTaskProperties, defaultConfTaskProperties) :
-            defaultTaskProperties;
-
-        if (customTaskProperties != null && customConfTaskProperties != null) {
-            customTaskProperties = distributedTaskPropertiesMapper.merge(customTaskProperties, customConfTaskProperties);
-        } else if (customConfTaskProperties != null) {
-            customTaskProperties = customConfTaskProperties;
-        }
-
-        var taskProperties = customTaskProperties != null ?
-            distributedTaskPropertiesMapper.merge(defaultTaskProperties, customTaskProperties) :
-            defaultTaskProperties;
+        var defaultTaskProperties = distributedTaskPropertiesMerger.merge(
+            defaultCodeTaskProperties,
+            defaultConfTaskProperties
+        );
+        var customTaskProperties = distributedTaskPropertiesMerger.merge(
+            customCodeTaskProperties,
+            customConfTaskProperties
+        );
+        var taskProperties = distributedTaskPropertiesMerger.merge(
+            defaultTaskProperties,
+            customTaskProperties
+        );
 
         return distributedTaskPropertiesMapper.map(taskProperties);
     }
 
-    public TaskSettings buildTaskSettings(Task<?> task) {
-        var taskSettingGroup = Optional.ofNullable(properties.getTaskPropertiesGroup());
-
-        var defaultSettings = distributedTaskPropertiesMapper.map(TaskSettings.DEFAULT);
-        var customSettings = fillCustomSettings(task);
-
-        var defaultConfSettings = taskSettingGroup
-            .map(DistributedTaskProperties.TaskPropertiesGroup::getDefaultProperties)
-            .orElse(null);
-        var customConfSettings = taskSettingGroup
-            .map(DistributedTaskProperties.TaskPropertiesGroup::getTaskProperties)
-            .map(taskProperties -> taskProperties.get(task.getDef().getTaskName()))
-            .orElse(null);
-
-        defaultSettings = defaultConfSettings != null ?
-            distributedTaskPropertiesMapper.merge(defaultSettings, defaultConfSettings) :
-            defaultSettings;
-
-        customSettings = customConfSettings != null ?
-            distributedTaskPropertiesMapper.merge(customSettings, customConfSettings) :
-            customSettings;
-
-        var taskSettings = distributedTaskPropertiesMapper.merge(defaultSettings, customSettings);
-        return distributedTaskPropertiesMapper.map(taskSettings);
-    }
-
-    private DistributedTaskProperties.TaskProperties fillCustomSettings(Task<?> task) {
-        var taskSettings = new DistributedTaskProperties.TaskProperties();
-        fillSchedule(task, taskSettings);
-        fillConcurrency(task, taskSettings);
-        fillExecutionGuarantees(task, taskSettings);
-        fillDltMode(task, taskSettings);
-        fillRetryMode(task, taskSettings);
-        fillTaskTimeout(task, taskSettings);
-        return taskSettings;
+    private DistributedTaskProperties.TaskProperties fillCustomProperties(Task<?> task) {
+        var taskProperties = new DistributedTaskProperties.TaskProperties();
+        fillSchedule(task, taskProperties);
+        fillConcurrency(task, taskProperties);
+        fillExecutionGuarantees(task, taskProperties);
+        fillDltMode(task, taskProperties);
+        fillRetryMode(task, taskProperties);
+        fillTaskTimeout(task, taskProperties);
+        return taskProperties;
     }
 
     private void fillTaskTimeout(Task<?> task, DistributedTaskProperties.TaskProperties taskSettings) {
-        Optional<TaskTimeout> taskTimeoutOpt = findAnnotation(task, TaskTimeout.class);
+        Optional<TaskTimeout> taskTimeoutOpt = ReflectionHelper.findAnnotation(task, TaskTimeout.class);
         taskTimeoutOpt.ifPresent(taskTimeout -> {
             if (isNotBlank(taskTimeout.value())) {
                 taskSettings.setTimeout(Duration.parse(taskTimeout.value()));
@@ -202,9 +189,9 @@ public class TaskConfigurationDiscoveryProcessor {
     }
 
     private void fillRetryMode(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
-        Optional<TaskFixedRetryPolicy> taskFixedRetryPolicy = findAnnotation(task, TaskFixedRetryPolicy.class);
-        Optional<TaskBackoffRetryPolicy> taskBackoffRetryPolicy = findAnnotation(task, TaskBackoffRetryPolicy.class);
-        Optional<RetryOff> retryOffPolicy = findAnnotation(task, RetryOff.class);
+        Optional<TaskFixedRetryPolicy> taskFixedRetryPolicy = ReflectionHelper.findAnnotation(task, TaskFixedRetryPolicy.class);
+        Optional<TaskBackoffRetryPolicy> taskBackoffRetryPolicy = ReflectionHelper.findAnnotation(task, TaskBackoffRetryPolicy.class);
+        Optional<RetryOff> retryOffPolicy = ReflectionHelper.findAnnotation(task, RetryOff.class);
         if ((taskFixedRetryPolicy.isPresent() && taskBackoffRetryPolicy.isPresent()) ||
             (taskFixedRetryPolicy.isPresent() && retryOffPolicy.isPresent()) ||
             (taskBackoffRetryPolicy.isPresent() && retryOffPolicy.isPresent())
@@ -262,19 +249,19 @@ public class TaskConfigurationDiscoveryProcessor {
     }
 
     private void fillDltMode(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
-        findAnnotation(task, TaskDltEnable.class)
+        ReflectionHelper.findAnnotation(task, TaskDltEnable.class)
             .ifPresent(taskDltEnable -> taskProperties.setDltEnabled(taskDltEnable.isEnabled()));
     }
 
     private void fillExecutionGuarantees(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
-        findAnnotation(task, TaskExecutionGuarantees.class)
+        ReflectionHelper.findAnnotation(task, TaskExecutionGuarantees.class)
             .ifPresent(executionGuarantees ->
                 taskProperties.setExecutionGuarantees(executionGuarantees.value().toString())
             );
     }
 
     private void fillConcurrency(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
-        findAnnotation(task, TaskConcurrency.class)
+        ReflectionHelper.findAnnotation(task, TaskConcurrency.class)
             .ifPresent(taskConcurrency -> {
                 if (taskConcurrency.maxParallelInCluster() > 0) {
                     taskProperties.setMaxParallelInCluster(taskConcurrency.maxParallelInCluster());
@@ -283,19 +270,7 @@ public class TaskConfigurationDiscoveryProcessor {
     }
 
     private void fillSchedule(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
-        findAnnotation(task, TaskSchedule.class)
+        ReflectionHelper.findAnnotation(task, TaskSchedule.class)
             .ifPresent(mergedAnnotation -> taskProperties.setCron(mergedAnnotation.cron()));
-    }
-
-    /**
-     * @noinspection unchecked
-     */
-    private <A extends Annotation> Optional<A> findAnnotation(Task<?> task, Class<A> annotationCls) {
-        A mergedAnnotation = AnnotatedElementUtils.getMergedAnnotation(task.getClass(), annotationCls);
-        if (mergedAnnotation != null) {
-            return Optional.of(mergedAnnotation);
-        }
-        Class<Task<?>> targetClass = (Class<Task<?>>) AopUtils.getTargetClass(task);
-        return Optional.ofNullable(AnnotatedElementUtils.getMergedAnnotation(targetClass, annotationCls));
     }
 }

@@ -111,7 +111,7 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @TestConfiguration
-@EnableJdbcAuditing//(dateTimeProviderRef = "auditingDateTimeProvider")
+@EnableJdbcAuditing
 @EnableJdbcRepositories(
     basePackageClasses = NodeStateRepository.class,
     transactionManagerRef = DTF_TX_MANAGER,

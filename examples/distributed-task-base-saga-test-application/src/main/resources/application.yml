@@ -64,11 +64,16 @@ distributed-task:
     context:
       completed-timeout: PT30S
       expiration-timeout: PT30M
+    # Whole saga configuration by name
     saga-properties-group:
+      # Saga name
       test:
         expiration-timeout: PT3M
+    # Configuration for saga methods
     saga-method-properties-group:
+      # Default configuration for all methods, override default configuration for tasks from task-properties-group#default-properties
       default-saga-method-properties:
+        execution-guarantees: AT_LEAST_ONCE
         retry:
           fixed:
             delay: PT1S
@@ -77,7 +82,9 @@ distributed-task:
           retry-mode: FIXED
         max-parallel-in-cluster: 100
         timeout: PT10M
+      # Customisation of configuration for dedicated saga method
       saga-method-properties:
+        # Saga method name
         createLocal:
           retry:
             fixed:
@@ -88,6 +95,24 @@ distributed-task:
           max-parallel-in-cluster: 100
           timeout: PT10M
         deleteLocal:
+          retry:
+            fixed:
+              delay: PT1S
+              max-interval: PT5S
+              max-number: 5
+            retry-mode: FIXED
+          max-parallel-in-cluster: 100
+          timeout: PT10M
+        createOnRemoteServiceOne:
+          retry:
+            fixed:
+              delay: PT1S
+              max-interval: PT5S
+              max-number: 5
+            retry-mode: FIXED
+          max-parallel-in-cluster: 100
+          timeout: PT10M
+        createOnRemoteServiceOne_v2:
           retry:
             fixed:
               delay: PT1S

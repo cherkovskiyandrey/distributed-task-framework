@@ -1,7 +1,9 @@
 package com.distributed_task_framework.autoconfigure;
 
 import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
+import com.distributed_task_framework.autoconfigure.mapper.CommonSettingsMerger;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
+import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
 import com.distributed_task_framework.mapper.CommandMapper;
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.mapper.PartitionMapper;
@@ -97,6 +99,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
@@ -147,6 +150,7 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 )
 @EnableTransactionManagement
 @EnableCaching
+@ComponentScan(basePackageClasses = CommonSettingsMerger.class)
 public class DistributedTaskAutoconfigure {
 
     @Bean
@@ -304,15 +308,12 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    public DistributedTaskPropertiesMapper taskParameterMapper() {
-        return Mappers.getMapper(DistributedTaskPropertiesMapper.class);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public CommonSettings commonSettings(DistributedTaskPropertiesMapper distributedTaskPropertiesMapper,
+    public CommonSettings commonSettings(CommonSettingsMerger commonSettingsMerger,
                                          DistributedTaskProperties properties) {
-        return distributedTaskPropertiesMapper.merge(CommonSettings.builder().build(), properties.getCommon());
+        return commonSettingsMerger.merge(
+            CommonSettings.DEFAULT.toBuilder().build(),
+            properties.getCommon()
+        );
     }
 
     @Component
@@ -531,12 +532,12 @@ public class DistributedTaskAutoconfigure {
                                              CommonSettings commonSettings,
                                              Clock clock) {
         return new PartitionTrackerImpl(
-                platformTransactionManager,
-                taskRepository,
-                partitionRepository,
-                partitionMapper,
-                commonSettings,
-                clock
+            platformTransactionManager,
+            taskRepository,
+            partitionRepository,
+            partitionMapper,
+            commonSettings,
+            clock
         );
     }
 
@@ -576,9 +577,9 @@ public class DistributedTaskAutoconfigure {
                                                TaskRepository taskRepository,
                                                WorkerContextManager workerContextManager) {
         return new CompletionServiceImpl(
-                commonSettings,
-                taskRepository,
-                workerContextManager
+            commonSettings,
+            taskRepository,
+            workerContextManager
         );
     }
 
@@ -597,18 +598,18 @@ public class DistributedTaskAutoconfigure {
                                                                               CompletionService completionService,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
-                workerContextManager,
-                transactionManager,
-                taskRepository,
-                taskMapper,
-                taskRegistryService,
-                taskSerializer,
-                cronService,
-                commonSettings,
-                internalTaskCommandService,
-                taskLinkManager,
-                completionService,
-                clock
+            workerContextManager,
+            transactionManager,
+            taskRepository,
+            taskMapper,
+            taskRegistryService,
+            taskSerializer,
+            cronService,
+            commonSettings,
+            internalTaskCommandService,
+            taskLinkManager,
+            completionService,
+            clock
         );
     }
 
@@ -655,12 +656,14 @@ public class DistributedTaskAutoconfigure {
     public TaskConfigurationDiscoveryProcessor taskConfigurationDiscoveryProcessor(DistributedTaskProperties properties,
                                                                                    DistributedTaskService distributedTaskService,
                                                                                    DistributedTaskPropertiesMapper distributedTaskPropertiesMapper,
+                                                                                   DistributedTaskPropertiesMerger distributedTaskPropertiesMerger,
                                                                                    Collection<Task<?>> tasks,
                                                                                    RemoteTasks remoteTasks) {
         return new TaskConfigurationDiscoveryProcessor(
             properties,
             distributedTaskService,
             distributedTaskPropertiesMapper,
+            distributedTaskPropertiesMerger,
             tasks,
             remoteTasks
         );

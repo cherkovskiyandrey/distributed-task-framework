@@ -14,7 +14,7 @@ import java.io.File;
 import java.time.Duration;
 
 @ActiveProfiles("test")
-@SpringBootTest //(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
 @Import(BaseTestConfiguration.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 public abstract class BaseTestContainerTest {

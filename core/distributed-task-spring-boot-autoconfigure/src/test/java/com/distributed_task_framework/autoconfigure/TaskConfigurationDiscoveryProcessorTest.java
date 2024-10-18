@@ -1,12 +1,13 @@
 package com.distributed_task_framework.autoconfigure;
 
+import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
+import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
 import com.distributed_task_framework.autoconfigure.tasks.CustomTaskWithOffRetry;
 import com.distributed_task_framework.autoconfigure.tasks.CustomizedTask;
 import com.distributed_task_framework.autoconfigure.tasks.DefaultTask;
 import com.distributed_task_framework.autoconfigure.tasks.SimpleCronCustomizedTask;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.settings.Backoff;
 import com.distributed_task_framework.settings.Fixed;
@@ -14,26 +15,24 @@ import com.distributed_task_framework.settings.Retry;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
+import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import org.assertj.core.util.Lists;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mapstruct.factory.Mappers;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Spy;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
 
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -42,28 +41,42 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@ActiveProfiles("test")
+@SpringBootTest
+@ContextConfiguration(classes = MappersConfiguration.class)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@ExtendWith(MockitoExtension.class)
 class TaskConfigurationDiscoveryProcessorTest {
-    @Spy
-    private final DistributedTaskPropertiesMapper distributedTaskPropertiesMapper =
-        Mappers.getMapper(DistributedTaskPropertiesMapper.class);
-    @Mock
+    @SpyBean
+    DistributedTaskPropertiesMapper distributedTaskPropertiesMapper;
+    @SpyBean
+    DistributedTaskPropertiesMerger distributedTaskPropertiesMerger;
+    @MockBean
     DistributedTaskProperties properties;
-    @Mock
+    @MockBean
     DistributedTaskService distributedTaskService;
-    @Spy
-    Collection<Task<?>> tasks = Lists.newArrayList();
-    @Mock
+    final Collection<Task<?>> tasks = Lists.newArrayList();
+    @MockBean
     RemoteTasks remoteTasks;
-    @Spy
-    Executor executor = Executors.newSingleThreadExecutor();
-    @InjectMocks
     TaskConfigurationDiscoveryProcessor taskConfigurationDiscoveryProcessor;
 
     @BeforeEach
     void init() {
         tasks.clear();
+        taskConfigurationDiscoveryProcessor = new TaskConfigurationDiscoveryProcessor(
+            properties,
+            distributedTaskService,
+            distributedTaskPropertiesMapper,
+            distributedTaskPropertiesMerger,
+            tasks,
+            remoteTasks
+        );
+    }
+
+    @AfterEach
+    void teardown() throws InterruptedException {
+        if (taskConfigurationDiscoveryProcessor != null) {
+            taskConfigurationDiscoveryProcessor.shutdown();
+        }
     }
 
     @Test
@@ -79,7 +92,6 @@ class TaskConfigurationDiscoveryProcessorTest {
         verifyTaskIsRegistered(defaultTask, TaskSettings.DEFAULT);
     }
 
-    @SuppressWarnings("unchecked")
     @SneakyThrows
     @Test
     void shouldRegistryLocalTasksWithDefaultConfigFromFile() {

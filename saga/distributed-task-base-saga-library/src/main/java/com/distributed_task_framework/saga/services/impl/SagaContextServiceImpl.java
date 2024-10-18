@@ -79,8 +79,8 @@ public class SagaContextServiceImpl implements SagaContextService {
     public void init() {
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::handleDeprecatedSagas),
-            sagaConfiguration.getContext().getResultScanInitialDelay().toMillis(),
-            sagaConfiguration.getContext().getResultScanFixedDelay().toMillis(),
+            sagaConfiguration.getContext().getDeprecatedSagaScanInitialDelay().toMillis(),
+            sagaConfiguration.getContext().getDeprecatedSagaScanFixedDelay().toMillis(),
             TimeUnit.MILLISECONDS
         );
     }
@@ -149,7 +149,9 @@ public class SagaContextServiceImpl implements SagaContextService {
 
     @Override
     public void create(SagaContext sagaContext) {
-        var expirationTimeout = sagaConfiguration.getContext().getExpirationTimeout();
+        var expirationTimeout = Optional.ofNullable(sagaConfiguration.getSagaPropertiesGroup().get(sagaContext.getName()))
+            .map(SagaConfiguration.SagaProperties::getExpirationTimeout)
+            .orElse(sagaConfiguration.getContext().getExpirationTimeout());
         var now = LocalDateTime.now(clock);
         var expiredDateUtc = now.plus(expirationTimeout);
         SagaContextEntity sagaContextEntity = contextMapper.toEntity(sagaContext).toBuilder()

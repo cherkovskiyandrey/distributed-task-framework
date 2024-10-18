@@ -202,7 +202,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
 
         var sagaContext = SagaContext.builder()
             .sagaId(sagaId)
-            .userName(userName)
+            .name(userName)
             .rootTaskId(taskId)
             .lastPipelineContext(sagaParentEmbeddedPipelineContext)
             .build();

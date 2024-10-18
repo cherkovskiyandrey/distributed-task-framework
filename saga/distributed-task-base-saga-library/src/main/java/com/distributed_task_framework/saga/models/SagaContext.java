@@ -12,7 +12,7 @@ import java.util.UUID;
 @Builder
 public class SagaContext {
     UUID sagaId;
-    String userName;
+    String name;
     LocalDateTime createdDateUtc;
     @Nullable
     LocalDateTime completedDateUtc;

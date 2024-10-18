@@ -8,6 +8,7 @@ dependencies {
     implementation 'commons-io:commons-io:2.11.0'
 
     implementation project(':distributed-task-spring-boot-starter')
+    api project(':distributed-task-library')
 
     runtimeOnly 'org.postgresql:postgresql'
 

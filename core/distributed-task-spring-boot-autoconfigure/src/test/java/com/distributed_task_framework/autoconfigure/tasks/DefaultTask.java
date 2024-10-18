@@ -13,7 +13,7 @@ public class DefaultTask implements Task<Void> {
     }
 
     @Override
-    public void execute(ExecutionContext<Void> executionContext) throws Exception {
+    public void execute(ExecutionContext<Void> executionContext) {
     }
 
     @Override

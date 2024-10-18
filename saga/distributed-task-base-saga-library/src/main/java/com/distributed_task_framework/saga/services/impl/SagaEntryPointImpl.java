@@ -47,12 +47,18 @@ import java.util.function.Function;
  * 10. Проверить:
  *  - SagaContextServiceImpl#track + SagaContextServiceImpl#handleExpiredSagas - на последнем этапе уйти в таймат + заодно как отработает cancel (-)
  *  - isCompleted - дергаем ручку (-)
- * 10. Ability to set default and custom retry settings (maybe via task settings ?) (-)
+ * 10. Ability to set default and custom retry settings (maybe via task settings ?) (+)
  * - in real properties from application.yaml doesn't work at all!!! because they are built in com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor#buildTaskSettings(com.distributed_task_framework.task.Task)
- * and this logic has to be repeated in the saga library or separated and moved to dedicated module (-)
+ * and this logic has to be repeated in the saga library or separated and moved to dedicated module (+)
+ * 11. Покрыть абсолютно все тестами (-)
+ * 12. Написать более честный example используя мок сервис для эмуляции взаимодействия с внешним сервисом (-)
+ * 13. Подумать над перф тестом (-)
+ * 14. Времеено ронять контескт если кол-во тасок больше чем dtf может за раз запланировать (-) ???
  * 8. Необходимо регистрировать 2 таски одну для прямой операции и вторую для обратной и создать регистр имя-операции:код ? (-)
  * - тут основные консерны:
  * - как быть с версионностью (-)
+ * 9. Пожержка map/reduce через расширение контекста SagaEmbeddedPipelineContext и динамического достраивания DAG-а из самих тасок
+ *  (вернее во время старта - достаточно создать 1 уровнеь map/reduce, дальше из тасок динамически достраивать DAG) (-)
  * 11. Think about exactly once for remote http call (-)
  */
 @Slf4j

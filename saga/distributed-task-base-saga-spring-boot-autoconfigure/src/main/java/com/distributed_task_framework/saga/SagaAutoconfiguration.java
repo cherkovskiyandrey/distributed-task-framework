@@ -2,8 +2,12 @@ package com.distributed_task_framework.saga;
 
 
 import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
+import com.distributed_task_framework.autoconfigure.DistributedTaskProperties;
+import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
+import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
 import com.distributed_task_framework.saga.configurations.SagaConfiguration;
 import com.distributed_task_framework.saga.mappers.ContextMapper;
+import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
 import com.distributed_task_framework.saga.services.SagaContextDiscovery;
@@ -32,6 +36,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Lazy;
@@ -59,6 +64,7 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 @EnableTransactionManagement
 @EnableAspectJAutoProxy(proxyTargetClass = true)
 @EnableConfigurationProperties(value = SagaConfiguration.class)
+@ComponentScan(basePackageClasses = ContextMapper.class)
 public class SagaAutoconfiguration {
 
     @Bean
@@ -94,12 +100,6 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ContextMapper contextMapper() {
-        return Mappers.getMapper(ContextMapper.class);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
     public SagaContextService sagaContextService(DistributedTaskService distributedTaskService,
                                                  SagaContextRepository sagaContextRepository,
                                                  DlsSagaContextRepository dlsSagaContextRepository,
@@ -127,12 +127,22 @@ public class SagaAutoconfiguration {
     public SagaRegisterImpl sagaRegister(DistributedTaskService distributedTaskService,
                                          TaskRegistryService taskRegistryService,
                                          SagaContextDiscovery sagaContextDiscovery,
-                                         SagaTaskFactory sagaTaskFactory) {
+                                         SagaTaskFactory sagaTaskFactory,
+                                         SagaConfiguration sagaConfiguration,
+                                         DistributedTaskProperties properties,
+                                         DistributedTaskPropertiesMapper distributedTaskPropertiesMapper,
+                                         DistributedTaskPropertiesMerger distributedTaskPropertiesMerger,
+                                         SagaMethodPropertiesMapper sagaMethodPropertiesMapper) {
         return new SagaRegisterImpl(
             distributedTaskService,
             taskRegistryService,
             sagaContextDiscovery,
-            sagaTaskFactory
+            sagaTaskFactory,
+            sagaConfiguration,
+            properties,
+            distributedTaskPropertiesMapper,
+            distributedTaskPropertiesMerger,
+            sagaMethodPropertiesMapper
         );
     }
 

@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.utils;
+package com.distributed_task_framework.utils;
 
 import com.distributed_task_framework.task.Task;
 import lombok.experimental.UtilityClass;
@@ -20,5 +20,9 @@ public class ReflectionHelper {
         @SuppressWarnings("unchecked")
         Class<Task<?>> targetClass = (Class<Task<?>>) AopUtils.getTargetClass(annotatedElement);
         return Optional.ofNullable(AnnotatedElementUtils.getMergedAnnotation(targetClass, annotationCls));
+    }
+
+    public <A extends Annotation> Optional<A> findAnnotation(Task<?> task, Class<A> annotationCls) {
+        return findAnnotation(task.getClass(), annotationCls);
     }
 }
