@@ -75,6 +75,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -113,6 +114,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
+import java.lang.management.ManagementFactory;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -324,6 +326,16 @@ public class DistributedTaskAutoconfigure {
         }
     }
 
+    //use in order to escape conflict with beans form other standard libraries like spring-boot-starter-actuator
+    //because simple using of conditional doesn't work
+    public record OperatingSystemMXBeanHolder(OperatingSystemMXBean operatingSystemMXBean) {}
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OperatingSystemMXBeanHolder dtfOperatingSystemMXBean() {
+        return new OperatingSystemMXBeanHolder((OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean());
+    }
+
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean(name = DTF_TX_MANAGER)
@@ -334,6 +346,7 @@ public class DistributedTaskAutoconfigure {
                                            CacheManager cacheManager,
                                            NodeStateRepository nodeStateRepository,
                                            CapabilityRepository capabilityRepository,
+                                           OperatingSystemMXBeanHolder operatingSystemMXBeanHolder,
                                            Clock clock) {
         return new ClusterProviderImpl(
             commonSettings,
@@ -343,6 +356,7 @@ public class DistributedTaskAutoconfigure {
             nodeStateMapper,
             nodeStateRepository,
             capabilityRepository,
+            operatingSystemMXBeanHolder.operatingSystemMXBean(),
             clock
         );
     }

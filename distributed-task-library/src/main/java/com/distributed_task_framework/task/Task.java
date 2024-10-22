@@ -24,7 +24,7 @@ public interface Task<T> {
      *
      * @param failedExecutionContext
      */
-    default void onFailure(FailedExecutionContext<T> failedExecutionContext) {
+    default void onFailure(FailedExecutionContext<T> failedExecutionContext) throws Exception {
     }
 
     /**
@@ -35,7 +35,7 @@ public interface Task<T> {
      * retrying of current task. Usually it means that error is unrecoverable, and it doesn't make sense
      * to retry this task according to retry policy, false - retry for current task according to current retry policy
      */
-    default boolean onFailureWithResult(FailedExecutionContext<T> failedExecutionContext) {
+    default boolean onFailureWithResult(FailedExecutionContext<T> failedExecutionContext) throws Exception {
         onFailure(failedExecutionContext);
         return false;
     }

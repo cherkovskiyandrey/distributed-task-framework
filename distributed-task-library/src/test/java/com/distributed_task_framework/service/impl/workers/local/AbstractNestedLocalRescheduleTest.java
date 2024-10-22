@@ -8,11 +8,14 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.task.TestTaskModelSpec;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mockito;
 
 import java.time.Duration;
@@ -30,34 +33,128 @@ import static org.mockito.Mockito.when;
 @FieldDefaults(level = AccessLevel.PROTECTED)
 public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerIntegrationTest {
 
-    @Test
-    void shouldRescheduleCurrentTaskWhenFromTask() {
+    @ParameterizedTest
+    @EnumSource(ActionMode.class)
+    void shouldRescheduleCurrentTaskWhenFromTask(ActionMode actionMode) {
         //when
-        TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
-        TaskSettings taskSettings = defaultTaskSettings.toBuilder().build();
-        Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
-            distributedTaskService.reschedule(m.getCurrentTaskId(), Duration.ofSeconds(10));
-            assertThat(taskRepository.find(m.getCurrentTaskId().getId())).isPresent()
+        setFixedTime();
+        var parentTestTaskModel = buildActionAndGenerateTask(
+            m -> {
+                distributedTaskService.reschedule(m.getCurrentTaskId(), Duration.ofSeconds(10));
+                assertThat(taskRepository.find(m.getCurrentTaskId().getId())).isPresent()
                     .get()
                     .matches(te -> te.getVersion() == 1, "opt locking");
-        });
-
-        setFixedTime();
-        RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
-        TaskEntity taskEntity = saveNewTaskEntity();
+            },
+            String.class,
+            actionMode
+        );
 
         //do
-        getTaskWorker().execute(taskEntity, registeredTask);
+        getTaskWorker().execute(parentTestTaskModel.getTaskEntity(), parentTestTaskModel.getRegisteredTask());
 
         //verify
-        TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
-        assertThat(taskRepository.find(taskId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "reschedule time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+        assertThat(taskRepository.find(parentTestTaskModel.getTaskId().getId())).isPresent()
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "reschedule time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
     }
+
+    @Test
+    void shouldWinOnFailureWhenRescheduleCurrentTaskWhenFromTask() {
+        //when
+        long shiftFromAction = 33;
+        long shiftFromFailure = 44;
+
+        setFixedTime();
+        var parentTestTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(ctx -> {
+                distributedTaskService.reschedule(ctx.getCurrentTaskId(), Duration.ofSeconds(shiftFromAction));
+                throw new RuntimeException();
+            })
+            .failureAction(ctx -> {
+                distributedTaskService.reschedule(ctx.getCurrentTaskId(), Duration.ofSeconds(shiftFromFailure));
+                return true;
+            })
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(parentTestTaskModel.getTaskEntity(), parentTestTaskModel.getRegisteredTask());
+
+        //verify
+        assertThat(taskRepository.find(parentTestTaskModel.getTaskId().getId())).isPresent()
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == shiftFromFailure, "reschedule time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+        ;
+    }
+
+    @Test
+    void shouldNotRescheduleCurrentTaskWhenNotLastOnFailure() {
+        //when
+        long shiftFromAction = 33;
+        long shiftFromFailure = 44;
+
+        setFixedTime();
+        var parentTestTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(ctx -> {
+                distributedTaskService.reschedule(ctx.getCurrentTaskId(), Duration.ofSeconds(shiftFromAction));
+                throw new RuntimeException();
+            })
+            .failureAction(ctx -> {
+                distributedTaskService.reschedule(ctx.getCurrentTaskId(), Duration.ofSeconds(shiftFromFailure));
+                return false;
+            })
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(parentTestTaskModel.getTaskEntity(), parentTestTaskModel.getRegisteredTask());
+
+        //verify
+        long nextAttempt = parentTestTaskModel.getTaskSettings().getRetry().getFixed().getDelay().toSeconds();
+        assertThat(taskRepository.find(parentTestTaskModel.getTaskId().getId())).isPresent()
+            .get()
+            .matches(te -> te.getFailures() == 1, "failures")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == nextAttempt, "reschedule time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+        ;
+    }
+
+    @Test
+    void shouldNotRescheduleCurrentTaskWhenLastOnFailureAndException() {
+        //when
+        long shiftFromAction = 33;
+        long shiftFromFailure = 44;
+
+        setFixedTime();
+        var parentTestTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .taskEntityCustomizer(extendedTaskGenerator.withLastAttempt())
+            .action(ctx -> {
+                distributedTaskService.reschedule(ctx.getCurrentTaskId(), Duration.ofSeconds(shiftFromAction));
+                throw new RuntimeException();
+            })
+            .failureAction(ctx -> {
+                distributedTaskService.reschedule(ctx.getCurrentTaskId(), Duration.ofSeconds(shiftFromFailure));
+                throw new RuntimeException();
+            })
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(parentTestTaskModel.getTaskEntity(), parentTestTaskModel.getRegisteredTask());
+
+        //verify
+        verifyLocalTaskIsFinished(parentTestTaskModel.getTaskEntity());
+    }
+
+    //todo: all test below should be rewritten like for both ActionMode
 
     @Test
     void shouldNotRescheduleImmediatelyCurrentTaskWhenFromTask() {
@@ -67,8 +164,8 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
             distributedTaskService.rescheduleImmediately(m.getCurrentTaskId(), Duration.ofSeconds(10));
             assertThat(taskRepository.find(m.getCurrentTaskId().getId())).isPresent()
-                    .get()
-                    .matches(te -> te.getVersion() == 1, "opt locking");
+                .get()
+                .matches(te -> te.getVersion() == 1, "opt locking");
         });
 
         setFixedTime();
@@ -81,10 +178,10 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         //verify
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         assertThat(taskRepository.find(taskId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "reschedule time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "reschedule time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
     }
 
@@ -100,8 +197,8 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
             distributedTaskService.reschedule(otherTakId, Duration.ofSeconds(10));
             assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                    .get()
-                    .matches(te -> te.getVersion() == 1, "opt locking");
+                .get()
+                .matches(te -> te.getVersion() == 1, "opt locking");
         });
 
         RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
@@ -112,10 +209,10 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
 
         //verify
         assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "reschedule time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "reschedule time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
     }
 
@@ -131,8 +228,8 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
             distributedTaskService.rescheduleImmediately(otherTakId, Duration.ofSeconds(10));
             assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                    .get()
-                    .matches(te -> te.getVersion() == 2, "opt locking");
+                .get()
+                .matches(te -> te.getVersion() == 2, "opt locking");
         });
 
         RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
@@ -143,10 +240,10 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
 
         //verify
         assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "reschedule time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "reschedule time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
     }
 
@@ -178,14 +275,14 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         verifyFirstAttemptTaskOnFailure(mockedTask, taskEntity);
         assertThat(taskRepository.find(taskId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next retry time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next retry time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
         assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 1, "opt locking");
+            .get()
+            .matches(te -> te.getVersion() == 1, "opt locking");
     }
 
     @SneakyThrows
@@ -216,16 +313,16 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         verifyFirstAttemptTaskOnFailure(mockedTask, taskEntity);
         assertThat(taskRepository.find(taskId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next retry time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next retry time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
         assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next retry time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 10L, "next retry time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
     }
 
     @SneakyThrows
@@ -253,10 +350,10 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         //verify
         verifyParallelExecution(taskEntity, foreignWorkerId);
         assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 1, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "next retry time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
+            .get()
+            .matches(te -> te.getVersion() == 1, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "next retry time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
     }
 
     @SneakyThrows
@@ -284,10 +381,10 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         //verify
         verifyParallelExecution(taskEntity, foreignWorkerId);
         assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 20L, "next retry time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 20L, "next retry time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
     }
 
     @SneakyThrows
@@ -313,24 +410,25 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
 
         //verify
         assertThat(taskRepository.find(otherTakId.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 3, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 20L, "next retry time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
+            .get()
+            .matches(te -> te.getVersion() == 3, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 20L, "next retry time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
     }
 
     @SuppressWarnings("unchecked")
+    @SneakyThrows
     @Test
     void shouldPostponeCronTask() {
         //when
         TaskDef<Void> taskDef = TaskDef.privateTaskDef("test-cron", Void.class);
         TaskSettings taskSettings = defaultTaskSettings.toBuilder()
-                .cron("*/50 * * * * *")
-                .build();
+            .cron("*/50 * * * * *")
+            .build();
         Task<Void> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
             distributedTaskService.reschedule(
-                    m.getCurrentTaskId(),
-                    Duration.ofHours(1)
+                m.getCurrentTaskId(),
+                Duration.ofHours(1)
             );
         });
         mockedTask = Mockito.spy(mockedTask);
@@ -345,10 +443,10 @@ public abstract class AbstractNestedLocalRescheduleTest extends BaseLocalWorkerI
         //verify
         verify(mockedTask, Mockito.never()).onFailure(any(FailedExecutionContext.class));
         assertThat(taskRepository.find(taskEntity.getId())).isPresent()
-                .get()
-                .matches(te -> te.getVersion() == 2, "opt locking")
-                .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 3600L, "next execution time")
-                .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .get()
+            .matches(te -> te.getVersion() == 2, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 3600L, "next execution time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
         ;
     }
 }

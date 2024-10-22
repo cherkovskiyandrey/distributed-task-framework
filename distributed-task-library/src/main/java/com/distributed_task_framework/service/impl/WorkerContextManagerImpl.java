@@ -1,10 +1,10 @@
 package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.model.WorkerContext;
+import com.distributed_task_framework.service.internal.WorkerContextManager;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import com.distributed_task_framework.service.internal.WorkerContextManager;
 
 import java.util.Optional;
 
@@ -24,6 +24,23 @@ public class WorkerContextManagerImpl implements WorkerContextManager {
     @Override
     public void setCurrentContext(WorkerContext currentContext) {
         currentExecutionContext.set(currentContext);
+    }
+
+    @Override
+    public void resetCurrentContext() {
+        var currentContext = currentExecutionContext.get();
+        if (currentContext == null) {
+            return;
+        }
+        currentExecutionContext.set(
+            WorkerContext.builder()
+                .workflowId(currentContext.getWorkflowId())
+                .workflowName(currentContext.getWorkflowName())
+                .currentTaskId(currentContext.getCurrentTaskId())
+                .taskSettings(currentContext.getTaskSettings())
+                .taskEntity(currentContext.getTaskEntity())
+                .build()
+        );
     }
 
     @Override

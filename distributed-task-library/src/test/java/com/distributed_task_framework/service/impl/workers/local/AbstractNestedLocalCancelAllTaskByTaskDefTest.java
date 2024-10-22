@@ -9,6 +9,7 @@ import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
 import lombok.AccessLevel;
+import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.when;
 public abstract class AbstractNestedLocalCancelAllTaskByTaskDefTest extends BaseLocalWorkerIntegrationTest {
 
     @SuppressWarnings("unchecked")
+    @SneakyThrows
     @Test
     void shouldCancelAllTaskByTaskDef() {
         //when
@@ -113,6 +115,7 @@ public abstract class AbstractNestedLocalCancelAllTaskByTaskDefTest extends Base
     }
 
     @SuppressWarnings("unchecked")
+    @SneakyThrows
     @Test
     void shouldCancelAllTaskByTaskDefWhenParallelExecutionOfOtherTask() {
         //when

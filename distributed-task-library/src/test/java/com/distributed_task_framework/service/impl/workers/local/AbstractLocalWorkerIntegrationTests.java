@@ -6,11 +6,13 @@ import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import com.distributed_task_framework.persistence.repository.entity.TestBusinessObjectEntity;
 import com.distributed_task_framework.settings.Retry;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.task.TestTaskModelSpec;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
@@ -47,9 +49,7 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
     @Autowired
     ObjectMapper objectMapper;
 
-    /**
-     * @noinspection unchecked
-     */
+    @SuppressWarnings("unchecked")
     @SneakyThrows
     @Test
     void shouldExecuteWhenSimpleTask() {
@@ -74,6 +74,30 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
             )
         );
         verifyTaskIsFinished(taskId);
+    }
+
+    @Test
+    void shouldNotScheduleNewTaskButSaveBusinessObjectWhenExceptionInFailure() {
+        //when
+        setFixedTime();
+        var childTestTaskModel = extendedTaskGenerator.generateDefault(String.class);
+        var parentTestTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(TestTaskModelSpec.throwException())
+            .failureAction(ctx -> {
+                distributedTaskService.schedule(childTestTaskModel.getTaskDef(), ExecutionContext.empty());
+                testBusinessObjectRepository.save(TestBusinessObjectEntity.builder().build());
+                throw new RuntimeException();
+            })
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(parentTestTaskModel.getTaskEntity(), parentTestTaskModel.getRegisteredTask());
+
+        //verify
+        verifyTaskInNextAttempt(parentTestTaskModel.getTaskId(), parentTestTaskModel.getTaskSettings());
+        assertThat(testBusinessObjectRepository.findAll()).hasSize(1);
     }
 
     @SneakyThrows
@@ -182,7 +206,7 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
      */
     @SneakyThrows
     @Test
-    void shouldExecuteParameterizedTypeAsComplexObjectTreadSafely() {
+    void shouldExecuteParameterizedTypeAsComplexObjectThreadSafely() {
         //when
         TaskDef<MessageDto> taskDef = TaskDef.privateTaskDef("test", new TypeReference<>() {
         });

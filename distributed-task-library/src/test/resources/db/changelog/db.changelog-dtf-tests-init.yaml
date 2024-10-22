@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: dtf-tests-init
+      author: CherkovskiyAndrey
+      context: ddl
+      changes:
+        - createTable:
+            tableName: test_business_object
+            columns:
+              - column:
+                  name: id
+                  type: int8
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: test_business_object_pk
+              - column:
+                  name: data
+                  type: character varying(255)
