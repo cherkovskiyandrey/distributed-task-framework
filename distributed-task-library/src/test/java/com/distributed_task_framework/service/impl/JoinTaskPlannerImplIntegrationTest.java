@@ -9,7 +9,6 @@ import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
-import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import lombok.AccessLevel;
@@ -43,8 +42,6 @@ class JoinTaskPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
     WorkerManager workerManager;
     @Autowired
     PlannerRepository plannerRepository;
-    @Autowired
-    TaskRegistryService taskRegistryService;
     @Autowired
     PlatformTransactionManager transactionManager;
     @Autowired

@@ -133,6 +133,16 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     }
 
     @Override
+    protected void beforeStartLoop() {
+        virtualQueueStatHelper.resetOverloadedNodes();
+    }
+
+    @Override
+    protected void afterStartLoop() {
+        virtualQueueStatHelper.resetOverloadedNodes();
+    }
+
+    @Override
     @SneakyThrows
     int processInLoop() {
         Set<UUID> availableNodes = availableNodesCalculation();
@@ -259,16 +269,27 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     }
 
     private Set<UUID> availableNodesCalculation() {
-        return clusterProvider.currentNodeLoading().stream()
-            .filter(nodeLoading -> {
-                int compareResult = Double.compare(
-                    nodeLoading.getMedianCpuLoading(),
-                    commonSettings.getPlannerSettings().getNodeCpuLoadingLimit()
-                );
-                return compareResult < 0;
-            })
+        var currentNodeLoading = clusterProvider.currentNodeLoading();
+        var allNodes = currentNodeLoading.stream()
             .map(NodeLoading::getNode)
             .collect(Collectors.toSet());
+        Map<Boolean, Set<UUID>> nodesPartitionedByCpuLoading = currentNodeLoading.stream()
+            .collect(Collectors.partitioningBy(
+                    nodeLoading -> {
+                        int compareResult = Double.compare(
+                            nodeLoading.getMedianCpuLoading(),
+                            commonSettings.getPlannerSettings().getNodeCpuLoadingLimit()
+                        );
+                        return compareResult < 0;
+                    },
+                    Collectors.mapping(
+                        NodeLoading::getNode,
+                        Collectors.toSet()
+                    )
+                )
+            );
+        virtualQueueStatHelper.overloadedNodes(allNodes, nodesPartitionedByCpuLoading.get(false));
+        return nodesPartitionedByCpuLoading.get(true);
     }
 
     private Collection<ShortTaskEntity> assignNodeToTasks(Collection<ShortTaskEntity> unplannedActualTasks,

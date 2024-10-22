@@ -28,7 +28,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.ReflectionUtils;
 
-import java.lang.management.ManagementFactory;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -51,10 +50,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class ClusterProviderImpl implements ClusterProvider {
-    public static final double UNDEFINED_METRIC_VALUE = -1.;
-
-    private static final OperatingSystemMXBean OPERATING_SYSTEM_MX_BEAN =
-        (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+    public static final double CPU_LOADING_UNDEFINED = -1.D;
+    public static final double MIN_CPU_LOADING = 0.D;
 
     UUID nodeId;
     CommonSettings commonSettings;
@@ -65,6 +62,7 @@ public class ClusterProviderImpl implements ClusterProvider {
     CacheManager cacheManager;
     NodeStateMapper nodeStateMapper;
     ScheduledExecutorService scheduledExecutorService;
+    OperatingSystemMXBean operatingSystemMXBean;
     @NonFinal
     int currentCpuLoadingMetricsPosition;
     double[] currentCpuLoadingMetrics;
@@ -77,6 +75,7 @@ public class ClusterProviderImpl implements ClusterProvider {
                                NodeStateMapper nodeStateMapper,
                                NodeStateRepository nodeStateRepository,
                                CapabilityRepository capabilityRepository,
+                               OperatingSystemMXBean operatingSystemMXBean,
                                Clock clock) {
         this.nodeId = UUID.randomUUID();
         this.commonSettings = commonSettings;
@@ -86,6 +85,7 @@ public class ClusterProviderImpl implements ClusterProvider {
         this.nodeStateMapper = nodeStateMapper;
         this.nodeStateRepository = nodeStateRepository;
         this.capabilityRepository = capabilityRepository;
+        this.operatingSystemMXBean = operatingSystemMXBean;
         this.currentCpuLoadingMetricsPosition = 0;
         this.currentCpuLoadingMetrics = initCpuLoadingMetricsStore(commonSettings);
         this.clock = clock;
@@ -98,6 +98,7 @@ public class ClusterProviderImpl implements ClusterProvider {
             })
             .build()
         );
+        log.info("ClusterProviderImpl(): nodeId=[{}]", nodeId);
     }
 
     private double[] initCpuLoadingMetricsStore(CommonSettings commonSettings) {
@@ -105,7 +106,7 @@ public class ClusterProviderImpl implements ClusterProvider {
         Integer updateFixedDelayMs = commonSettings.getRegistrySettings().getUpdateFixedDelayMs();
         int metricSize = Math.max((int) (cpuMetricsTimeWindow.toMillis() / updateFixedDelayMs), 1);
         double[] result = new double[metricSize];
-        Arrays.fill(result, UNDEFINED_METRIC_VALUE);
+        Arrays.fill(result, CPU_LOADING_UNDEFINED);
         return result;
     }
 
@@ -149,21 +150,30 @@ public class ClusterProviderImpl implements ClusterProvider {
                     .build()
             );
         nodeStateRepository.save(nodeStateEntity);
+        log.debug("updateOwnState(): nodeId=[{}] => state=[{}]", nodeId, nodeStateEntity);
     }
 
     private void currentCpuLoadingMeasureAndUpdate() {
-        double currentCpuLoading = Math.max(OPERATING_SYSTEM_MX_BEAN.getCpuLoad(), UNDEFINED_METRIC_VALUE);
+        var currentCpuLoading = operatingSystemMXBean.getCpuLoad();
+        if (Double.compare(currentCpuLoading, Double.NaN) == 0 ||
+            Double.compare(currentCpuLoading, 0.D) < 0 ||
+            Double.compare(currentCpuLoading, 1.D) > 1) {
+            currentCpuLoading = CPU_LOADING_UNDEFINED;
+        }
         currentCpuLoadingMetrics[currentCpuLoadingMetricsPosition] = currentCpuLoading;
         currentCpuLoadingMetricsPosition = (currentCpuLoadingMetricsPosition + 1) % currentCpuLoadingMetrics.length;
     }
 
     private Double measureCurrentMedianCpuLoading() {
         double[] copyCpuLoadingMetrics = Arrays.stream(currentCpuLoadingMetrics)
-            .filter(value -> Double.compare(value, UNDEFINED_METRIC_VALUE) != 0)
+            .filter(value -> Double.compare(value, CPU_LOADING_UNDEFINED) != 0)
             .toArray();
+        if (copyCpuLoadingMetrics.length == 0) {
+            return MIN_CPU_LOADING;
+        }
+
         Arrays.sort(copyCpuLoadingMetrics);
-        double value = copyCpuLoadingMetrics[copyCpuLoadingMetrics.length / 2];
-        return Double.compare(value, UNDEFINED_METRIC_VALUE) != 0 ? value : null;
+        return copyCpuLoadingMetrics[copyCpuLoadingMetrics.length / 2];
     }
 
     @VisibleForTesting
@@ -206,11 +216,11 @@ public class ClusterProviderImpl implements ClusterProvider {
      */
     @PreDestroy
     public void shutdown() throws InterruptedException {
-        log.info("shutdown(): shutdown started");
+        log.info("shutdown(): nodeId=[{}] shutdown started", nodeId);
         scheduledExecutorService.shutdownNow();
         scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
         unregisterItself();
-        log.info("shutdown(): shutdown completed");
+        log.info("shutdown(): nodeId=[{}] shutdown completed", nodeId);
     }
 
     private void unregisterItself() {
@@ -227,7 +237,11 @@ public class ClusterProviderImpl implements ClusterProvider {
 
     @Override
     public boolean isNodeRegistered() {
-        return nodeStateRepository.findById(nodeId).isPresent();
+        return nodesWithCapabilities()
+            .keySet()
+            .stream()
+            .map(NodeStateEntity::getNode)
+            .anyMatch(nodeId::equals);
     }
 
     @Override
