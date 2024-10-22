@@ -3,6 +3,9 @@ package com.distributed_task_framework.saga.services;
 
 import java.util.UUID;
 
+/**
+ * Entry point to build saga.
+ */
 public interface SagaProcessor {
 
     /**

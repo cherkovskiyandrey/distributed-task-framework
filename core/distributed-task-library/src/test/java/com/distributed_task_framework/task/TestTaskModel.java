@@ -13,6 +13,7 @@ import lombok.Value;
 @Builder
 public class TestTaskModel<T> {
     TaskDef<T> taskDef;
+    Task<T> mockedTask;
     TaskSettings taskSettings;
     @Nullable
     TaskEntity taskEntity;

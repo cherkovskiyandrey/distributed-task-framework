@@ -241,8 +241,6 @@ public interface TaskCommandService {
      */
     boolean cancelWorkflowByTaskIdImmediately(TaskId taskId) throws Exception;
 
-    //todo: tests
-
     /**
      * The same as {@link this#cancelWorkflowByTaskId(TaskId)} but for batch.
      *
@@ -250,8 +248,6 @@ public interface TaskCommandService {
      * @return
      */
     boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) throws Exception;
-
-    //todo: tests
 
     /**
      * The same as {@link this#cancelAllWorkflowByTaskId(List)} but when invoked from

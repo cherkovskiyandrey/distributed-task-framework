@@ -2,6 +2,7 @@ package com.distributed_task_framework.saga.models;
 
 import com.distributed_task_framework.saga.exceptions.SagaOutBoundException;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -41,7 +42,8 @@ public class SagaEmbeddedPipelineContext {
      */
     public void rewindToRevertFromCurrentPosition() {
         forward = false;
-        for (cursor = cursor + 1; cursor > 0; cursor -= 1) {
+        cursor = Math.min(cursor + 1, sagaEmbeddedActionContexts.size());
+        for (; cursor > 0; cursor -= 1) {
             if (hasValidRevertOperation(cursor - 1)) {
                 return;
             }
@@ -86,6 +88,23 @@ public class SagaEmbeddedPipelineContext {
             }
         }
         checkBorders();
+    }
+
+    /**
+     * Move cursor to the end and point to the last or first element.
+     * Work for both directions.
+     */
+    @VisibleForTesting
+    void moveToEnd() {
+        if (sagaEmbeddedActionContexts.isEmpty()) {
+            return;
+        }
+
+        if (forward) {
+            cursor = sagaEmbeddedActionContexts.size() - 1;
+        } else {
+            cursor = 0;
+        }
     }
 
     /**
@@ -148,7 +167,7 @@ public class SagaEmbeddedPipelineContext {
     private void checkBorders() {
         if (sagaEmbeddedActionContexts.isEmpty() || cursor < 0 || cursor >= sagaEmbeddedActionContexts.size()) {
             throw new SagaOutBoundException(
-                    "checkBorders(): rawCursor=[%d], sagaContexts.size=[%d]".formatted(cursor, sagaEmbeddedActionContexts.size())
+                "checkBorders(): rawCursor=[%d], sagaContexts.size=[%d]".formatted(cursor, sagaEmbeddedActionContexts.size())
             );
         }
     }

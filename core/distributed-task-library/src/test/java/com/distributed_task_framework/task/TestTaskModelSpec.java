@@ -3,11 +3,14 @@ package com.distributed_task_framework.task;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.settings.TaskSettings;
 import jakarta.annotation.Nullable;
 import lombok.Value;
 
+import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Value
@@ -25,6 +28,8 @@ public class TestTaskModelSpec<T> {
     TaskGenerator.Function<FailedExecutionContext<T>, Boolean> failureAction;
     @Nullable
     Function<TaskEntity, TaskEntity> taskEntityCustomizer;
+    @Nullable
+    UUID workflowId;
     boolean saveInstance;
     boolean recurrent;
 
@@ -45,6 +50,7 @@ public class TestTaskModelSpec<T> {
         TaskGenerator.Consumer<ExecutionContext<T>> action;
         TaskGenerator.Function<FailedExecutionContext<T>, Boolean> failureAction;
         Function<TaskEntity, TaskEntity> taskEntityCustomizer;
+        UUID workflowId;
         boolean saveInstance;
         boolean recurrent;
 
@@ -87,6 +93,12 @@ public class TestTaskModelSpec<T> {
             return this;
         }
 
+        public Builder<T> withSameWorkflowAs(TaskId taskId) {
+            Objects.requireNonNull(taskId);
+            this.workflowId = taskId.getWorkflowId();
+            return this;
+        }
+
         public TestTaskModelSpec<T> build() {
             return new TestTaskModelSpec<>(
                 inputType,
@@ -95,6 +107,7 @@ public class TestTaskModelSpec<T> {
                 action,
                 failureAction,
                 taskEntityCustomizer,
+                workflowId,
                 saveInstance,
                 recurrent
             );

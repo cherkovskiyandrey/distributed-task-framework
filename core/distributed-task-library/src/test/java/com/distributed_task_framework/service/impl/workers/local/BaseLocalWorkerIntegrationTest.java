@@ -1,15 +1,14 @@
 package com.distributed_task_framework.service.impl.workers.local;
 
+import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.persistence.repository.TestBusinessObjectRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
@@ -34,7 +33,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -244,20 +242,30 @@ public abstract class BaseLocalWorkerIntegrationTest extends BaseSpringIntegrati
         ;
     }
 
+    //use extendedTaskGenerator instead
+    @Deprecated
     protected TaskEntity saveNewTaskEntity() {
-        return saveBaseNewTaskEntity(0, true);
+        return saveBaseNewTaskEntity(0, UUID.randomUUID(), true);
     }
 
+    //use extendedTaskGenerator instead
+    @Deprecated
     protected TaskEntity saveNewTaskEntity(int failures) {
-        return saveBaseNewTaskEntity(failures, false);
+        return saveBaseNewTaskEntity(failures, UUID.randomUUID(), false);
+    }
+
+    //use extendedTaskGenerator instead
+    @Deprecated
+    protected TaskEntity saveNewChildInSameWorkflow(TaskEntity parentTaskEntity) {
+        return saveBaseNewTaskEntity(0, parentTaskEntity.getWorkflowId(), false);
     }
 
     @SneakyThrows
-    protected TaskEntity saveBaseNewTaskEntity(int failures, boolean isJoin) {
+    private TaskEntity saveBaseNewTaskEntity(int failures, UUID workflowId, boolean isJoin) {
         TaskEntity taskEntity = TaskEntity.builder()
             .taskName("test")
             .id(UUID.randomUUID())
-            .workflowId(UUID.randomUUID())
+            .workflowId(workflowId)
             .virtualQueue(VirtualQueue.NEW)
             .workflowCreatedDateUtc(LocalDateTime.now(clock))
             .createdDateUtc(LocalDateTime.now(clock))

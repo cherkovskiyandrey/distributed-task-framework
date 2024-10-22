@@ -59,8 +59,8 @@ public class SagaTask implements Task<SagaEmbeddedPipelineContext> {
 
         byte[] rootArgument = sagaEmbeddedPipelineContext.getRootSagaContext().getSerializedInput();
         byte[] parentArgument = sagaEmbeddedPipelineContext.getParentSagaContext()
-                .flatMap(sagaContext -> Optional.ofNullable(sagaContext.getSerializedOutput()))
-                .orElse(null);
+            .flatMap(sagaContext -> Optional.ofNullable(sagaContext.getSerializedOutput()))
+            .orElse(null);
         ArgumentProviderBuilder argumentProviderBuilder = new ArgumentProviderBuilder(operationSagaSchemaArguments);
         argumentProviderBuilder.reg(SagaArguments.ROOT_INPUT, rootArgument);
         argumentProviderBuilder.reg(SagaArguments.PARENT_OUTPUT, parentArgument);
@@ -69,24 +69,24 @@ public class SagaTask implements Task<SagaEmbeddedPipelineContext> {
         var argTotal = method.getParameters().length;
         if (argTotal != argumentProvider.size()) {
             throw new SagaInternalException(
-                    "Unexpected number of arguments: expected=%d, but passed=%d".formatted(argumentProvider.size(), argTotal)
+                "Unexpected number of arguments: expected=%d, but passed=%d".formatted(argumentProvider.size(), argTotal)
             );
         }
 
         Object result = switch (argTotal) {
             case 1 -> ReflectionUtils.invokeMethod(
-                    method,
-                    bean,
-                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0])
+                method,
+                bean,
+                sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0])
             );
             case 2 -> ReflectionUtils.invokeMethod(
-                    method,
-                    bean,
-                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
-                    sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1])
+                method,
+                bean,
+                sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
+                sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1])
             );
             default -> throw new SagaInternalException(
-                    "Unexpected number of arguments: expected=%d, but passed=%d".formatted(argumentProvider.size(), argTotal)
+                "Unexpected number of arguments: expected=%d, but passed=%d".formatted(argumentProvider.size(), argTotal)
             );
         };
 
@@ -94,8 +94,8 @@ public class SagaTask implements Task<SagaEmbeddedPipelineContext> {
             Class<?> returnType = method.getReturnType();
             if (!sagaHelper.isVoidType(returnType)) {
                 sagaContextService.setOkResult(
-                        sagaEmbeddedPipelineContext.getSagaId(),
-                        taskSerializer.writeValue(result)
+                    sagaEmbeddedPipelineContext.getSagaId(),
+                    taskSerializer.writeValue(result)
                 );
             } else {
                 sagaContextService.setCompleted(sagaEmbeddedPipelineContext.getSagaId());
@@ -104,15 +104,15 @@ public class SagaTask implements Task<SagaEmbeddedPipelineContext> {
         }
 
         currentSagaEmbeddedActionContext = currentSagaEmbeddedActionContext.toBuilder()
-                .serializedOutput(taskSerializer.writeValue(result))
-                .build();
+            .serializedOutput(taskSerializer.writeValue(result))
+            .build();
         sagaEmbeddedPipelineContext.setCurrentSagaContext(currentSagaEmbeddedActionContext);
 
         sagaEmbeddedPipelineContext.moveToNext();
         var nextSagaContext = sagaEmbeddedPipelineContext.getCurrentSagaContext();
         distributedTaskService.schedule(
-                sagaRegister.resolveByTaskName(nextSagaContext.getSagaMethodTaskName()),
-                executionContext.withNewMessage(sagaEmbeddedPipelineContext)
+            sagaRegister.resolveByTaskName(nextSagaContext.getSagaMethodTaskName()),
+            executionContext.withNewMessage(sagaEmbeddedPipelineContext)
         );
         sagaContextService.track(sagaEmbeddedPipelineContext);
     }
@@ -122,54 +122,54 @@ public class SagaTask implements Task<SagaEmbeddedPipelineContext> {
     public boolean onFailureWithResult(FailedExecutionContext<SagaEmbeddedPipelineContext> failedExecutionContext) {
         Throwable exception = failedExecutionContext.getError();
         boolean isNoRetryException = Arrays.stream(sagaMethodAnnotation.noRetryFor())
-                .map(thrCls -> ExceptionUtils.throwableOfType(exception, thrCls))
-                .anyMatch(Objects::nonNull)
-                || ExceptionUtils.throwableOfType(exception, SagaInternalException.class) != null;
+            .map(thrCls -> ExceptionUtils.throwableOfType(exception, thrCls))
+            .anyMatch(Objects::nonNull)
+            || ExceptionUtils.throwableOfType(exception, SagaInternalException.class) != null;
         boolean isLastAttempt = failedExecutionContext.isLastAttempt() || isNoRetryException;
 
         log.error("onFailureWithResult(): saga operation error failedExecutionContext=[{}], failures=[{}], isLastAttempt=[{}]",
-                failedExecutionContext,
-                failedExecutionContext.getFailures(),
-                isLastAttempt,
-                failedExecutionContext.getError()
+            failedExecutionContext,
+            failedExecutionContext.getFailures(),
+            isLastAttempt,
+            failedExecutionContext.getError()
         );
 
-        if (isLastAttempt) {
-            SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext = failedExecutionContext.getInputMessageOrThrow();
-            SagaEmbeddedActionContext currentSagaEmbeddedActionContext = sagaEmbeddedPipelineContext.getCurrentSagaContext();
+        if (!isLastAttempt) {
+            return false;
+        }
 
-            JavaType exceptionType = TypeFactory.defaultInstance().constructType(exception.getClass());
+        SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext = failedExecutionContext.getInputMessageOrThrow();
+        SagaEmbeddedActionContext currentSagaEmbeddedActionContext = sagaEmbeddedPipelineContext.getCurrentSagaContext();
 
-            //reset stack trace
-            exception.setStackTrace(new StackTraceElement[0]);
-            byte[] serializedException = taskSerializer.writeValue(exception);
+        JavaType exceptionType = TypeFactory.defaultInstance().constructType(exception.getClass());
 
-            sagaContextService.setFailResult(
-                    sagaEmbeddedPipelineContext.getSagaId(),
-                    serializedException,
-                    exceptionType
-            );
+        //reset stack trace
+        exception.setStackTrace(new StackTraceElement[0]);
+        byte[] serializedException = taskSerializer.writeValue(exception);
 
-            currentSagaEmbeddedActionContext = currentSagaEmbeddedActionContext.toBuilder()
-                    .exceptionType(exceptionType.toCanonical())
-                    .serializedException(serializedException)
-                    .build();
-            sagaEmbeddedPipelineContext.setCurrentSagaContext(currentSagaEmbeddedActionContext);
-            sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
+        sagaContextService.setFailResult(
+            sagaEmbeddedPipelineContext.getSagaId(),
+            serializedException,
+            exceptionType
+        );
 
-            if (!sagaEmbeddedPipelineContext.hasNext()) {
-                return true;
-            }
+        currentSagaEmbeddedActionContext = currentSagaEmbeddedActionContext.toBuilder()
+            .exceptionType(exceptionType.toCanonical())
+            .serializedException(serializedException)
+            .build();
+        sagaEmbeddedPipelineContext.setCurrentSagaContext(currentSagaEmbeddedActionContext);
+        sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
+        if (sagaEmbeddedPipelineContext.hasNext()) {
             sagaEmbeddedPipelineContext.moveToNext();
             currentSagaEmbeddedActionContext = sagaEmbeddedPipelineContext.getCurrentSagaContext();
             distributedTaskService.schedule(
-                    sagaRegister.resolveByTaskName(currentSagaEmbeddedActionContext.getSagaRevertMethodTaskName()),
-                    failedExecutionContext.withNewMessage(sagaEmbeddedPipelineContext)
+                sagaRegister.resolveByTaskName(currentSagaEmbeddedActionContext.getSagaRevertMethodTaskName()),
+                failedExecutionContext.withNewMessage(sagaEmbeddedPipelineContext)
             );
             sagaContextService.track(sagaEmbeddedPipelineContext);
         }
 
-        return isLastAttempt;
+        return true;
     }
 }

@@ -199,7 +199,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     private static final String SELECT_ALL_BY_WORKFLOW_ID = """
         SELECT * FROM _____dtf_tasks
         WHERE
-            workflow_id IN ((:workflowId)::uuid[])
+            workflow_id = any((:workflowId)::uuid[])
             AND deleted_at IS NULL
         """;
 

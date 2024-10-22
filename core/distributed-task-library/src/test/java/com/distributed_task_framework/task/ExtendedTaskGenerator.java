@@ -18,6 +18,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.testcontainers.shaded.org.apache.commons.lang3.RandomStringUtils;
 
@@ -86,7 +87,14 @@ public class ExtendedTaskGenerator {
         Task<T> mockedTask = createMockedTask(taskDef, testTaskModelSpec);
         RegisteredTask<T> registeredTask = registryMockedTask(taskDef, taskSettings, mockedTask);
 
-        return TestTaskModel.<T>builder().taskDef(taskDef).taskSettings(taskSettings).taskEntity(taskEntity).taskId(taskId).registeredTask(registeredTask).build();
+        return TestTaskModel.<T>builder()
+            .taskDef(taskDef)
+            .mockedTask(mockedTask)
+            .taskSettings(taskSettings)
+            .taskEntity(taskEntity)
+            .taskId(taskId)
+            .registeredTask(registeredTask)
+            .build();
     }
 
     @Nullable
@@ -94,14 +102,21 @@ public class ExtendedTaskGenerator {
         return taskEntity != null ? taskMapper.map(taskEntity, commonSettings.getAppName()) : null;
     }
 
-    private <T> RegisteredTask<T> registryMockedTask(TaskDef<T> taskDef, TaskSettings taskSettings, Task<T> mockedTask) {
+    private <T> RegisteredTask<T> registryMockedTask(TaskDef<T> taskDef,
+                                                     TaskSettings taskSettings,
+                                                     Task<T> mockedTask) {
         RegisteredTask<T> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
         when(taskRegistryService.<T>getRegisteredLocalTask(eq(taskDef.getTaskName()))).thenReturn(Optional.of(registeredTask));
         return registeredTask;
     }
 
     private <T> Task<T> createMockedTask(TaskDef<T> taskDef, TestTaskModelSpec<T> testTaskModelSpec) {
-        return TaskGenerator.defineTask(taskDef, createAction(testTaskModelSpec), createFailedAction(testTaskModelSpec));
+        return Mockito.spy(TaskGenerator.defineTask(
+                taskDef,
+                createAction(testTaskModelSpec),
+                createFailedAction(testTaskModelSpec)
+            )
+        );
     }
 
     private <T> TaskGenerator.Consumer<ExecutionContext<T>> createAction(TestTaskModelSpec<T> testTaskModelSpec) {
@@ -114,13 +129,19 @@ public class ExtendedTaskGenerator {
     }
 
     private <T> TaskDef<T> createTaskDef(TestTaskModelSpec<T> baseTaskDef) {
-        return baseTaskDef.getTaskDef() != null ? baseTaskDef.getTaskDef() : TaskDef.privateTaskDef("test-" + RandomStringUtils.random(10), baseTaskDef.getInputType());
+        return baseTaskDef.getTaskDef() != null ?
+            baseTaskDef.getTaskDef() :
+            TaskDef.privateTaskDef("test-" + RandomStringUtils.random(10), baseTaskDef.getInputType());
     }
 
     private <T> TaskSettings createTaskSettings(TestTaskModelSpec<T> testTaskModelSpec) {
-        TaskSettings taskSettings = testTaskModelSpec.isRecurrent() ? defaultTaskSettings.toBuilder().cron("*/50 * * * * *").build() : defaultTaskSettings.toBuilder().build();
+        TaskSettings taskSettings = testTaskModelSpec.isRecurrent() ?
+            defaultTaskSettings.toBuilder().cron("*/50 * * * * *").build() :
+            defaultTaskSettings.toBuilder().build();
 
-        return testTaskModelSpec.getTaskSettingsCustomizer() != null ? testTaskModelSpec.getTaskSettingsCustomizer().apply(taskSettings) : taskSettings;
+        return testTaskModelSpec.getTaskSettingsCustomizer() != null ?
+            testTaskModelSpec.getTaskSettingsCustomizer().apply(taskSettings) :
+            taskSettings;
     }
 
     @SneakyThrows
@@ -133,7 +154,7 @@ public class ExtendedTaskGenerator {
         TaskEntity taskEntity = TaskEntity.builder()
             .taskName(taskDef.getTaskName())
             .id(UUID.randomUUID())
-            .workflowId(UUID.randomUUID())
+            .workflowId(testTaskModelSpec.getWorkflowId() != null ? testTaskModelSpec.getWorkflowId() : UUID.randomUUID())
             .virtualQueue(VirtualQueue.NEW)
             .workflowCreatedDateUtc(LocalDateTime.now(clock))
             .createdDateUtc(LocalDateTime.now(clock))

@@ -15,8 +15,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Collection;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 class CommandHelperTest {
 
     @Test
@@ -29,24 +27,24 @@ class CommandHelperTest {
 
         //do
         var batchCommands = CommandHelper.collapseToBatchedCommands(List.of(
-                        simpleAction1,
-                        simpleAction2,
-                        batchableAction1,
-                        batchableAction2
-                )
+                simpleAction1,
+                simpleAction2,
+                batchableAction1,
+                batchableAction2
+            )
         );
 
         //then
         Assertions.assertThat(batchCommands)
-                .hasSize(3)
-                .containsExactlyInAnyOrder(
-                        simpleAction1,
-                        simpleAction2,
-                        BatchAction.builder()
-                                .batchableAction(batchableAction1)
-                                .batchableAction(batchableAction2)
-                                .build()
-                );
+            .hasSize(3)
+            .containsExactlyInAnyOrder(
+                simpleAction1,
+                simpleAction2,
+                BatchAction.builder()
+                    .batchableAction(batchableAction1)
+                    .batchableAction(batchableAction2)
+                    .build()
+            );
     }
 
     @EqualsAndHashCode
@@ -87,9 +85,9 @@ class CommandHelperTest {
                 return BatchAction.builder().batchableAction(this).build();
             }
             return BatchAction.builder()
-                    .batchableActions(batch.getBatchableActions())
-                    .batchableAction(this)
-                    .build();
+                .batchableActions(batch.getBatchableActions())
+                .batchableAction(this)
+                .build();
         }
     }
 }
