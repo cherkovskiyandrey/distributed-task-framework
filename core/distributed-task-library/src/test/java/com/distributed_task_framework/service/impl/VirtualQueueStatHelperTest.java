@@ -22,6 +22,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.annotation.DirtiesContext;
 
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.deferred;
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.of;
@@ -31,12 +33,20 @@ import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpe
 import static com.distributed_task_framework.TaskPopulateAndVerify.getAffinityGroup;
 import static com.distributed_task_framework.TaskPopulateAndVerify.getNode;
 import static com.distributed_task_framework.TaskPopulateAndVerify.getTaskName;
+import static com.distributed_task_framework.service.impl.VirtualQueueStatHelper.NodeLoading.NORMAL;
+import static com.distributed_task_framework.service.impl.VirtualQueueStatHelper.NodeLoading.OVERLOADED;
 import static org.mockito.Mockito.when;
 
 @Slf4j
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 class VirtualQueueStatHelperTest extends BaseMetricTest {
+    private final UUID node1 = UUID.randomUUID();
+    private final UUID node2 = UUID.randomUUID();
+    private final UUID node3 = UUID.randomUUID();
+    private final UUID node4 = UUID.randomUUID();
+    private final UUID node5 = UUID.randomUUID();
+
     @MockBean(name = "virtualQueueManagerPlanner")
     PlannerService plannerService;
     @Autowired
@@ -142,6 +152,80 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
 
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), getAffinityGroup(0), getTaskName(2), s(getNode(0)), 3),
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), s(getNode(1)), 3)
+        );
+    }
+
+    @Test
+    void shouldReportZeroWhenOverloadedNodesIsEmpty() {
+        //do
+        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of());
+
+        //verify
+        assertMetricToContain(
+            "planner.nodes.overloaded",
+            METER_BY_GROUP_AND_NODE_NAME,
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node1), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node2), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node3), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node4), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node5), NORMAL.getValue())
+        );
+    }
+
+    @Test
+    void shouldReportOverloadedNodesWhenOverloadedNodesIsNotEmpty() {
+        //do
+        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
+
+        //verify
+        assertMetricToContain(
+            "planner.nodes.overloaded",
+            METER_BY_GROUP_AND_NODE_NAME,
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node1), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node2), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node3), OVERLOADED.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node4), OVERLOADED.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node5), NORMAL.getValue())
+        );
+    }
+
+    @Test
+    void shouldReportZeroWhenOverloadedNodesReturnToEmpty() {
+        //do
+        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
+        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of());
+
+        //verify
+        assertMetricToContain(
+            "planner.nodes.overloaded",
+            METER_BY_GROUP_AND_NODE_NAME,
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node1), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node2), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node3), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node4), NORMAL.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node5), NORMAL.getValue())
+        );
+    }
+
+    @Test
+    void shouldRemoveObsoleteNodesFromMetrics() {
+        //do
+        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
+        virtualQueueStatHelper.overloadedNodes(Set.of(node4, node5), Set.of(node4));
+
+        //verify
+        assertMetricToContain(
+            "planner.nodes.overloaded",
+            METER_BY_GROUP_AND_NODE_NAME,
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node4), OVERLOADED.getValue()),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node5), NORMAL.getValue())
+        );
+        assertMetricNotExists(
+            "planner.nodes.overloaded",
+            METER_DEFINITION_BY_GROUP_AND_NODE_NAME,
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node1)),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node2)),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node3))
         );
     }
 

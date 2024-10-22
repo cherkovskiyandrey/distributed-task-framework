@@ -23,6 +23,7 @@ import com.distributed_task_framework.persistence.repository.TaskMessageReposito
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.persistence.entity.TaskLinkEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import com.distributed_task_framework.persistence.repository.TestBusinessObjectRepository;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.task.Task;
@@ -31,6 +32,7 @@ import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.distributed_task_framework.task.ExtendedTaskGenerator;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
 import com.google.common.collect.Lists;
@@ -119,6 +121,10 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
     @Autowired
     @Qualifier("commonRegistryCacheManager")
     CacheManager commonRegistryCacheManager;
+    @Autowired
+    ExtendedTaskGenerator extendedTaskGenerator;
+    @Autowired
+    TestBusinessObjectRepository testBusinessObjectRepository;
 
     @BeforeEach
     public void init() {
@@ -135,8 +141,9 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
         taskMessageRepository.deleteAll();
         partitionRepository.deleteAll();
         capabilityRepository.deleteAll();
+        testBusinessObjectRepository.deleteAll();
         commonRegistryCacheManager.getCacheNames()
-                .forEach(cacheName -> Objects.requireNonNull(commonRegistryCacheManager.getCache(cacheName)).clear());
+            .forEach(cacheName -> Objects.requireNonNull(commonRegistryCacheManager.getCache(cacheName)).clear());
     }
 
     protected void setFixedTime() {
@@ -149,37 +156,37 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
 
     protected void waitFor(Callable<Boolean> conditionEvaluator) {
         await().atMost(Duration.ofSeconds(60))
-                .pollInterval(Duration.ofSeconds(1))
-                .until(conditionEvaluator);
+            .pollInterval(Duration.ofMillis(500))
+            .until(conditionEvaluator);
     }
 
     protected static <T> T waitAndGet(final Callable<T> supplier, final Predicate<? super T> predicate) {
         return await().atMost(Duration.ofSeconds(60))
-                .pollInterval(Duration.ofSeconds(1))
-                .until(
-                        supplier,
-                        predicate
-                );
+            .pollInterval(Duration.ofMillis(500))
+            .until(
+                supplier,
+                predicate
+            );
     }
 
     protected void waitForNodeIsRegistered(TaskDef<?>... taskDefs) {
         var arguments = Arrays.stream(taskDefs)
-                .map(taskDef -> Pair.<TaskDef<?>, TaskSettings>of(taskDef, defaultTaskSettings))
-                .collect(Collectors.toList());
+            .map(taskDef -> Pair.<TaskDef<?>, TaskSettings>of(taskDef, defaultTaskSettings))
+            .collect(Collectors.toList());
         waitForNodeIsRegistered(arguments);
     }
 
     protected void waitForNodeIsRegistered(List<Pair<TaskDef<?>, TaskSettings>> tasksWithProperties) {
         await().atMost(Duration.ofSeconds(60))
-                .pollInterval(Duration.ofSeconds(1))
-                .until(() -> nodeStateRepository.findById(clusterProvider.nodeId()).isPresent());
+            .pollInterval(Duration.ofMillis(500))
+            .until(() -> nodeStateRepository.findById(clusterProvider.nodeId()).isPresent());
         for (Pair<TaskDef<?>, TaskSettings> taskWithProperties : tasksWithProperties) {
             Task<?> task = TaskGenerator.defineTask(taskWithProperties.getFirst(), m -> System.out.println("hello world!"));
             taskRegistryService.registerTask(task, taskWithProperties.getSecond());
             waitFor(() -> registeredTaskRepository.findByNodeStateId(clusterProvider.nodeId()).stream()
-                    .anyMatch(registeredTaskEntity -> registeredTaskEntity.getTaskName().equals(
-                            taskWithProperties.getFirst().getTaskName())
-                    )
+                .anyMatch(registeredTaskEntity -> registeredTaskEntity.getTaskName().equals(
+                    taskWithProperties.getFirst().getTaskName())
+                )
             );
         }
     }
@@ -188,46 +195,46 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
         for (TaskDef<?> taskDef : taskDefs) {
             taskRegistryService.unregisterLocalTask(taskDef.getTaskName());
             waitFor(() -> registeredTaskRepository.findByNodeStateId(clusterProvider.nodeId()).stream()
-                    .noneMatch(registeredTaskEntity -> registeredTaskEntity.getTaskName().equals(taskDef.getTaskName())));
+                .noneMatch(registeredTaskEntity -> registeredTaskEntity.getTaskName().equals(taskDef.getTaskName())));
         }
     }
 
     protected TaskLinkEntity toJoinTaskLink(TaskId joinTask, TaskId taskId) {
         return TaskLinkEntity.builder()
-                .joinTaskName(joinTask.getTaskName())
-                .joinTaskId(joinTask.getId())
-                .taskToJoinId(taskId.getId())
-                .build();
+            .joinTaskName(joinTask.getTaskName())
+            .joinTaskId(joinTask.getId())
+            .taskToJoinId(taskId.getId())
+            .build();
     }
 
     protected void mockNodeCpuLoading(double cpuLoading) {
         assertThat(cpuLoading).isGreaterThan(0.).isLessThan(1.);
         Mockito.doAnswer(invocation -> {
-                    List<NodeLoading> realResult = (List<NodeLoading>) invocation.callRealMethod();
-                    return realResult.stream()
-                            .map(nodeLoading -> nodeLoading.toBuilder().medianCpuLoading(cpuLoading).build())
-                            .toList();
-                })
-                .when(clusterProvider).currentNodeLoading();
+                List<NodeLoading> realResult = (List<NodeLoading>) invocation.callRealMethod();
+                return realResult.stream()
+                    .map(nodeLoading -> nodeLoading.toBuilder().medianCpuLoading(cpuLoading).build())
+                    .toList();
+            })
+            .when(clusterProvider).currentNodeLoading();
     }
 
     protected TaskId createTaskId(String taskName) {
         return TaskId.builder()
-                .appName("test-app")
-                .id(UUID.randomUUID())
-                .taskName(taskName)
-                .build();
+            .appName("test-app")
+            .id(UUID.randomUUID())
+            .taskName(taskName)
+            .build();
     }
 
     protected TaskId createAndRegisterJoinTask(String taskName) {
         TaskEntity taskEntity = TaskEntity.builder()
-                .taskName(taskName)
-                .workflowId(UUID.randomUUID())
-                .virtualQueue(VirtualQueue.NEW)
-                .workflowCreatedDateUtc(LocalDateTime.now(clock))
-                .executionDateUtc(LocalDateTime.now(clock))
-                .notToPlan(true)
-                .build();
+            .taskName(taskName)
+            .workflowId(UUID.randomUUID())
+            .virtualQueue(VirtualQueue.NEW)
+            .workflowCreatedDateUtc(LocalDateTime.now(clock))
+            .executionDateUtc(LocalDateTime.now(clock))
+            .notToPlan(true)
+            .build();
         taskEntity = taskRepository.saveOrUpdate(taskEntity);
         return taskMapper.map(taskEntity, "test-app");
     }
@@ -239,47 +246,47 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
     @SneakyThrows
     protected TaskMessageEntity toMessage(TaskId from, TaskId to, String message) {
         return TaskMessageEntity.builder()
-                .taskToJoinId(from.getId())
-                .joinTaskId(to.getId())
-                .message(taskSerializer.writeValue(message))
-                .build();
+            .taskToJoinId(from.getId())
+            .joinTaskId(to.getId())
+            .message(taskSerializer.writeValue(message))
+            .build();
     }
 
     protected TaskSettings newRecurrentTaskSettings() {
         return defaultTaskSettings.toBuilder()
-                .cron("*/50 * * * * *")
-                .build();
+            .cron("*/50 * * * * *")
+            .build();
     }
 
     protected Collection<TaskEntity> filterAssigned(Collection<TaskEntity> shortTaskEntities) {
         return shortTaskEntities.stream()
-                .filter(shortTaskEntity -> shortTaskEntity.getAssignedWorker() != null)
-                .collect(Collectors.toList());
+            .filter(shortTaskEntity -> shortTaskEntity.getAssignedWorker() != null)
+            .collect(Collectors.toList());
     }
 
     protected void verifyRegisteredPartitionFromTask(Collection<TaskEntity> taskEntities) {
         var expectedPartitions = taskEntities.stream()
-                .map(taskMapper::mapToPartition)
-                .toList();
+            .map(taskMapper::mapToPartition)
+            .toList();
         var actualPartitions = Lists.newArrayList(partitionRepository.findAll()).stream()
-                .map(partitionMapper::fromEntity)
-                .toList();
+            .map(partitionMapper::fromEntity)
+            .toList();
         assertThat(actualPartitions).containsExactlyInAnyOrderElementsOf(expectedPartitions);
     }
 
     protected void verifyRegisteredPartition(Collection<Partition> expectedPartitions) {
         var actualPartitions = Lists.newArrayList(partitionRepository.findAll()).stream()
-                .map(partitionMapper::fromEntity)
-                .collect(Collectors.toSet());
+            .map(partitionMapper::fromEntity)
+            .collect(Collectors.toSet());
         assertThat(actualPartitions).containsExactlyInAnyOrderElementsOf(expectedPartitions);
     }
 
     protected PartitionEntity createPartition(String affinityGroup, String taskName, long timeBucket) {
         return PartitionEntity.builder()
-                .affinityGroup(affinityGroup)
-                .taskName(taskName)
-                .timeBucket(timeBucket)
-                .build();
+            .affinityGroup(affinityGroup)
+            .taskName(taskName)
+            .timeBucket(timeBucket)
+            .build();
     }
 
     protected TaskId toTaskId(TaskEntity taskEntity) {
@@ -296,6 +303,11 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
         @Bean
         public TaskPopulateAndVerify taskPopulate() {
             return new TaskPopulateAndVerify();
+        }
+
+        @Bean
+        public ExtendedTaskGenerator extendedTaskGenerator(TaskRegistryService taskRegistryService) {
+            return new ExtendedTaskGenerator(taskRegistryService);
         }
     }
 }

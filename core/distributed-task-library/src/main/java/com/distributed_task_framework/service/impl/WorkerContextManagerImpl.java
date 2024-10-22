@@ -27,6 +27,23 @@ public class WorkerContextManagerImpl implements WorkerContextManager {
     }
 
     @Override
+    public void resetCurrentContext() {
+        var currentContext = currentExecutionContext.get();
+        if (currentContext == null) {
+            return;
+        }
+        currentExecutionContext.set(
+            WorkerContext.builder()
+                .workflowId(currentContext.getWorkflowId())
+                .workflowName(currentContext.getWorkflowName())
+                .currentTaskId(currentContext.getCurrentTaskId())
+                .taskSettings(currentContext.getTaskSettings())
+                .taskEntity(currentContext.getTaskEntity())
+                .build()
+        );
+    }
+
+    @Override
     public void cleanCurrentContext() {
         currentExecutionContext.remove();
     }

@@ -8,6 +8,7 @@ import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
 import lombok.AccessLevel;
+import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.when;
 public abstract class AbstractNestedLocalRescheduleByTaskDefTest extends BaseLocalWorkerIntegrationTest {
 
     @SuppressWarnings("unchecked")
+    @SneakyThrows
     @Test
     void shouldRescheduleByTaskDef() {
         //when
@@ -126,6 +128,7 @@ public abstract class AbstractNestedLocalRescheduleByTaskDefTest extends BaseLoc
     }
 
     @SuppressWarnings("unchecked")
+    @SneakyThrows
     @Test
     void shouldRescheduleByTaskDefWhenParallelExecutionOfOtherTask() {
         //when

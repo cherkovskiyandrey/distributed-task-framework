@@ -70,6 +70,7 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
 
     @PostConstruct
     public void init() {
+        log.info("init(): nodeId=[{}]", clusterProvider.nodeId());
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::publishOrUpdateTasksInCluster),
             commonSettings.getRegistrySettings().getUpdateInitialDelayMs(),
@@ -83,11 +84,11 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
      */
     @PreDestroy
     public void shutdown() throws InterruptedException {
-        log.info("shutdown(): shutdown started");
+        log.info("shutdown(): nodeId=[{}] shutdown started", clusterProvider.nodeId());
         scheduledExecutorService.shutdownNow();
         scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
         unregisterItself();
-        log.info("shutdown(): shutdown completed");
+        log.info("shutdown(): nodeId=[{}] shutdown completed", clusterProvider.nodeId());
     }
 
     @Override

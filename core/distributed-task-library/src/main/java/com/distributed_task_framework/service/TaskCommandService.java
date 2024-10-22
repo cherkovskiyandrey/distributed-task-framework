@@ -112,7 +112,7 @@ public interface TaskCommandService {
     <T> TaskId scheduleJoin(TaskDef<T> taskDef, ExecutionContext<T> executionContext, List<TaskId> joinList) throws Exception;
 
     /**
-     * Get list of current tasks belongs messages destined for all join tasks on branch below.
+     * Get list of current tasks which messages belong to destined for all join tasks on branch below.
      * Throw execution when this task doesn't link to join task defined by input parameter.
      *
      * @param taskDef

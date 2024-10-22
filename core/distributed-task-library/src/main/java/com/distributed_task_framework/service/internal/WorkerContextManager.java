@@ -10,5 +10,7 @@ public interface WorkerContextManager {
 
     void setCurrentContext(WorkerContext currentContext);
 
+    void resetCurrentContext();
+
     void cleanCurrentContext();
 }

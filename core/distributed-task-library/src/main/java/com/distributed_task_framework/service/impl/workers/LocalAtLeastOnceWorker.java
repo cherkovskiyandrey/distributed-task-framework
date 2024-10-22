@@ -130,7 +130,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                         taskEntity
                 );
                 List<T> inputJoinTaskMessages = readJoinTaskMessagesSilent(taskEntity, task.getDef().getInputMessageType());
-                cleanContext();
+                workerContextManager.resetCurrentContext();
 
                 var failedExecutionContext = FailedExecutionContext.<T>builder()
                         .workflowId(taskEntity.getWorkflowId())
@@ -153,6 +153,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
 
                 hasToInterruptRetrying = task.onFailureWithResult(failedExecutionContext);
             } catch (Exception innerException) {
+                workerContextManager.resetCurrentContext();
                 getEngineErrorCounter(taskEntity).increment();
                 log.error("execute(): error during execution of Task#onFailed handler for task=[{}]", taskId, innerException);
             }
@@ -221,9 +222,8 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     private void finalizeFailedTaskSilently(TaskEntity taskEntity, TaskSettings taskSettings) {
         try {
             new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-
                 WorkerContext currentContext = workerContextManager.getCurrentContext()
-                        .orElseThrow(() -> new IllegalStateException("Context hasn't been set"));
+                    .orElseThrow(() -> new IllegalStateException("Context hasn't been set"));
 
                 handlePostponedCommands(currentContext);
                 handleLinks(currentContext);
@@ -232,8 +232,11 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                     DltEntity dltEntity = taskMapper.mapToDlt(taskEntity);
                     dltRepository.save(dltEntity);
                 }
-                internalTaskCommandService.finalize(taskEntity);
-                getFinalCompletedTaskWithErrorCounter(taskEntity).increment();
+
+                if (!currentContext.isProcessedByLocalCommand()) {
+                    internalTaskCommandService.finalize(taskEntity);
+                    getFinalCompletedTaskWithErrorCounter(taskEntity).increment();
+                }
             });
         } catch (Exception internalException) {
             logTaskUpdateException(taskEntity, internalException);
@@ -382,7 +385,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             handlePostponedCommands(currentContext);
             handleLinks(currentContext);
             if (!currentContext.isProcessedByLocalCommand()) {
-                finalizeTask(taskId, taskEntity, taskSettings);
+                finalizeSucceededTask(taskId, taskEntity, taskSettings);
                 getFinalCompletedTaskCounter(taskEntity).increment();
             }
         });
@@ -454,7 +457,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         }
     }
 
-    private void finalizeTask(TaskId taskId, TaskEntity taskEntity, TaskSettings taskSettings) {
+    private void finalizeSucceededTask(TaskId taskId, TaskEntity taskEntity, TaskSettings taskSettings) {
         if (taskSettings.hasCron()) {
             if (taskEntity.isCanceled()) {
                 log.warn("runInternal(): recurrent task=[%s] has been canceled".formatted(taskId));

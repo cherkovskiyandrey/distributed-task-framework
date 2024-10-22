@@ -102,15 +102,12 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
 
     @Override
     public TaskEntity saveOrUpdate(TaskEntity taskEntity) {
-        long begin = System.currentTimeMillis();
         taskEntity = prepareToSave(taskEntity);
         var parameterSource = toSqlParameterSource(taskEntity);
         int rowAffected = namedParameterJdbcTemplate.update(SAVE_OR_UPDATE_TEMPLATE, parameterSource);
         if (rowAffected == 0) {
             throw new OptimisticLockException(format("Can't update=[%s]", taskEntity), TaskEntity.class);
         }
-        var duration = Duration.ofMillis(System.currentTimeMillis() - begin);
-        log.info("saveOrUpdate duration: " + duration);
         return taskEntity;
     }
 

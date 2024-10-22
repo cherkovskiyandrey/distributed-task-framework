@@ -15,9 +15,11 @@ import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
@@ -25,11 +27,14 @@ import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.ReflectionUtils;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -44,6 +49,15 @@ import java.util.stream.Collectors;
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class VirtualQueueStatHelper {
+    @Getter
+    @RequiredArgsConstructor
+    public enum NodeLoading {
+        NORMAL(0),
+        OVERLOADED(1);
+
+        private final int value;
+    }
+
     CommonSettings commonSettings;
     TaskRegistryService taskRegistryService;
     TaskRepository taskRepository;
@@ -51,11 +65,14 @@ public class VirtualQueueStatHelper {
     MetricHelper metricHelper;
     MeterRegistry meterRegistry;
     AtomicReference<ImmutableList<AggregatedTaskStat>> aggregatedStatRef;
+    Map<UUID, Meter.Id> overloadedNodeToMeter;
+    AtomicReference<Set<UUID>> overloadedNodesRef;
     ScheduledExecutorService watchdogExecutorService;
     String allTasksGaugeName;
     String notToPlanGaugeName;
     String movedCounterName;
     String plannedCounterName;
+    String overloadedNodesGaugeName;
     List<Tag> commonManagerTags;
     List<Tag> commonPlannerTags;
     Timer aggregatedStatCalculationTimer;
@@ -76,11 +93,14 @@ public class VirtualQueueStatHelper {
         this.metricHelper = metricHelper;
         this.meterRegistry = meterRegistry;
         this.aggregatedStatRef = new AtomicReference<>(ImmutableList.of());
+        this.overloadedNodeToMeter = new HashMap<>();
+        this.overloadedNodesRef = new AtomicReference<>(Set.of());
         this.aggregatedStatCalculationTimer = metricHelper.timer("aggregatedStatCalculation", "time");
         this.allTasksGaugeName = metricHelper.buildName("planner", "task", "all");
         this.notToPlanGaugeName = metricHelper.buildName("planner", "task", "notToPlan");
         this.movedCounterName = metricHelper.buildName("planner", "task", "moved");
         this.plannedCounterName = metricHelper.buildName("planner", "task", "planned");
+        this.overloadedNodesGaugeName = metricHelper.buildName("planner", "nodes", "overloaded");
         this.commonManagerTags = List.of(Tag.of("group", PlannerGroups.VQB_MANAGER.getName()));
         this.commonPlannerTags = List.of(Tag.of("group", PlannerGroups.DEFAULT.getName()));
         this.watchdogExecutorService = Executors.newSingleThreadScheduledExecutor(
@@ -288,5 +308,37 @@ public class VirtualQueueStatHelper {
                 .register(meterRegistry)
                 .increment(entry.getValue());
         }
+    }
+
+    public void overloadedNodes(Set<UUID> allNodes, Set<UUID> overloadedNodes) {
+        overloadedNodesRef.set(overloadedNodes);
+
+        var unknownNodesWithMeter = Sets.newHashSet(Sets.difference(overloadedNodeToMeter.keySet(), allNodes));
+        deleteMeters(unknownNodesWithMeter);
+
+        allNodes.forEach(node -> overloadedNodeToMeter.computeIfAbsent(node, k -> Gauge.builder(
+                    overloadedNodesGaugeName,
+                    () -> overloadedNodesRef.get().contains(node) ? NodeLoading.OVERLOADED.getValue() : NodeLoading.NORMAL.getValue()
+                )
+                .tags(ImmutableList.<Tag>builder()
+                    .addAll(commonPlannerTags)
+                    .add(Tag.of("nodeId", node.toString()))
+                    .build()
+                )
+                .register(meterRegistry)
+                .getId()
+        ));
+    }
+
+    public void resetOverloadedNodes() {
+        deleteMeters(overloadedNodeToMeter.keySet());
+    }
+
+    private void deleteMeters(Set<UUID> nodes) {
+        overloadedNodeToMeter.entrySet().stream()
+            .filter(uuidIdEntry -> nodes.contains(uuidIdEntry.getKey()))
+            .map(Map.Entry::getValue)
+            .forEach(meterRegistry::remove);
+        nodes.forEach(overloadedNodeToMeter::remove);
     }
 }

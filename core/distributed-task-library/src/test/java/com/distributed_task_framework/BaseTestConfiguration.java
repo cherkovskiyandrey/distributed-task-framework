@@ -70,6 +70,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -109,6 +110,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
+import static com.distributed_task_framework.service.impl.ClusterProviderImpl.CPU_LOADING_UNDEFINED;
+import static org.mockito.Mockito.doReturn;
 
 @TestConfiguration
 @EnableJdbcAuditing
@@ -259,6 +262,7 @@ public class BaseTestConfiguration {
             .registrySettings(CommonSettings.DEFAULT.getRegistrySettings().toBuilder()
                 .updateInitialDelayMs(1000)
                 .updateFixedDelayMs(1000)
+                .cpuCalculatingTimeWindow(Duration.ofSeconds(15))
                 .maxInactivityIntervalMs(5000)
                 .cacheExpirationMs(0)
                 .build()
@@ -317,6 +321,14 @@ public class BaseTestConfiguration {
     }
 
     @Bean
+    public OperatingSystemMXBean operatingSystemMXBean() {
+        var operatingSystemMXBean = Mockito.mock(OperatingSystemMXBean.class);
+        //in order to be independent of real environment during tests
+        doReturn(CPU_LOADING_UNDEFINED).when(operatingSystemMXBean).getCpuLoad();
+        return operatingSystemMXBean;
+    }
+
+    @Bean
     public ClusterProvider clusterProvider(CommonSettings commonSettings,
                                            @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
                                            PlatformTransactionManager transactionManager,
@@ -324,6 +336,7 @@ public class BaseTestConfiguration {
                                            CacheManager cacheManager,
                                            NodeStateRepository nodeStateRepository,
                                            CapabilityRepository capabilityRepository,
+                                           OperatingSystemMXBean operatingSystemMXBean,
                                            Clock clock) {
         return new ClusterProviderImpl(
             commonSettings,
@@ -333,6 +346,7 @@ public class BaseTestConfiguration {
             nodeStateMapper,
             nodeStateRepository,
             capabilityRepository,
+            operatingSystemMXBean,
             clock
         );
     }
