@@ -28,11 +28,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -292,5 +295,24 @@ public abstract class BaseLocalWorkerIntegrationTest extends BaseSpringIntegrati
             .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "execution time")
             .matches(te -> foreignWorkerId.equals(te.getAssignedWorker()), "foreign assigned worker")
         ;
+    }
+
+    protected List<TestTaskModel<String>> generateIndependentTasksInTheSameWorkflow(int number) {
+        var firstTaskModel = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        if (number == 1) {
+            return List.of(firstTaskModel);
+        }
+        var others = IntStream.range(0, number - 1)
+            .mapToObj(i -> extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+                .withSaveInstance()
+                .withSameWorkflowAs(firstTaskModel.getTaskId())
+                .build()
+            ))
+            .toList();
+
+        return ImmutableList.<TestTaskModel<String>>builder()
+            .add(firstTaskModel)
+            .addAll(others)
+            .build();
     }
 }

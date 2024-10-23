@@ -268,7 +268,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     public boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) throws Exception {
         return groupToRouteAndCall(
             taskIds,
-            (taskCommandService, groupedTaskIds) -> cancelAllWorkflowByTaskId(groupedTaskIds)
+            TaskCommandService::cancelAllWorkflowByTaskId
         );
     }
 
@@ -276,7 +276,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     public boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
         return groupToRouteAndCall(
             taskIds,
-            (taskCommandService, groupedTaskIds) -> cancelAllWorkflowByTaskIdImmediately(groupedTaskIds)
+            TaskCommandService::cancelAllWorkflowByTaskIdImmediately
         );
     }
 

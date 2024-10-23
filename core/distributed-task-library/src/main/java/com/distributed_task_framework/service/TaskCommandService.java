@@ -220,8 +220,6 @@ public interface TaskCommandService {
      */
     <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) throws Exception;
 
-    //todo: tests
-
     /**
      * Cancel all current tasks related to workflow.
      * When invoked from task itself real scheduling will be postponed until task is in progress.
@@ -258,6 +256,8 @@ public interface TaskCommandService {
      * @return
      */
     boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception;
+
+    //todo: tests
 
     /**
      * Wait until task referenced by taskId is completed.

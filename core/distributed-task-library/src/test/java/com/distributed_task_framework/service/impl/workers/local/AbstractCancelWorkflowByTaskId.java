@@ -1,7 +1,6 @@
 package com.distributed_task_framework.service.impl.workers.local;
 
 import com.distributed_task_framework.model.FailedExecutionContext;
-import com.distributed_task_framework.task.TestTaskModel;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
@@ -9,42 +8,20 @@ import lombok.experimental.FieldDefaults;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
+import java.time.Duration;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.IntStream;
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 
 
-//todo: adapt!!!
 @Disabled
 @FieldDefaults(level = AccessLevel.PROTECTED)
 public abstract class AbstractCancelWorkflowByTaskId extends BaseLocalWorkerIntegrationTest {
-
-    //todo: think about moving to BaseLocalWorkerIntegrationTest or other places
-    private List<TestTaskModel<String>> generateIndependentTasksInTheSameWorkflow(int number) {
-        var firstTaskModel = extendedTaskGenerator.generateDefaultAndSave(String.class);
-        if (number == 1) {
-            return List.of(firstTaskModel);
-        }
-        var others = IntStream.range(0, number - 1)
-            .mapToObj(i -> extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
-                .withSaveInstance()
-                .withSameWorkflowAs(firstTaskModel.getTaskId())
-                .build()
-            ))
-            .toList();
-
-        return ImmutableList.<TestTaskModel<String>>builder()
-            .add(firstTaskModel)
-            .addAll(others)
-            .build();
-    }
 
     @SneakyThrows
     @SuppressWarnings("unchecked")
@@ -68,7 +45,7 @@ public abstract class AbstractCancelWorkflowByTaskId extends BaseLocalWorkerInte
     }
 
     @Test
-    void shouldNotCancelAllTaskByTaskDefWhenParallelExecution() {
+    void shouldNotCancelWorkflowByTaskIdWhenParallelExecution() {
         //when
         setFixedTime();
 
@@ -94,130 +71,105 @@ public abstract class AbstractCancelWorkflowByTaskId extends BaseLocalWorkerInte
         );
     }
 
-    //todo
     @Test
-    void shouldCancelAllTaskByTaskDefOtherTaskAndNotCurrentWhenParallelExecutionAndImmediately() {
-//        //when
-//        TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
-//        TaskSettings taskSettings = defaultTaskSettings.toBuilder().build();
-//
-//        setFixedTime();
-//        TaskEntity taskEntity = saveNewTaskEntity();
-//        TaskEntity otherTaskEntity = saveNewTaskEntity();
-//        Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
-//            distributedTaskService.cancelAllTaskByTaskDefImmediately(taskDef);
-//            verifyTaskIsCanceled(otherTaskEntity);
-//        });
-//
-//        mockedTask = Mockito.spy(mockedTask);
-//        RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
-//
-//        UUID foreignWorkerId = emulateParallelExecution(taskEntity);
-//
-//        //do
-//        getTaskWorker().execute(taskEntity, registeredTask);
-//
-//        //verify
-//        verifyParallelExecution(taskEntity, foreignWorkerId);
-//        verifyTaskIsCanceled(otherTaskEntity);
+    void shouldCancelWorkflowByTaskIdWhenParallelExecutionAndImmediately() {
+        //when
+        setFixedTime();
+
+        var taskModels = generateIndependentTasksInTheSameWorkflow(10);
+        var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(ctx -> {
+                distributedTaskService.cancelWorkflowByTaskIdImmediately(taskModels.get(0).getTaskId());
+                taskModels.forEach(taskModel -> verifyTaskIsCanceled(taskModel.getTaskEntity()));
+            })
+            .build()
+        );
+        UUID foreignWorkerId = emulateParallelExecution(rootTaskModel.getTaskEntity());
+
+        //do
+        getTaskWorker().execute(rootTaskModel.getTaskEntity(), rootTaskModel.getRegisteredTask());
+
+        //verify
+        verifyParallelExecution(rootTaskModel.getTaskEntity(), foreignWorkerId);
+        taskModels.forEach(taskModel -> verifyTaskIsCanceled(taskModel.getTaskEntity()));
     }
 
-    //todo
     @SuppressWarnings("unchecked")
+    @SneakyThrows
     @Test
-    void shouldCancelAllTaskByTaskDefWhenParallelExecutionOfOtherTask() {
-//        //when
-//        TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
-//        TaskSettings taskSettings = defaultTaskSettings.toBuilder().build();
-//
-//        setFixedTime();
-//        TaskEntity otherTaskEntity = saveNewTaskEntity();
-//        Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
-//            distributedTaskService.cancelAllTaskByTaskDef(taskDef);
-//
-//            //in the same time for other thread:
-//            CompletableFuture.supplyAsync(() -> emulateParallelExecution(otherTaskEntity)).join();
-//        });
-//
-//        mockedTask = Mockito.spy(mockedTask);
-//        RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
-//        when(taskRegistryService.<String>getRegisteredLocalTask(eq("test"))).thenReturn(Optional.of(registeredTask));
-//
-//        TaskEntity taskEntity = saveNewTaskEntity();
-//
-//        //do
-//        getTaskWorker().execute(taskEntity, registeredTask);
-//
-//        //verify
-//        verify(mockedTask, Mockito.never()).onFailure(any(FailedExecutionContext.class));
-//        verifyLocalTaskIsFinished(taskEntity);
-//        verifyTaskIsCanceled(otherTaskEntity);
+    void shouldCancelWorkflowByTaskIdWhenParallelExecutionOfOtherTask() {
+        //when
+        setFixedTime();
+
+        var taskModel = generateIndependentTasksInTheSameWorkflow(1).get(0);
+        var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(ctx -> {
+                distributedTaskService.cancelWorkflowByTaskId(taskModel.getTaskId());
+                CompletableFuture.supplyAsync(() -> emulateParallelExecution(taskModel.getTaskEntity())).join();
+            })
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(rootTaskModel.getTaskEntity(), rootTaskModel.getRegisteredTask());
+
+        //verify
+        verify(rootTaskModel.getMockedTask(), Mockito.never()).onFailure(any(FailedExecutionContext.class));
+        verifyLocalTaskIsFinished(rootTaskModel.getTaskEntity());
+        verifyTaskIsCanceled(taskModel.getTaskEntity());
     }
 
-    //todo
     @Test
-    void shouldNotCancelAllTaskByTaskDefWhenException() {
-//        //when
-//        TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
-//        TaskSettings taskSettings = defaultTaskSettings.toBuilder().build();
-//
-//        setFixedTime();
-//        TaskEntity otherTaskEntity = saveNewTaskEntity();
-//        Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
-//            distributedTaskService.cancelAllTaskByTaskDef(taskDef);
-//            throw new RuntimeException();
-//        });
-//
-//        mockedTask = Mockito.spy(mockedTask);
-//        RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
-//        when(taskRegistryService.<String>getRegisteredLocalTask(eq("test"))).thenReturn(Optional.of(registeredTask));
-//
-//        TaskEntity taskEntity = saveNewTaskEntity();
-//
-//        //do
-//        getTaskWorker().execute(taskEntity, registeredTask);
-//
-//        //verify
-//        verifyFirstAttemptTaskOnFailure(mockedTask, taskEntity);
-//        assertThat(taskRepository.find(otherTaskEntity.getId())).isPresent()
-//            .get()
-//            .matches(te -> te.getVersion() == 1, "opt locking")
-//            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "next retry time")
-//            .matches(te -> te.getAssignedWorker() == null, "empty assigned worker")
-//        ;
+    void shouldNotCancelWorkflowByTaskIdWhenException() {
+        //when
+        setFixedTime();
+
+        var taskModel = generateIndependentTasksInTheSameWorkflow(1).get(0);
+        var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(ctx -> {
+                distributedTaskService.cancelWorkflowByTaskId(taskModel.getTaskId());
+                throw new RuntimeException();
+            })
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(rootTaskModel.getTaskEntity(), rootTaskModel.getRegisteredTask());
+
+        //verify
+        verifyFirstAttemptTaskOnFailure(rootTaskModel.getMockedTask(), rootTaskModel.getTaskEntity());
+        assertThat(taskRepository.find(taskModel.getTaskId().getId())).isPresent()
+            .get()
+            .matches(te -> te.getVersion() == 1, "version")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "execution time");
     }
 
-    //todo
     @Test
     void shouldApplyCommandsInNatureOrderForOtherTasksWhenFromContext() {
-//        //when
-//        TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
-//        TaskSettings taskSettings = defaultTaskSettings.toBuilder().build();
-//
-//        setFixedTime();
-//        TaskEntity otherTaskEntity = saveNewTaskEntity();
-//        TaskId taskId = taskMapper.map(otherTaskEntity, commonSettings.getAppName());
-//        Task<String> mockedTask = TaskGenerator.defineTask(taskDef, m -> {
-//            distributedTaskService.reschedule(taskId, Duration.ofMinutes(1));
-//            distributedTaskService.cancelTaskExecution(taskId);
-//        });
-//
-//        mockedTask = Mockito.spy(mockedTask);
-//        RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
-//        when(taskRegistryService.<String>getRegisteredLocalTask(eq("test"))).thenReturn(Optional.of(registeredTask));
-//
-//        TaskEntity taskEntity = saveNewTaskEntity();
-//
-//        //do
-//        getTaskWorker().execute(taskEntity, registeredTask);
-//
-//        //verify
-//        verifyLocalTaskIsFinished(taskEntity);
-//        assertThat(taskRepository.find(taskId.getId()))
-//            .isPresent()
-//            .get()
-//            .matches(task -> Boolean.TRUE.equals(task.isCanceled()), "canceled")
-//            .matches(task -> task.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 60L, "rescheduled")
-//        ;
+        //when
+        setFixedTime();
+
+        var taskModel = generateIndependentTasksInTheSameWorkflow(1).get(0);
+        var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(ctx -> {
+                distributedTaskService.reschedule(taskModel.getTaskId(), Duration.ofMinutes(1));
+                distributedTaskService.cancelWorkflowByTaskId(taskModel.getTaskId());
+            })
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(rootTaskModel.getTaskEntity(), rootTaskModel.getRegisteredTask());
+
+        //verify
+        verifyTaskIsFinished(rootTaskModel.getTaskId());
+        assertThat(taskRepository.find(taskModel.getTaskId().getId())).isPresent()
+            .get()
+            .matches(task -> Boolean.TRUE.equals(task.isCanceled()), "canceled")
+            .matches(task -> task.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 60L, "rescheduled");
     }
 }
