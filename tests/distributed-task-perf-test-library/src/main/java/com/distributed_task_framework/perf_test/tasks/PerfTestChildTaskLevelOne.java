@@ -1,20 +1,20 @@
 package com.distributed_task_framework.perf_test.tasks;
 
-import com.distributed_task_framework.perf_test.persistence.entity.PerfTestIntermediateResult;
+import com.distributed_task_framework.autoconfigure.annotation.TaskExecutionGuarantees;
+import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.perf_test.tasks.dto.PerfTestIntermediateDto;
 import com.distributed_task_framework.perf_test.tasks.dto.PerfTestIntermediateResultDto;
+import com.distributed_task_framework.perf_test.tasks.dto.PerfTestResultDto;
+import com.distributed_task_framework.perf_test.persistence.entity.PerfTestIntermediateResult;
 import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import com.distributed_task_framework.autoconfigure.annotation.TaskExecutionGuarantees;
 import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.settings.TaskSettings;
-import com.distributed_task_framework.perf_test.tasks.dto.PerfTestResultDto;
 
 import java.util.List;
 

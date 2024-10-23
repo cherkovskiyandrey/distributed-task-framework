@@ -1,13 +1,13 @@
 package com.distributed_task_framework.test_service.tasks;
 
+import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.test_service.tasks.dto.JoinTaskLevelOne;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.model.TaskDef;
 
 import static com.distributed_task_framework.test_service.tasks.PrivateTaskDefinitions.JOIN_TASK_LEVEL_ONE;
 
