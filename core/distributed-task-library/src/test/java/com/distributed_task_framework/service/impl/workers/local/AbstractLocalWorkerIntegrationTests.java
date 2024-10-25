@@ -12,6 +12,7 @@ import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.task.TestTaskModelCustomizerUtils;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -83,7 +84,7 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         var childTestTaskModel = extendedTaskGenerator.generateDefault(String.class);
         var parentTestTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
-            .action(TestTaskModelSpec.throwException())
+            .action(TestTaskModelCustomizerUtils.throwException())
             .failureAction(ctx -> {
                 distributedTaskService.schedule(childTestTaskModel.getTaskDef(), ExecutionContext.empty());
                 testBusinessObjectRepository.save(TestBusinessObjectEntity.builder().build());

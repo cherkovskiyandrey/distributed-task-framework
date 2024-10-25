@@ -1,6 +1,6 @@
 package com.distributed_task_framework.service.impl.workers.local.at_least_once;
 
-import com.distributed_task_framework.service.impl.workers.local.AbstractCancelWorkflowByTaskId;
+import com.distributed_task_framework.service.impl.workers.local.AbstractCancelWorkflowByTaskIdTest;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -10,7 +10,7 @@ import org.springframework.test.annotation.DirtiesContext;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AtLeastOnceCancelWorkflowByTaskIdTest extends AbstractCancelWorkflowByTaskId {
+public class AtLeastOnceCancelWorkflowByTaskIdTest extends AbstractCancelWorkflowByTaskIdTest {
     @Autowired
     @Qualifier("localAtLeastOnceWorker")
     TaskWorker taskWorker;

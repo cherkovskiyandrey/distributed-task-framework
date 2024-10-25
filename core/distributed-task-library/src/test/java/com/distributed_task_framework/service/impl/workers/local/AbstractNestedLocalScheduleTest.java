@@ -8,6 +8,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.task.TestTaskModelCustomizerUtils;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -118,7 +119,7 @@ public abstract class AbstractNestedLocalScheduleTest extends BaseLocalWorkerInt
         var parentTestTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
             .taskEntityCustomizer(extendedTaskGenerator.withLastAttempt())
-            .action(TestTaskModelSpec.throwException())
+            .action(TestTaskModelCustomizerUtils.throwException())
             .failureAction(ctx -> {
                 distributedTaskService.schedule(childFromFailureTestTaskModel.getTaskDef(), ExecutionContext.empty());
                 throw new RuntimeException();

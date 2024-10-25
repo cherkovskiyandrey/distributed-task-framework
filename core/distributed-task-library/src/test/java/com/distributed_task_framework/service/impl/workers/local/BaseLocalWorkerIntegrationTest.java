@@ -112,23 +112,8 @@ public abstract class BaseLocalWorkerIntegrationTest extends BaseSpringIntegrati
             .matches(task -> Boolean.TRUE.equals(task.isCanceled()), "canceled");
     }
 
-    protected void verifyLocalTaskIsFinished(TaskEntity taskEntity) {
-        TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
-        verifyTaskIsFinished(taskId);
-    }
-
     protected void verifyOnlyOneTask(TaskDef<String> taskDef) {
         assertThat(taskRepository.findByName(taskDef.getTaskName(), 10)).hasSize(1);
-    }
-
-    protected void verifyTaskIsFinished(TaskId taskId) {
-        Optional<TaskEntity> taskEntityOpt = taskRepository.find(taskId.getId());
-        taskEntityOpt.ifPresent(entity -> assertThat(entity)
-            .matches(
-                taskEntity -> VirtualQueue.DELETED.equals(taskEntity.getVirtualQueue()),
-                "has to be deleted"
-            )
-        );
     }
 
     protected void verifyTaskInNextAttempt(TaskId taskId, TaskSettings taskSettings) {
@@ -295,24 +280,5 @@ public abstract class BaseLocalWorkerIntegrationTest extends BaseSpringIntegrati
             .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "execution time")
             .matches(te -> foreignWorkerId.equals(te.getAssignedWorker()), "foreign assigned worker")
         ;
-    }
-
-    protected List<TestTaskModel<String>> generateIndependentTasksInTheSameWorkflow(int number) {
-        var firstTaskModel = extendedTaskGenerator.generateDefaultAndSave(String.class);
-        if (number == 1) {
-            return List.of(firstTaskModel);
-        }
-        var others = IntStream.range(0, number - 1)
-            .mapToObj(i -> extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
-                .withSaveInstance()
-                .withSameWorkflowAs(firstTaskModel.getTaskId())
-                .build()
-            ))
-            .toList();
-
-        return ImmutableList.<TestTaskModel<String>>builder()
-            .add(firstTaskModel)
-            .addAll(others)
-            .build();
     }
 }

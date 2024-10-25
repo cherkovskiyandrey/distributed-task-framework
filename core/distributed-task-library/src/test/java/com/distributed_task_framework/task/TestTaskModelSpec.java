@@ -33,12 +33,6 @@ public class TestTaskModelSpec<T> {
     boolean saveInstance;
     boolean recurrent;
 
-    public static <T> TaskGenerator.Consumer<ExecutionContext<T>> throwException() {
-        return ctx -> {
-            throw new RuntimeException();
-        };
-    }
-
     public static <T> Builder<T> builder(Class<T> inputType) {
         return new Builder<>(inputType);
     }

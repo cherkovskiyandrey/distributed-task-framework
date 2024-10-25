@@ -22,7 +22,7 @@ import static org.mockito.Mockito.verify;
 
 @Disabled
 @FieldDefaults(level = AccessLevel.PROTECTED)
-public abstract class AbstractCancelAllWorkflowByTaskId extends BaseLocalWorkerIntegrationTest {
+public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWorkerIntegrationTest {
 
     @SneakyThrows
     @SuppressWarnings("unchecked")

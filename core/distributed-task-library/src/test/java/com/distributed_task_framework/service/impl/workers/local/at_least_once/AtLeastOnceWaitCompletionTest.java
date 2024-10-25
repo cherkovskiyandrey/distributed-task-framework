@@ -1,6 +1,6 @@
-package com.distributed_task_framework.service.impl.workers.local.exactly_once;
+package com.distributed_task_framework.service.impl.workers.local.at_least_once;
 
-import com.distributed_task_framework.service.impl.workers.local.AbstractCancelWorkflowByTaskIdTest;
+import com.distributed_task_framework.service.impl.workers.local.AbstractWaitCompletionTest;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -10,14 +10,14 @@ import org.springframework.test.annotation.DirtiesContext;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ExactlyOnceCancelWorkflowByTaskIdTest extends AbstractCancelWorkflowByTaskIdTest {
+public class AtLeastOnceWaitCompletionTest extends AbstractWaitCompletionTest {
+
     @Autowired
-    @Qualifier("localExactlyOnceWorker")
+    @Qualifier("localAtLeastOnceWorker")
     TaskWorker taskWorker;
 
     @Override
     protected TaskWorker getTaskWorker() {
         return taskWorker;
     }
-
 }

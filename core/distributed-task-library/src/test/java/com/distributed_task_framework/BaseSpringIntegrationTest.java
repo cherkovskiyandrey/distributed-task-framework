@@ -25,6 +25,7 @@ import com.distributed_task_framework.persistence.entity.TaskLinkEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TestBusinessObjectRepository;
 import com.distributed_task_framework.service.TaskSerializer;
+import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
@@ -35,6 +36,8 @@ import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.ExtendedTaskGenerator;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.task.TestTaskModel;
+import com.distributed_task_framework.task.TestTaskModelSpec;
 import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
@@ -50,6 +53,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.util.Pair;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -62,10 +66,12 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -125,6 +131,8 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
     ExtendedTaskGenerator extendedTaskGenerator;
     @Autowired
     TestBusinessObjectRepository testBusinessObjectRepository;
+    @SpyBean(name = "virtualQueueBaseTaskCommandService")
+    InternalTaskCommandService internalTaskCommandService;
 
     @BeforeEach
     public void init() {
@@ -295,6 +303,40 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
 
     protected Collection<UUID> toIds(Collection<TaskEntity> tasks) {
         return tasks.stream().map(TaskEntity::getId).toList();
+    }
+
+    protected List<TestTaskModel<String>> generateIndependentTasksInTheSameWorkflow(int number) {
+        var firstTaskModel = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        if (number == 1) {
+            return List.of(firstTaskModel);
+        }
+        var others = IntStream.range(0, number - 1)
+            .mapToObj(i -> extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+                .withSaveInstance()
+                .withSameWorkflowAs(firstTaskModel.getTaskId())
+                .build()
+            ))
+            .toList();
+
+        return ImmutableList.<TestTaskModel<String>>builder()
+            .add(firstTaskModel)
+            .addAll(others)
+            .build();
+    }
+
+    protected void verifyLocalTaskIsFinished(TaskEntity taskEntity) {
+        TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
+        verifyTaskIsFinished(taskId);
+    }
+
+    protected void verifyTaskIsFinished(TaskId taskId) {
+        Optional<TaskEntity> taskEntityOpt = taskRepository.find(taskId.getId());
+        taskEntityOpt.ifPresent(entity -> assertThat(entity)
+            .matches(
+                taskEntity -> VirtualQueue.DELETED.equals(taskEntity.getVirtualQueue()),
+                "has to be deleted"
+            )
+        );
     }
 
     @TestConfiguration

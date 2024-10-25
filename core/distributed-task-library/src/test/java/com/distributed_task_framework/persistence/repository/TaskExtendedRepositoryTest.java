@@ -1,19 +1,25 @@
 package com.distributed_task_framework.persistence.repository;
 
 import com.distributed_task_framework.BaseSpringIntegrationTest;
+import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.IdVersionEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import com.distributed_task_framework.task.TestTaskModel;
+import com.distributed_task_framework.task.TestTaskModelCustomizerUtils;
+import com.distributed_task_framework.task.TestTaskModelSpec;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,10 +72,10 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
 
         var savedTaskEntity = taskExtendedRepository.find(returnedTaskEntity.getId());
         assertThat(savedTaskEntity)
-                .isPresent()
-                .get()
-                .usingRecursiveComparison(compareConfiguration)
-                .isEqualTo(taskEntity);
+            .isPresent()
+            .get()
+            .usingRecursiveComparison(compareConfiguration)
+            .isEqualTo(taskEntity);
     }
 
     @Test
@@ -90,5 +96,91 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
         assertThat(taskExtendedRepository.find(taskEntity1.getId())).isEmpty();
         assertThat(taskExtendedRepository.find(taskEntity2.getId())).isNotEmpty();
         assertThat(taskExtendedRepository.find(taskEntity3.getId())).isNotEmpty();
+    }
+
+    @Test
+    void shouldFindAllByWorkflowIds() {
+        //when
+        var testTaskModelOne = generateIndependentTasksInTheSameWorkflow(10);
+        var testTaskModelTwo = generateIndependentTasksInTheSameWorkflow(10);
+        generateIndependentTasksInTheSameWorkflow(10);
+        extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .withSameWorkflowAs(testTaskModelOne.get(0).getTaskId())
+            .taskEntityCustomizer(TestTaskModelCustomizerUtils.removed())
+            .build()
+        );
+
+        //do
+        var taskEntities = taskExtendedRepository.findAllByWorkflowIds(List.of(
+                testTaskModelOne.get(0).getTaskId().getWorkflowId(),
+                testTaskModelTwo.get(0).getTaskId().getWorkflowId()
+            )
+        );
+
+        //verify
+        var expectedTaskIds = ImmutableList.<UUID>builder()
+            .addAll(testTaskModelOne.stream().map(TestTaskModel::getTaskId).map(TaskId::getId).toList())
+            .addAll(testTaskModelTwo.stream().map(TestTaskModel::getTaskId).map(TaskId::getId).toList())
+            .build();
+        assertThat(taskEntities)
+            .map(TaskEntity::getId)
+            .containsExactlyInAnyOrderElementsOf(expectedTaskIds);
+    }
+
+    @Test
+    void shouldFilterExistedWorkflowIds() {
+        //when
+        var testTaskModelOne = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var testTaskModelTwo = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var removedTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .taskEntityCustomizer(TestTaskModelCustomizerUtils.removed())
+            .build()
+        );
+
+        //do
+        var taskWorkflowIds = taskExtendedRepository.filterExistedWorkflowIds(Set.of(
+                testTaskModelOne.getTaskId().getWorkflowId(),
+                testTaskModelTwo.getTaskId().getWorkflowId(),
+                removedTaskModel.getTaskId().getWorkflowId()
+            )
+        );
+
+        //verify
+        var expectedTaskIds = ImmutableList.<UUID>builder()
+            .add(testTaskModelOne.getTaskId().getWorkflowId())
+            .add(testTaskModelTwo.getTaskId().getWorkflowId())
+            .build();
+        assertThat(taskWorkflowIds).containsExactlyInAnyOrderElementsOf(expectedTaskIds);
+    }
+
+    @Test
+    void shouldFilterExistedTaskIds() {
+        //when
+        var testTaskModelOne = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var testTaskModelTwo = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var removedTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .taskEntityCustomizer(TestTaskModelCustomizerUtils.removed())
+            .build()
+        );
+
+        //do
+        var taskIds = taskExtendedRepository.filterExistedTaskIds(Set.of(
+                testTaskModelOne.getTaskId().getId(),
+                testTaskModelTwo.getTaskId().getId(),
+                removedTaskModel.getTaskId().getId()
+            )
+        );
+
+        //verify
+        var expectedTaskIds = ImmutableList.<UUID>builder()
+            .add(testTaskModelOne.getTaskId().getId())
+            .add(testTaskModelTwo.getTaskId().getId())
+            .build();
+        assertThat(taskIds).containsExactlyInAnyOrderElementsOf(expectedTaskIds);
     }
 }
