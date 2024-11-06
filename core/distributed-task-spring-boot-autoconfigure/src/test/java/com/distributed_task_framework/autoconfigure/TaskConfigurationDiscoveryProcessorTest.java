@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor.EMPTY_TASK_SETTINGS_CUSTOMIZER;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -68,7 +69,8 @@ class TaskConfigurationDiscoveryProcessorTest {
             distributedTaskPropertiesMapper,
             distributedTaskPropertiesMerger,
             tasks,
-            remoteTasks
+            remoteTasks,
+            EMPTY_TASK_SETTINGS_CUSTOMIZER
         );
     }
 

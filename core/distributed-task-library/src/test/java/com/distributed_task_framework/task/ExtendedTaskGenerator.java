@@ -68,11 +68,19 @@ public class ExtendedTaskGenerator {
         return generate(TestTaskModelSpec.builder(inputType).withSaveInstance().build());
     }
 
-    public <T> TestTaskModel<T> generateJoinByNameAndSave(Class<T> inputType, String name) {
+    public <T> TestTaskModel<T> generateDefaultAndSave(Class<T> inputType, String taskName) {
+        return generate(TestTaskModelSpec.builder(inputType)
+            .withSaveInstance()
+            .privateTask(taskName)
+            .build()
+        );
+    }
+
+    public <T> TestTaskModel<T> generateJoinByNameAndSave(Class<T> inputType, String taskName) {
         return generate(TestTaskModelSpec.builder(inputType)
             .withSaveInstance()
             .taskEntityCustomizer(TestTaskModelSpec.JOIN_TASK)
-            .privateTask(name)
+            .privateTask(taskName)
             .build()
         );
     }

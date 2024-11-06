@@ -1,0 +1,14 @@
+plugins {
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    testFixturesImplementation platform(libs.spring.boot.bom)
+    testFixturesImplementation platform(libs.testcontainers.bom)
+
+    testFixturesApi(libs.spring.boot.starter)
+    testFixturesApi(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testFixturesApi(libs.testcontainers.postgresql)
+}

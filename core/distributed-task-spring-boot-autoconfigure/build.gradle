@@ -4,7 +4,7 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-        classpath "org.rodnansol:spring-configuration-property-documenter-gradle-plugin:${documenterPluginVersion}"
+        classpath libs.spring.configuration.property.documenter.gradle.plugin
     }
 }
 
@@ -13,21 +13,21 @@ repositories {
     mavenCentral()
 }
 
-apply plugin: 'org.rodnansol.spring-configuration-property-documenter'
+apply plugin: libs.plugins.property.documenter.get().pluginId
 
 dependencies {
-    api "org.springframework.boot:spring-boot"
-    api "org.springframework.boot:spring-boot-autoconfigure"
-    api "org.springframework.data:spring-data-jdbc"
-    api 'org.springframework.boot:spring-boot-starter-webflux'
-    api 'jakarta.annotation:jakarta.annotation-api'
-    api 'org.springframework.boot:spring-boot-starter-validation'
-    api 'org.springframework.boot:spring-boot-starter-actuator'
-    annotationProcessor "org.springframework.boot:spring-boot-configuration-processor"
-
     api project(':distributed-task-library')
 
-    testImplementation("org.springframework.boot:spring-boot-starter-test") {
+    api libs.spring.boot
+    api libs.spring.boot.autoconfigure
+    api libs.spring.data.jdbc
+    api libs.spring.boot.starter.validation
+    api libs.spring.boot.starter.actuator
+    implementation libs.caffeine
+
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    testImplementation (libs.spring.boot.starter.test) {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
 }
@@ -40,9 +40,6 @@ tasks.register('generateAdoc') {
         metadataInput = file("build/classes/java/main/META-INF/spring-configuration-metadata.json")
         outputFile = file("config-prop.md")
         markdownCustomization {
-//            contentCustomization {
-//                includeEnvFormat = true
-//            }
             unknownGroupLocalization = "distributed-task"
         }
     }

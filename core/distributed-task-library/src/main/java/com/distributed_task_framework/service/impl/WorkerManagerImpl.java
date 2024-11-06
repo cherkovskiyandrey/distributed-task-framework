@@ -104,8 +104,11 @@ public class WorkerManagerImpl implements WorkerManager {
             })
             .build()
         );
-        this.workersExecutorService = new ThreadPoolExecutor(0, this.workerManagerSettings.getMaxParallelTasksInNode(),
-            60L, TimeUnit.SECONDS,
+        this.workersExecutorService = new ThreadPoolExecutor(
+            0,
+            this.workerManagerSettings.getMaxParallelTasksInNode(),
+            60L,
+            TimeUnit.SECONDS,
             new SynchronousQueue<>(),
             new ThreadFactoryBuilder()
                 .setDaemon(false)

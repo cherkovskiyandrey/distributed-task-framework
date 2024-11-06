@@ -32,6 +32,7 @@ public class PartitionTrackerImpl implements PartitionTracker {
 
     @Override
     public void reinit() {
+        partitionRepository.deleteAll();
         var partitionEntities = partitionTrackerRepository.activePartitions();
         var entities = partitionMapper.asEntities(partitionEntities, currentTimeWindow());
         partitionRepository.saveAsNew(entities);

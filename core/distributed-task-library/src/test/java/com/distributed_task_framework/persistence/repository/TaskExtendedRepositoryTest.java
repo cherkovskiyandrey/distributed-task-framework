@@ -112,6 +112,7 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
         );
 
         //do
+        @SuppressWarnings("DataFlowIssue")
         var taskEntities = taskExtendedRepository.findAllByWorkflowIds(List.of(
                 testTaskModelOne.get(0).getTaskId().getWorkflowId(),
                 testTaskModelTwo.get(0).getTaskId().getWorkflowId()
@@ -119,6 +120,7 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
         );
 
         //verify
+        @SuppressWarnings("DataFlowIssue")
         var expectedTaskIds = ImmutableList.<UUID>builder()
             .addAll(testTaskModelOne.stream().map(TestTaskModel::getTaskId).map(TaskId::getId).toList())
             .addAll(testTaskModelTwo.stream().map(TestTaskModel::getTaskId).map(TaskId::getId).toList())
@@ -141,6 +143,7 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
         );
 
         //do
+        @SuppressWarnings("DataFlowIssue")
         var taskWorkflowIds = taskExtendedRepository.filterExistedWorkflowIds(Set.of(
                 testTaskModelOne.getTaskId().getWorkflowId(),
                 testTaskModelTwo.getTaskId().getWorkflowId(),
@@ -169,6 +172,7 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
         );
 
         //do
+        @SuppressWarnings("DataFlowIssue")
         var taskIds = taskExtendedRepository.filterExistedTaskIds(Set.of(
                 testTaskModelOne.getTaskId().getId(),
                 testTaskModelTwo.getTaskId().getId(),
@@ -182,5 +186,36 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
             .add(testTaskModelTwo.getTaskId().getId())
             .build();
         assertThat(taskIds).containsExactlyInAnyOrderElementsOf(expectedTaskIds);
+    }
+
+    @Test
+    void shouldFindAllTaskId() {
+        //when
+        var testTaskModelOne = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var testTaskModelTwo = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var removedTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .taskEntityCustomizer(TestTaskModelCustomizerUtils.removed())
+            .build()
+        );
+
+        //do
+        @SuppressWarnings("DataFlowIssue")
+        var taskIdEntities = taskExtendedRepository.findAllTaskId(Set.of(
+                testTaskModelOne.getTaskId().getId(),
+                testTaskModelTwo.getTaskId().getId(),
+                removedTaskModel.getTaskId().getId()
+            )
+        );
+
+        //verify
+        var expectedTaskIds = ImmutableList.<TaskId>builder()
+            .add(testTaskModelOne.getTaskId())
+            .add(testTaskModelTwo.getTaskId())
+            .build();
+        assertThat(taskIdEntities)
+            .map(taskIdEntity -> taskMapper.map(taskIdEntity, commonSettings.getAppName()))
+            .containsExactlyInAnyOrderElementsOf(expectedTaskIds);
     }
 }

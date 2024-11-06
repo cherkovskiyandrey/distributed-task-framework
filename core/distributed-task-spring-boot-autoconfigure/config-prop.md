@@ -13,6 +13,7 @@ This is a document about the configuration properties in DTF autoconfiguration m
 * [**distributed-task.common** - `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Common`](#distributed-task.common)
 * [**distributed-task.task-properties-group** - `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$TaskPropertiesGroup`](#distributed-task.task-properties-group)
 * [**distributed-task.task-properties-group.default-properties** - `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$TaskProperties`](#distributed-task.task-properties-group.default-properties)
+* [**distributed-task.common.completion** - `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Completion`](#distributed-task.common.completion)
 * [**distributed-task.common.delivery-manager** - `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$DeliveryManager`](#distributed-task.common.delivery-manager)
 * [**distributed-task.common.planner** - `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Planner`](#distributed-task.common.planner)
 * [**distributed-task.common.registry** - `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Registry`](#distributed-task.common.registry)
@@ -104,6 +105,15 @@ This is a document about the configuration properties in DTF autoconfiguration m
 | execution-guarantees| java.lang.String| Execution guarantees.| AT_LEAST_ONCE| | 
 | max-parallel-in-cluster| java.lang.Integer| How many parallel tasks can be in the cluster. &#x27;-1&#x27; means undefined and depends on current cluster configuration like how many pods work simultaneously.| -1| | 
 | timeout| java.time.Duration| Task timeout. If task still is in progress after timeout expired, it will be interrupted. {@link InterruptedException} will be risen in {@link Task#execute(ExecutionContext)}| 0| | 
+### distributed-task.common.completion
+**Class:** `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Completion`
+
+|Key|Type|Description|Default value|Deprecation|
+|---|----|-----------|-------------|-----------|
+| default-task-timeout| java.time.Duration| | | | 
+| default-workflow-timeout| java.time.Duration| | | | 
+| handler-fixed-delay| java.time.Duration| | | | 
+| handler-initial-delay| java.time.Duration| | | | 
 ### distributed-task.common.delivery-manager
 **Class:** `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$DeliveryManager`
 
@@ -139,7 +149,7 @@ This is a document about the configuration properties in DTF autoconfiguration m
 
 |Key|Type|Description|Default value|Deprecation|
 |---|----|-----------|-------------|-----------|
-| cache-expiration-ms| java.lang.Integer| Cache expiration in sec to for registered cluster information.| 2000| | 
+| cache-expiration-ms| java.lang.Integer| Cache expiration in sec to for registered cluster information.| 1000| | 
 | cpu-calculating-time-window| java.time.Duration| Duration of time cpu loading of current node is calculated in.| PT5M| | 
 | max-inactivity-interval-ms| java.lang.Integer| Max interval to unregister node when node doesn&#x27;t update status.| 20000| | 
 | update-fixed-delay-ms| java.lang.Integer| Delay between updates of node state in ms.| 4000| | 
@@ -160,5 +170,5 @@ This is a document about the configuration properties in DTF autoconfiguration m
 | max-parallel-tasks-in-node| java.lang.Integer| How many parallel tasks can be run on one node.| 100| | 
 
 
-This is a generated file, generated at: **2024-04-10T13:52:54.766443**
+This is a generated file, generated at: **2024-11-02T22:33:20.794915**
 

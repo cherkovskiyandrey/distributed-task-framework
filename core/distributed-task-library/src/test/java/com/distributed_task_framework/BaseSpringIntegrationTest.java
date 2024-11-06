@@ -8,7 +8,9 @@ import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.PartitionEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.entity.TaskLinkEntity;
 import com.distributed_task_framework.persistence.entity.TaskMessageEntity;
+import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.CapabilityRepository;
 import com.distributed_task_framework.persistence.repository.DlcRepository;
 import com.distributed_task_framework.persistence.repository.DltRepository;
@@ -21,16 +23,12 @@ import com.distributed_task_framework.persistence.repository.RemoteTaskWorkerRep
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.persistence.entity.TaskLinkEntity;
-import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TestBusinessObjectRepository;
 import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.service.internal.InternalTaskCommandService;
-import com.distributed_task_framework.service.internal.WorkerContextManager;
-import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
 import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
+import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.ExtendedTaskGenerator;
@@ -47,12 +45,16 @@ import org.junit.jupiter.api.Disabled;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.util.Pair;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import java.time.Clock;
@@ -77,9 +79,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 @Disabled
+@ActiveProfiles("test")
+@SpringBootTest
+@ContextConfiguration(initializers = Postgresql16Initializer.class)
+@Import(value = {
+    BaseTestConfiguration.class,
+    BaseSpringIntegrationTest.AdditionalTestConfiguration.class
+})
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @FieldDefaults(level = AccessLevel.PROTECTED)
-@Import(BaseSpringIntegrationTest.AdditionalTestConfiguration.class)
-public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
+public abstract class BaseSpringIntegrationTest {
+
     protected static final Comparator<LocalDateTime> LOCAL_DATE_TIME_COMPARATOR_TO_SECONDS = Comparator.comparing(a -> a.truncatedTo(ChronoUnit.SECONDS));
 
     @Autowired

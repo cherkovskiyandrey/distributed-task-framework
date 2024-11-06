@@ -10,7 +10,9 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
+import org.springframework.stereotype.Component;
 
+@Component
 @TaskBackoffRetryPolicy(
         initialDelay = "PT1m",
         maxRetries = 100

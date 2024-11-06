@@ -5,7 +5,9 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.task.Task;
+import org.springframework.stereotype.Component;
 
+@Component
 @RetryOff
 public class CustomTaskWithOffRetry implements Task<Void> {
 

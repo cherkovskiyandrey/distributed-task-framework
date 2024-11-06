@@ -1,5 +1,10 @@
 rootProject.name = 'distributed-task-framework'
 
+//Commons
+include ':commons-test'
+
+project(':commons-test').projectDir = new File('commons/commons-test')
+
 //Core
 include ':distributed-task-library'
 include ':distributed-task-spring-boot-autoconfigure'
@@ -18,6 +23,14 @@ project(':distributed-task-base-saga-library').projectDir = new File('saga/distr
 project(':distributed-task-base-saga-spring-boot-autoconfigure').projectDir = new File('saga/distributed-task-base-saga-spring-boot-autoconfigure')
 project(':distributed-task-base-saga-spring-boot-starter').projectDir = new File('saga/distributed-task-base-saga-spring-boot-starter')
 
+//Test utils
+include ':distributed-task-test'
+include ':distributed-task-test-spring-boot-autoconfigure'
+include ':distributed-task-test-spring-boot-starter'
+
+project(':distributed-task-test').projectDir = new File('test-utils/distributed-task-test')
+project(':distributed-task-test-spring-boot-autoconfigure').projectDir = new File('test-utils/distributed-task-test-spring-boot-autoconfigure')
+project(':distributed-task-test-spring-boot-starter').projectDir = new File('test-utils/distributed-task-test-spring-boot-starter')
 
 //Perf test
 include ':distributed-task-perf-test-library'

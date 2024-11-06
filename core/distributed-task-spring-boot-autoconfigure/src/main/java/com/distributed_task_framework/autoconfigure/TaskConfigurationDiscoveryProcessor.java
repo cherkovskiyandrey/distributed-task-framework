@@ -34,12 +34,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TaskConfigurationDiscoveryProcessor {
+    public static final BiFunction<TaskSettings, TaskDef<?>, TaskSettings> EMPTY_TASK_SETTINGS_CUSTOMIZER = (taskSettings, taskDef) -> taskSettings;
+
     DistributedTaskProperties properties;
     DistributedTaskService distributedTaskService;
     ThreadPoolExecutor executor;
@@ -47,19 +50,22 @@ public class TaskConfigurationDiscoveryProcessor {
     DistributedTaskPropertiesMerger distributedTaskPropertiesMerger;
     Collection<Task<?>> tasks;
     RemoteTasks remoteTasks;
+    BiFunction<TaskSettings, TaskDef<?>, TaskSettings> taskSettingCustomizer;
 
     public TaskConfigurationDiscoveryProcessor(DistributedTaskProperties properties,
                                                DistributedTaskService distributedTaskService,
                                                DistributedTaskPropertiesMapper distributedTaskPropertiesMapper,
                                                DistributedTaskPropertiesMerger distributedTaskPropertiesMerger,
                                                Collection<Task<?>> tasks,
-                                               RemoteTasks remoteTasks) {
+                                               RemoteTasks remoteTasks,
+                                               BiFunction<TaskSettings, TaskDef<?>, TaskSettings> taskSettingCustomizer) {
         this.properties = properties;
         this.distributedTaskService = distributedTaskService;
         this.distributedTaskPropertiesMapper = distributedTaskPropertiesMapper;
         this.distributedTaskPropertiesMerger = distributedTaskPropertiesMerger;
         this.tasks = tasks;
         this.remoteTasks = remoteTasks;
+        this.taskSettingCustomizer = taskSettingCustomizer;
         this.executor = new ThreadPoolExecutor(
             0,
             1,
@@ -88,7 +94,10 @@ public class TaskConfigurationDiscoveryProcessor {
 
     private void registerLocalTasks() {
         for (Task<?> task : tasks) {
-            TaskSettings taskSettings = buildTaskSettings(task);
+            TaskSettings taskSettings = taskSettingCustomizer.apply(
+                buildTaskSettings(task),
+                task.getDef()
+            );
             distributedTaskService.registerTask(task, taskSettings);
             if (taskSettings.hasCron()) {
                 //we have to start recurrent task almost immediately

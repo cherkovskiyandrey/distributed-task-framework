@@ -14,6 +14,7 @@ import com.distributed_task_framework.persistence.repository.NodeStateRepository
 import com.distributed_task_framework.persistence.repository.PartitionRepository;
 import com.distributed_task_framework.persistence.repository.RegisteredTaskRepository;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
+import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
@@ -383,15 +384,19 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public TaskLinkManager taskLinkManager(TaskLinkRepository taskLinkRepository,
+    public TaskLinkManager taskLinkManager(TaskRepository taskRepository,
+                                           TaskLinkRepository taskLinkRepository,
                                            TaskMessageRepository taskMessageRepository,
                                            CommonSettings commonSettings,
-                                           TaskSerializer taskSerializer) {
+                                           TaskSerializer taskSerializer,
+                                           TaskMapper taskMapper) {
         return new TaskLinkManagerImpl(
+            taskRepository,
             taskLinkRepository,
             taskMessageRepository,
             commonSettings,
-            taskSerializer
+            taskSerializer,
+            taskMapper
         );
     }
 

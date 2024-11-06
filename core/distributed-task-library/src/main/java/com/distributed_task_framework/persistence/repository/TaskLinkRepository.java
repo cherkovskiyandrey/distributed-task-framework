@@ -61,13 +61,11 @@ public interface TaskLinkRepository extends CrudRepository<TaskLinkEntity, UUID>
                        COUNT(1) OVER (PARTITION BY orig.join_task_id)                 as count_in_group,
                        COUNT(1) OVER (PARTITION BY orig.join_task_id, orig.completed) as completed_in_group
                 FROM _____dtf_join_task_link_table orig
-                        
             ), completed AS (
                 SELECT join_task_id
                 FROM completed_and_parent_detection
                 WHERE completed = true
                   AND count_in_group = completed_in_group
-                        
             )
             SELECT DISTINCT(join_task_id) AS uuid
             FROM completed

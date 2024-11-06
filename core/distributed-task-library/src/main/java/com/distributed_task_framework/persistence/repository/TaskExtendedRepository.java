@@ -4,6 +4,7 @@ import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.persistence.entity.IdVersionEntity;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.entity.TaskIdEntity;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -38,6 +39,8 @@ public interface TaskExtendedRepository {
     Set<UUID> filterExistedWorkflowIds(Set<UUID> workflowIds);
 
     Set<UUID> filterExistedTaskIds(Set<UUID> requestedTaskIds);
+
+    Collection<TaskIdEntity> findAllTaskId(Collection<UUID> taskIds);
 
     Collection<IdVersionEntity> deleteByIdVersion(Collection<IdVersionEntity> taskIdVersions);
 }

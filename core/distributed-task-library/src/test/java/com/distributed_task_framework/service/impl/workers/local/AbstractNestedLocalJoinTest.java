@@ -5,12 +5,7 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.JoinTaskMessage;
 import com.distributed_task_framework.model.JoinTaskMessageContainer;
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.exception.TaskConfigurationException;
 import com.distributed_task_framework.model.TaskId;
-import com.distributed_task_framework.persistence.entity.TaskEntity;
-import com.distributed_task_framework.utils.JdbcTools;
-import com.distributed_task_framework.settings.TaskSettings;
-import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import com.distributed_task_framework.utils.JdbcTools;
@@ -487,6 +482,7 @@ public abstract class AbstractNestedLocalJoinTest extends BaseLocalWorkerIntegra
         assertMessage(parentTestTaskModel.getTaskId(), joinTask10.getTaskId(), "override message");
     }
 
+    @SuppressWarnings("DataFlowIssue")
     @Test
     @SneakyThrows
     void shouldWinOnFailureWhenSendJoinMessage() {

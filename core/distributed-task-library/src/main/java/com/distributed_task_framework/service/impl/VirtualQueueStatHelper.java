@@ -15,6 +15,7 @@ import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.micrometer.core.instrument.Counter;
@@ -93,7 +94,7 @@ public class VirtualQueueStatHelper {
         this.metricHelper = metricHelper;
         this.meterRegistry = meterRegistry;
         this.aggregatedStatRef = new AtomicReference<>(ImmutableList.of());
-        this.overloadedNodeToMeter = new HashMap<>();
+        this.overloadedNodeToMeter = Maps.newHashMap();
         this.overloadedNodesRef = new AtomicReference<>(Set.of());
         this.aggregatedStatCalculationTimer = metricHelper.timer("aggregatedStatCalculation", "time");
         this.allTasksGaugeName = metricHelper.buildName("planner", "task", "all");
@@ -335,10 +336,11 @@ public class VirtualQueueStatHelper {
     }
 
     private void deleteMeters(Set<UUID> nodes) {
+        var fixedNodes = Sets.newHashSet(nodes);
         overloadedNodeToMeter.entrySet().stream()
-            .filter(uuidIdEntry -> nodes.contains(uuidIdEntry.getKey()))
+            .filter(uuidIdEntry -> fixedNodes.contains(uuidIdEntry.getKey()))
             .map(Map.Entry::getValue)
             .forEach(meterRegistry::remove);
-        nodes.forEach(overloadedNodeToMeter::remove);
+        fixedNodes.forEach(overloadedNodeToMeter::remove);
     }
 }

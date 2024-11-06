@@ -21,7 +21,13 @@ import java.util.UUID;
 public class TaskMessageEntity {
     @Id
     UUID id;
+    /**
+     * common task (map step)
+     */
     UUID taskToJoinId;
+    /**
+     * join task (reduce step)
+     */
     UUID joinTaskId;
     @ToString.Exclude
     byte[] message;

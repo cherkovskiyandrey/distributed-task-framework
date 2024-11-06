@@ -129,6 +129,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor.EMPTY_TASK_SETTINGS_CUSTOMIZER;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
@@ -332,7 +333,8 @@ public class DistributedTaskAutoconfigure {
 
     //use in order to escape conflict with beans form other standard libraries like spring-boot-starter-actuator
     //because simple using of conditional doesn't work
-    public record OperatingSystemMXBeanHolder(OperatingSystemMXBean operatingSystemMXBean) {}
+    public record OperatingSystemMXBeanHolder(OperatingSystemMXBean operatingSystemMXBean) {
+    }
 
     @Bean
     @ConditionalOnMissingBean
@@ -401,15 +403,19 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    public TaskLinkManager taskLinkManager(TaskLinkRepository taskLinkRepository,
+    public TaskLinkManager taskLinkManager(TaskRepository taskRepository,
+                                           TaskLinkRepository taskLinkRepository,
                                            TaskMessageRepository taskMessageRepository,
                                            CommonSettings commonSettings,
-                                           TaskSerializer taskSerializer) {
+                                           TaskSerializer taskSerializer,
+                                           TaskMapper taskMapper) {
         return new TaskLinkManagerImpl(
+            taskRepository,
             taskLinkRepository,
             taskMessageRepository,
             commonSettings,
-            taskSerializer
+            taskSerializer,
+            taskMapper
         );
     }
 
@@ -679,7 +685,8 @@ public class DistributedTaskAutoconfigure {
             distributedTaskPropertiesMapper,
             distributedTaskPropertiesMerger,
             tasks,
-            remoteTasks
+            remoteTasks,
+            EMPTY_TASK_SETTINGS_CUSTOMIZER
         );
     }
 

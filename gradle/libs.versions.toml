@@ -1,0 +1,93 @@
+[versions]
+org-ajoberstar-grgit = "5.2.2"
+spring-boot = "3.1.2"
+org-projectlombok-lombok = "1.18.30"
+org-mapstruct = "1.5.5.Final"
+org-lombok-mapstruct-binding = "0.2.0"
+caffeine = "3.0.5"
+guava = "31.0.1-jre"
+cron-utils = "9.1.6"
+testcontainers = "1.19.6"
+okhttp3 = "4.0.1"
+commons-fileupload = "1.4"
+org-apache-httpclient = "4.5.13"
+net-logstash-logback-encoder = "7.2"
+spring-configuration-property-documenter-gradle-plugin = "0.7.1"
+springdoc-openapi-starter-webmvc-ui = "2.2.0"
+apache-commons-io = "2.11.0"
+micrometer-registry-prometheus = "1.9.0"
+
+
+[libraries]
+# Boms & buildscript
+spring-configuration-property-documenter-gradle-plugin = { module = "org.rodnansol:spring-configuration-property-documenter-gradle-plugin", version.ref = "spring-configuration-property-documenter-gradle-plugin" }
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor", version.ref = "spring-boot" }
+
+# Spring boot
+spring-boot = { module = "org.springframework.boot:spring-boot" }
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
+spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache" }
+spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
+spring-boot-starter-aop = { module = "org.springframework.boot:spring-boot-starter-aop" }
+springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc-openapi-starter-webmvc-ui" }
+
+# Spring
+spring-data-jdbc = { module = "org.springframework.data:spring-data-jdbc" }
+
+# Lombok
+org-projectlombok-lombok = { module = "org.projectlombok:lombok", version.ref = "org-projectlombok-lombok" }
+
+# Mapstruct
+org-mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "org-mapstruct" }
+org-mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "org-mapstruct" }
+org-lombok-mapstruct-binding = { module = "org.projectlombok:lombok-mapstruct-binding", version.ref = "org-lombok-mapstruct-binding" }
+
+# Liquebase
+liquibase = { module = "org.liquibase:liquibase-core" }
+
+# DB
+postgresql = { module = "org.postgresql:postgresql" }
+
+# Cache
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+
+# Serialisations
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
+
+# Tools
+apache-commons-io = { module = "commons-io:commons-io", version.ref = "apache-commons-io" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+commons-lang3 = { module = "org.apache.commons:commons-lang3" }
+cron-utils = { module = "com.cronutils:cron-utils", version.ref = "cron-utils" }
+
+# Http
+okhttp3 = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp3" }
+
+# Monitoring
+logback-core = { module = "ch.qos.logback:logback-core" }
+net-logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "net-logstash-logback-encoder" }
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-registry-prometheus" }
+
+# Tests
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
+testcontainers-localstack = { module = "org.testcontainers:localstack" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
+org-awaitility = { module = "org.awaitility:awaitility" }
+okhttp3-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp3" }
+commons-fileupload = { module = "commons-fileupload:commons-fileupload", version.ref = "commons-fileupload" }
+org-apache-httpclient = { module = "org.apache.httpcomponents:httpclient", version.ref = "org-apache-httpclient" }
+
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+org-ajoberstar-grgit = { id = "org.ajoberstar.grgit", version.ref = "org-ajoberstar-grgit" }
+property-documenter = { id = "org.rodnansol.spring-configuration-property-documenter" }

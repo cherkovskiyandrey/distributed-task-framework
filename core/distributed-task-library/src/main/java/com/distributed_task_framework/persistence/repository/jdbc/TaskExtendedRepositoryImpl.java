@@ -4,6 +4,7 @@ import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.persistence.entity.IdVersionEntity;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.entity.TaskIdEntity;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
@@ -17,7 +18,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.sql.Types;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -273,6 +273,29 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
             )
         );
     }
+
+
+    //language=postgresql
+    private static final String SELECT_TASK_IDS = """
+        SELECT
+            id,
+            task_name,
+            workflow_id
+        FROM _____dtf_tasks
+        WHERE
+            (id = ANY((:ids)::uuid[]))
+            AND deleted_at ISNULL
+        """;
+
+    @Override
+    public Collection<TaskIdEntity> findAllTaskId(Collection<UUID> taskIds) {
+        return namedParameterJdbcTemplate.query(
+            SELECT_TASK_IDS,
+            SqlParameters.of("ids", JdbcTools.UUIDsToStringArray(taskIds), Types.ARRAY),
+            TaskIdEntity.TASK_ID_ROW_MAPPER
+        ).stream().toList();
+    }
+
 
     //language=postgresql
     private static final String SELECT_BY_IDS = """

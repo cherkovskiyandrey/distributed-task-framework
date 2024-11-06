@@ -66,7 +66,6 @@ distributed-task:
           delay: PT1S
           max-interval: PT5S
           max-number: 5
-        retry-mode: FIXED
       max-parallel-in-cluster: 100
       timeout: PT10S
 

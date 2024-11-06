@@ -141,7 +141,8 @@ public class ClusterProviderImpl implements ClusterProvider {
             .map(currentNodeState -> currentNodeState.toBuilder()
                 .lastUpdateDateUtc(LocalDateTime.now(clock))
                 .medianCpuLoading(measureCurrentMedianCpuLoading())
-                .build())
+                .build()
+            )
             .orElse(
                 NodeStateEntity.builder()
                     .node(nodeId)

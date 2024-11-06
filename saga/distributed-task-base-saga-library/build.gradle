@@ -1,32 +1,58 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+    dependencies {
+        classpath libs.spring.configuration.property.documenter.gradle.plugin
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+apply plugin: libs.plugins.property.documenter.get().pluginId
+
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    implementation 'org.springframework.boot:spring-boot-starter-aop'
-    implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
-    implementation 'org.liquibase:liquibase-core'
-    implementation 'commons-io:commons-io:2.11.0'
-
     implementation project(':distributed-task-spring-boot-starter')
-    api project(':distributed-task-library')
 
-    runtimeOnly 'org.postgresql:postgresql'
+    implementation libs.spring.boot.starter
+    implementation libs.spring.boot.starter.validation
+    implementation libs.spring.boot.starter.actuator
+    implementation libs.spring.boot.starter.aop
+    implementation libs.liquibase
+    implementation libs.apache.commons.io
+
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    runtimeOnly libs.postgresql
 
     // For integration tests
-    testImplementation 'org.liquibase:liquibase-core'
-    testImplementation 'org.springframework.boot:spring-boot-starter'
-    testImplementation 'org.postgresql:postgresql'
-    testImplementation "org.springframework.boot:spring-boot-starter-data-jdbc"
-    testImplementation("org.springframework.boot:spring-boot-starter-test") {
+    testImplementation libs.liquibase
+    testImplementation libs.spring.boot.starter
+    testImplementation libs.postgresql
+    testImplementation libs.spring.boot.starter.data.jdbc
+    testImplementation(libs.spring.boot.starter.test) {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
-    testImplementation 'org.testcontainers:postgresql'
-    testImplementation 'org.testcontainers:junit-jupiter'
-    testImplementation 'org.awaitility:awaitility'
+    testImplementation libs.testcontainers.postgresql
+    testImplementation libs.testcontainers.junit.jupiter
+    testImplementation libs.org.awaitility
+}
 
-    dependencyManagement {
-        imports {
-            mavenBom "org.testcontainers:testcontainers-bom:${testcontainersVersion}"
+tasks.register('generateAdoc') {
+    dependsOn generatePropertyDocument {
+        documentName = "DTF base saga Spring configuration properties"
+        documentDescription = "This is a document about the configuration properties in saga library module"
+        type = "MARKDOWN"
+        metadataInput = file("build/classes/java/main/META-INF/spring-configuration-metadata.json")
+        outputFile = file("config-prop.md")
+        markdownCustomization {
+            unknownGroupLocalization = "distributed-task"
         }
     }
 }
+
+compileJava.inputs.files(processResources)
