@@ -49,7 +49,6 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     public static final String PLANNER_NAME = "virtual queue base planner";
     public static final String PLANNER_SHORT_NAME = "vqbp";
 
-    ClusterProvider clusterProvider;
     TaskRepository taskRepository;
     TaskRegistryService taskRegistryService;
     TaskRouter taskRouter;
@@ -75,7 +74,6 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                                                Clock clock,
                                                MetricHelper metricHelper) {
         super(commonSettings, plannerRepository, transactionManager, clusterProvider, metricHelper);
-        this.clusterProvider = clusterProvider;
         this.taskRepository = taskRepository;
         this.partitionTracker = partitionTracker;
         this.taskRegistryService = taskRegistryService;
@@ -124,6 +122,9 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
 
     @Override
     protected boolean hasToBeActive() {
+        if (!super.hasToBeActive()) {
+            return false;
+        }
         boolean doAllNodesSupportVQBPlanner = clusterProvider.doAllNodesSupport(Capabilities.VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_V1);
         if (!doAllNodesSupportVQBPlanner) {
             log.warn("hasToBeActive(): doAllNodesSupportVQBPlanner = false");

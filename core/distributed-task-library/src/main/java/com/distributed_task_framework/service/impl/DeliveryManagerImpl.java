@@ -319,9 +319,7 @@ public class DeliveryManagerImpl implements DeliveryManager {
         });
     }
 
-    /**
-     * @noinspection ConstantConditions, UnstableApiUsage
-     */
+    @SuppressWarnings("DataFlowIssue")
     private void sleep(int taskNumber) throws InterruptedException {
         Integer maxInConfig = commandDeliverySettings.getManageDelay().span().upperEndpoint();
         taskNumber = Math.min(taskNumber, maxInConfig);

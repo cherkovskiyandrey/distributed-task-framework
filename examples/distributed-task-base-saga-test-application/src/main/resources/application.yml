@@ -35,10 +35,11 @@ distributed-task:
       max-parallel-tasks-in-cluster-default: 100
       batch-size: 100
       polling-delay:
-        0: 100
-    #      force-fair-general-task-planner: true
+        0: 10
     worker-manager:
       max-parallel-tasks-in-node: 100
+      manage-delay:
+        0: 10
 
   task-properties-group:
     default-properties:

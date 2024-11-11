@@ -120,7 +120,10 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
     @Test
     void shouldBeActiveWhenAllNodesSupport() {
         //when
-        doReturn(true).when(clusterProvider).doAllNodesSupport(eq(Capabilities.VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_V1));
+        doReturn(true)
+            .when(clusterProvider)
+            .doAllNodesSupport(eq(Capabilities.VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_V1));
+        doReturn(true).when(clusterProvider).isNodeRegistered();
 
         //do & verify
         assertThat(plannerService.hasToBeActive()).isTrue();

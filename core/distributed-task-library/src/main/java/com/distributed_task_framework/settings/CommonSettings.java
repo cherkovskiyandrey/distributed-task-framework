@@ -64,7 +64,6 @@ public class CommonSettings {
     @Builder.Default
     PlannerSettings plannerSettings = createDefaultPlannerSettings();
 
-    @SuppressWarnings("UnstableApiUsage")
     private static PlannerSettings createDefaultPlannerSettings() {
         return PlannerSettings.builder()
             .watchdogInitialDelayMs(5000)
@@ -90,7 +89,6 @@ public class CommonSettings {
     @Builder.Default
     WorkerManagerSettings workerManagerSettings = createDefaultWorkerManagerSettings();
 
-    @SuppressWarnings("UnstableApiUsage")
     private static WorkerManagerSettings createDefaultWorkerManagerSettings() {
         return WorkerManagerSettings.builder()
             .maxParallelTasksInNode(100)
@@ -116,7 +114,6 @@ public class CommonSettings {
     @Builder.Default
     DeliveryManagerSettings deliveryManagerSettings = createDefaultDeliveryManagerSettings();
 
-    @SuppressWarnings("UnstableApiUsage")
     private static DeliveryManagerSettings createDefaultDeliveryManagerSettings() {
         return DeliveryManagerSettings.builder()
             .watchdogInitialDelayMs(5000)
@@ -134,9 +131,6 @@ public class CommonSettings {
             .build();
     }
 
-    /**
-     * @noinspection UnstableApiUsage
-     */
     @Value
     @Builder(toBuilder = true)
     public static class PlannerSettings {
@@ -224,9 +218,6 @@ public class CommonSettings {
         Duration cpuCalculatingTimeWindow;
     }
 
-    /**
-     * @noinspection UnstableApiUsage
-     */
     @Value
     @Builder(toBuilder = true)
     public static class WorkerManagerSettings {
@@ -267,9 +258,6 @@ public class CommonSettings {
         Map<String, URL> appToUrl = Maps.newHashMap();
     }
 
-    /**
-     * @noinspection UnstableApiUsage
-     */
     @Value
     @Builder(toBuilder = true)
     public static class DeliveryManagerSettings {

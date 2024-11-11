@@ -38,7 +38,6 @@ distributed-task:
       batch-size: 100
       polling-delay:
         0: 100
-    #      force-fair-general-task-planner: true
     worker-manager:
       max-parallel-tasks-in-node: 100
     delivery-manager:

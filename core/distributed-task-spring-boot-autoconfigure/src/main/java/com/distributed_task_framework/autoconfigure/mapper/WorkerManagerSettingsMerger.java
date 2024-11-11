@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
     uses = RangeDelayMapper.class,
     nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
 )
-@SuppressWarnings("UnstableApiUsage")
 public abstract class WorkerManagerSettingsMerger {
     @Autowired
     private RangeDelayMapper rangeDelayMapper;

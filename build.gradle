@@ -106,7 +106,12 @@ configure(libraries) { project ->
         publications {
             mavenJava(MavenPublication) {
                 from components.java
-                version = new Date().format('yyyy-MM-dd_HH-mm-ss') + "_" + grgit.head().getId().substring(0, 8)
+                var currentTag = grgit.tag.list().find {
+                    it.commit.id == grgit.head().getId()
+                }
+                version = currentTag != null ?
+                        currentTag.name :
+                        new Date().format('yyyy-MM-dd_HH-mm-ss') + "_" + grgit.head().getId().substring(0, 8)
             }
         }
     }

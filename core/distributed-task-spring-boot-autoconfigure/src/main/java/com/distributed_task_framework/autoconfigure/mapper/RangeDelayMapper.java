@@ -16,7 +16,6 @@ import java.util.Map;
 )
 public interface RangeDelayMapper {
 
-    @SuppressWarnings("UnstableApiUsage")
     default ImmutableRangeMap<Integer, Integer> mapRangeDelayProperty(Map<Integer, Integer> rangeDelay) {
         List<Integer> orderedNumbers = rangeDelay.keySet().stream()
             .sorted()

@@ -28,6 +28,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
@@ -142,7 +143,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     }
 
     private void registerSagaMethodIfExists(Object bean) {
-        Arrays.stream(ReflectionUtils.getAllDeclaredMethods(bean.getClass()))
+        Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
             .filter(method -> ReflectionHelper.findAnnotation(method, SagaMethod.class).isPresent())
             .forEach(method -> {
                 @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -168,7 +169,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     }
 
     private void registerSagaRevertMethodIfExists(Object bean) {
-        Arrays.stream(ReflectionUtils.getAllDeclaredMethods(bean.getClass()))
+        Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
             .filter(method -> ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).isPresent())
             .forEach(method -> {
                 @SuppressWarnings("OptionalGetWithoutIsPresent")

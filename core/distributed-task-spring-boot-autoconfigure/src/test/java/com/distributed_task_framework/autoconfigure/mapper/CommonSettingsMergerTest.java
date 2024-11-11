@@ -22,8 +22,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-
-@SuppressWarnings("UnstableApiUsage")
 @ActiveProfiles("test")
 @SpringBootTest
 @ContextConfiguration(classes = MappersConfiguration.class)

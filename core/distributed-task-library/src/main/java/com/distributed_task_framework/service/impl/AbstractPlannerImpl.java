@@ -92,7 +92,7 @@ public abstract class AbstractPlannerImpl implements PlannerService {
     protected abstract String groupName();
 
     protected boolean hasToBeActive() {
-        return true;
+        return clusterProvider.isNodeRegistered();
     }
 
     protected boolean inTransaction() {
@@ -248,9 +248,8 @@ public abstract class AbstractPlannerImpl implements PlannerService {
         log.info("planningLoop(): has been stopped");
     }
 
-    /**
-     * @noinspection ConstantConditions, UnstableApiUsage
-     */
+
+    @SuppressWarnings("DataFlowIssue")
     private void sleep(int taskNumber) throws InterruptedException {
         Integer maxInConfig = commonSettings.getPlannerSettings().getPollingDelay().span().upperEndpoint();
         taskNumber = Math.min(taskNumber, maxInConfig);

@@ -1,18 +1,19 @@
 package com.distributed_task_framework.service.impl;
 
 
-import com.distributed_task_framework.mapper.CommandMapper;
 import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.controller.dto.CommandListDto;
+import com.distributed_task_framework.mapper.CommandMapper;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
 import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
 import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.utils.ExecutorUtils;
 import com.distributed_task_framework.service.impl.remote_commands.ScheduleCommand;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.collect.Lists;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -35,7 +36,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import jakarta.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -43,6 +43,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -82,27 +83,27 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
 
         HttpUrl url = mockWebServer.url("/");
         CommonSettings overriddenCommonSettings = this.commonSettings.toBuilder()
-                .deliveryManagerSettings(this.commonSettings.getDeliveryManagerSettings().toBuilder()
-                        .remoteApps(CommonSettings.RemoteApps.builder()
-                                .appToUrl(
-                                        Map.of(
-                                                "foreign-test-app", url.url()
-                                        )
-                                )
-                                .build())
-                        .build())
-                .build();
+            .deliveryManagerSettings(this.commonSettings.getDeliveryManagerSettings().toBuilder()
+                .remoteApps(CommonSettings.RemoteApps.builder()
+                    .appToUrl(
+                        Map.of(
+                            "foreign-test-app", url.url()
+                        )
+                    )
+                    .build())
+                .build())
+            .build();
 
         deliveryManager = Mockito.spy(new DeliveryManagerImpl(
-                overriddenCommonSettings,
-                remoteTaskWorkerRepository,
-                remoteCommandRepository,
-                dlcRepository,
-                clusterProvider,
-                commandMapper,
-                taskSerializer,
-                transactionManager,
-                clock
+            overriddenCommonSettings,
+            remoteTaskWorkerRepository,
+            remoteCommandRepository,
+            dlcRepository,
+            clusterProvider,
+            commandMapper,
+            taskSerializer,
+            transactionManager,
+            clock
         ));
     }
 
@@ -127,8 +128,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         //verify
         waitFor(() -> flag.get() > 0);
         Assertions.assertThat(remoteTaskWorkerRepository.findByAppName("foreign-test-app")).isPresent()
-                .get()
-                .matches(entity -> clusterProvider.nodeId().equals(entity.getNodeStateId()));
+            .get()
+            .matches(entity -> clusterProvider.nodeId().equals(entity.getNodeStateId()));
     }
 
     @Test
@@ -136,14 +137,14 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         //when
         UUID foreignNodeId = UUID.randomUUID();
         nodeStateRepository.save(NodeStateEntity.builder()
-                .lastUpdateDateUtc(LocalDateTime.now(clock).plusHours(1).withNano(0))
-                .node(foreignNodeId)
-                .build()
+            .lastUpdateDateUtc(LocalDateTime.now(clock).plusHours(1).withNano(0))
+            .node(foreignNodeId)
+            .build()
         );
         remoteTaskWorkerRepository.save(RemoteTaskWorkerEntity.builder()
-                .appName("foreign-test-app")
-                .nodeStateId(foreignNodeId)
-                .build()
+            .appName("foreign-test-app")
+            .nodeStateId(foreignNodeId)
+            .build()
         );
         waitForNodeIsRegistered();
 
@@ -152,8 +153,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
 
         //verify
         Assertions.assertThat(remoteTaskWorkerRepository.findByAppName("foreign-test-app")).isPresent()
-                .get()
-                .matches(entity -> entity.getNodeStateId().equals(foreignNodeId));
+            .get()
+            .matches(entity -> entity.getNodeStateId().equals(foreignNodeId));
     }
 
     @Test
@@ -162,9 +163,9 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         AtomicInteger flag = mockDeliveryLoopInvocation();
         waitForNodeIsRegistered();
         remoteTaskWorkerRepository.save(RemoteTaskWorkerEntity.builder()
-                .appName("foreign-test-app")
-                .nodeStateId(clusterProvider.nodeId())
-                .build()
+            .appName("foreign-test-app")
+            .nodeStateId(clusterProvider.nodeId())
+            .build()
         );
 
         //do
@@ -173,8 +174,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         //verify
         waitFor(() -> flag.get() > 0);
         Assertions.assertThat(remoteTaskWorkerRepository.findByAppName("foreign-test-app")).isPresent()
-                .get()
-                .matches(entity -> clusterProvider.nodeId().equals(entity.getNodeStateId()));
+            .get()
+            .matches(entity -> clusterProvider.nodeId().equals(entity.getNodeStateId()));
     }
 
     @Test
@@ -188,14 +189,14 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         remoteTaskWorkerRepository.deleteAll();
         UUID foreignNodeId = UUID.randomUUID();
         nodeStateRepository.save(NodeStateEntity.builder()
-                .lastUpdateDateUtc(LocalDateTime.now(clock).plusHours(1))
-                .node(foreignNodeId)
-                .build()
+            .lastUpdateDateUtc(LocalDateTime.now(clock).plusHours(1))
+            .node(foreignNodeId)
+            .build()
         );
         remoteTaskWorkerRepository.save(RemoteTaskWorkerEntity.builder()
-                .appName("foreign-test-app")
-                .nodeStateId(foreignNodeId)
-                .build()
+            .appName("foreign-test-app")
+            .nodeStateId(foreignNodeId)
+            .build()
         );
 
         //do
@@ -238,8 +239,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         //verify
         verifyBatch(firstBatch);
         waitFor(() -> EqualsBuilder.reflectionEquals(
-                Lists.newArrayList(remoteCommandRepository.findAll()),
-                foreignBatch,
+                Lists.newArrayList(remoteCommandRepository.findAll()).toArray(),
+                foreignBatch.toArray(),
                 "createdDateUtc",
                 "sendDateUtc"
         ));
@@ -266,13 +267,13 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
     }
 
     @Test
-    void shouldMoveCommandsToDlcWhenAttempsExceed() {
+    void shouldMoveCommandsToDlcWhenAttemptsExceed() {
         //when
         Collection<RemoteCommandEntity> batch = createCommands(50, "foreign-test-app");
 
-        IntStream.range(0, 5).forEach(i -> {
-            mockWebServer.enqueue(new MockResponse().setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR.value()));
-        });
+        IntStream.range(0, 5).forEach(i ->
+            mockWebServer.enqueue(new MockResponse().setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR.value()))
+        );
 
         //do
         executorService.submit(ExecutorUtils.wrapRunnable(() -> deliveryManager.deliveryLoop("foreign-test-app")));
@@ -280,8 +281,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         //verify
         waitFor(() -> Lists.newArrayList(remoteCommandRepository.findAll()).isEmpty());
         waitFor(() -> EqualsBuilder.reflectionEquals(
-                Lists.newArrayList(dlcRepository.findAll()),
-                commandMapper.mapToDlcList(batch),
+                Lists.newArrayList(dlcRepository.findAll()).toArray(),
+                commandMapper.mapToDlcList(batch).toArray(),
                 "createdDateUtc"
         ));
     }
@@ -289,15 +290,15 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
 
     private Collection<RemoteCommandEntity> createCommands(int number, String appName) {
         List<RemoteCommandEntity> commandBatch = IntStream.range(0, number).mapToObj(i ->
-                        RemoteCommandEntity.builder()
-                                .appName(appName)
-                                .createdDateUtc(LocalDateTime.now(clock).withNano(0))
-                                .sendDateUtc(LocalDateTime.now(clock).withNano(0))
-                                .action(ScheduleCommand.NAME)
-                                .taskName("some-task-name")
-                                .body(EMBEDDED_COMMAND)
-                                .build())
-                .collect(Collectors.toList());
+                RemoteCommandEntity.builder()
+                    .appName(appName)
+                    .createdDateUtc(LocalDateTime.now(clock).withNano(0))
+                    .sendDateUtc(LocalDateTime.now(clock).withNano(0))
+                    .action(ScheduleCommand.NAME)
+                    .taskName("some-task-name")
+                    .body(EMBEDDED_COMMAND)
+                    .build())
+            .collect(Collectors.toList());
         return Lists.newArrayList(remoteCommandRepository.saveAll(commandBatch));
     }
 
@@ -307,8 +308,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         CommandListDto realCommandListDto = readBody(fireBatchRequest);
         CommandListDto expectedReceivedCommands = commandMapper.mapToList(batch);
         assertThat(realCommandListDto).usingRecursiveComparison()
-                .ignoringFieldsMatchingRegexes(".*DateUtc.*")
-                .isEqualTo(expectedReceivedCommands);
+            .ignoringFieldsMatchingRegexes(".*DateUtc.*")
+            .isEqualTo(expectedReceivedCommands);
     }
 
     @SneakyThrows
@@ -320,10 +321,10 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         assertThat(contentType.getParameter("boundary")).isNotBlank();
 
         MultipartStream multipartStream = new MultipartStream(
-                new ByteArrayInputStream(batchRequest.getBody().readByteArray()),
-                contentType.getParameter("boundary").getBytes(),
-                1024,
-                null);
+            new ByteArrayInputStream(batchRequest.getBody().readByteArray()),
+            contentType.getParameter("boundary").getBytes(),
+            1024,
+            null);
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         boolean nextPart = multipartStream.skipPreamble();
@@ -353,9 +354,9 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
 
     private DeliveryLoopSignals mockInfinityDeliveryLoopInvocation() {
         DeliveryLoopSignals deliveryLoopSignals = DeliveryLoopSignals.builder()
-                .startSignal(new AtomicInteger(0))
-                .stopSignal(new AtomicInteger(0))
-                .build();
+            .startSignal(new AtomicInteger(0))
+            .stopSignal(new AtomicInteger(0))
+            .build();
         doAnswer(invocation -> {
             try {
                 deliveryLoopSignals.getStartSignal().incrementAndGet();

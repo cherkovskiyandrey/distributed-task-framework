@@ -137,6 +137,9 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
 
     @Override
     protected boolean hasToBeActive() {
+        if (!super.hasToBeActive()) {
+            return false;
+        }
         boolean doAllNodesSupportVQBPlanner = clusterProvider.doAllNodesSupport(Capabilities.VIRTUAL_QUEUE_MANAGER_PLANNER_V1);
         if (!doAllNodesSupportVQBPlanner) {
             log.warn("hasToBeActive(): doAllNodesSupportVQBPlanner = false");

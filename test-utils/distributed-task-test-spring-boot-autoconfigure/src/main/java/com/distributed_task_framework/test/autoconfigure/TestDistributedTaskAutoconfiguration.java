@@ -23,12 +23,6 @@ import org.springframework.context.annotation.Profile;
 import java.time.Clock;
 import java.util.Collection;
 
-//TODO:
-//1. 3.3.5 spring boot
-//2. Вынести все зависимости в общий toml для всего проекта (-)
-//3. Разобраться с зависимостями, какие-то вытащить в общий модуль, например зависимости для тестов
-//4. Научить правильно публиковать модули. Чтобы saga моудль не эмбэдил core модуль, а зависел от него
-
 /**
  * Special configuration to use in integration tests based on dtf.
  * Differences: </br></br>
