@@ -19,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.ReflectionUtils;
 
 import java.time.Duration;
+import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -83,10 +85,22 @@ public class CompletionServiceImpl implements CompletionService {
     }
 
     public void waitCompletionAllWorkflow(UUID workflowId, Duration timeout) throws TimeoutException, InterruptedException {
+        waitCompletionAllWorkflows(List.of(workflowId), timeout);
+    }
+
+    @Override
+    public void waitCompletionAllWorkflows(Collection<UUID> workflowIds) throws TimeoutException, InterruptedException {
+        waitCompletionAllWorkflows(workflowIds, commonSettings.getCompletionSettings().getDefaultWorkflowTimeout());
+    }
+
+    @Override
+    public void waitCompletionAllWorkflows(Collection<UUID> workflowIds, Duration timeout) throws TimeoutException, InterruptedException {
         checkPermission();
-        var future = registeredWorkflows.computeIfAbsent(workflowId, k -> new CompletableFuture<>());
+        var features = workflowIds.stream()
+            .map(workflowId -> registeredWorkflows.computeIfAbsent(workflowId, k -> new CompletableFuture<>()))
+            .toArray(CompletableFuture[]::new);
         try {
-            future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            CompletableFuture.allOf(features).get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (ExecutionException e) { //impossible case in our case
             throw new RuntimeException(e);
         }

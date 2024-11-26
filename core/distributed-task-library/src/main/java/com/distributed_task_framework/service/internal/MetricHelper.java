@@ -14,6 +14,7 @@ import java.util.function.Supplier;
 public interface MetricHelper {
     String UNDEFINED_VIRTUAL_QUEUE_NAME = "undefined";
     String DEFAULT_GROUP_TAG_NAME = "default";
+    String TASK_NAME_TAG_NAME = "task_name";
 
     String virtualQueueStatName(@Nullable VirtualQueue virtualQueue);
 

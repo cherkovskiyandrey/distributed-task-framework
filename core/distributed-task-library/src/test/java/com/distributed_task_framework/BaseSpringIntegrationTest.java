@@ -141,7 +141,7 @@ public abstract class BaseSpringIntegrationTest {
     ExtendedTaskGenerator extendedTaskGenerator;
     @Autowired
     TestBusinessObjectRepository testBusinessObjectRepository;
-    @SpyBean(name = "virtualQueueBaseTaskCommandService")
+    @SpyBean
     InternalTaskCommandService internalTaskCommandService;
 
     @BeforeEach
@@ -313,6 +313,24 @@ public abstract class BaseSpringIntegrationTest {
 
     protected Collection<UUID> toIds(Collection<TaskEntity> tasks) {
         return tasks.stream().map(TaskEntity::getId).toList();
+    }
+
+    protected List<TestTaskModel<String>> generateIndependentTasksInTheSameTaskDef(int number) {
+        var firstTaskModel = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        if (number == 1) {
+            return List.of(firstTaskModel);
+        }
+        var others = IntStream.range(0, number - 1)
+            .mapToObj(i -> extendedTaskGenerator.generate(TestTaskModelSpec.builder(firstTaskModel.getTaskDef())
+                .withSaveInstance()
+                .build()
+            ))
+            .toList();
+
+        return ImmutableList.<TestTaskModel<String>>builder()
+            .add(firstTaskModel)
+            .addAll(others)
+            .build();
     }
 
     protected List<TestTaskModel<String>> generateIndependentTasksInTheSameWorkflow(int number) {

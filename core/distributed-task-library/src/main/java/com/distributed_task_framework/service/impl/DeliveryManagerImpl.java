@@ -34,7 +34,7 @@ import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
 import com.distributed_task_framework.persistence.repository.DlcRepository;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
 import com.distributed_task_framework.persistence.repository.RemoteTaskWorkerRepository;
-import com.distributed_task_framework.service.impl.remote_commands.RemoteCommand;
+import com.distributed_task_framework.remote_commands.RemoteCommand;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.DeliveryManager;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -55,7 +55,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.distributed_task_framework.service.impl.remote_commands.RemoteCommand.NAME_OF_PART;
+import static com.distributed_task_framework.remote_commands.RemoteCommand.NAME_OF_PART;
 
 /**
  * TODO: methods to recovery from DLC (-)

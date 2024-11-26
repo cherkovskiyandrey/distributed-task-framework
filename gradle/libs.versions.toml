@@ -16,6 +16,7 @@ spring-configuration-property-documenter-gradle-plugin = "0.7.1"
 springdoc-openapi-starter-webmvc-ui = "2.6.0"
 apache-commons-io = "2.17.0"
 micrometer-registry-prometheus = "1.13.6"
+instancio-junit = "5.0.2"
 
 
 [libraries]
@@ -85,7 +86,7 @@ org-awaitility = { module = "org.awaitility:awaitility" }
 okhttp3-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp3" }
 commons-fileupload = { module = "commons-fileupload:commons-fileupload", version.ref = "commons-fileupload" }
 org-apache-httpclient = { module = "org.apache.httpcomponents:httpclient", version.ref = "org-apache-httpclient" }
-
+instancio-junit = { module = "org.instancio:instancio-junit", version.ref = "instancio-junit" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

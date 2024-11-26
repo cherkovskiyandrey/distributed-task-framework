@@ -1,9 +1,11 @@
 package com.distributed_task_framework.persistence.repository.jdbc;
 
+import com.distributed_task_framework.exception.BatchUpdateException;
+import com.distributed_task_framework.exception.OptimisticLockException;
+import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.model.AffinityGroupStat;
 import com.distributed_task_framework.model.AffinityGroupWrapper;
 import com.distributed_task_framework.persistence.entity.IdVersionEntity;
-import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
@@ -17,15 +19,16 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.sql.Types;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -39,9 +42,12 @@ import static java.lang.String.format;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueManagerPlannerRepository {
     NamedParameterJdbcOperations namedParameterJdbcTemplate;
+    Clock clock;
 
-    public VirtualQueueManagerPlannerRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
+    public VirtualQueueManagerPlannerRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate,
+                                                    Clock clock) {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+        this.clock = clock;
     }
 
     //language=postgresql
@@ -427,7 +433,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
     public int countOfTasksInVirtualQueue(VirtualQueue virtualQueue) {
         return namedParameterJdbcTemplate.queryForObject(
             COUNT_BY_VIRTUAL_QUEUE,
-            SqlParameters.of("virtualQueue", JdbcTools.asString(virtualQueue), Types.VARCHAR),
+            SqlParameters.of(TaskEntity.Fields.virtualQueue, JdbcTools.asString(virtualQueue), Types.VARCHAR),
             Integer.class
         );
     }
@@ -435,8 +441,8 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
     private static final String SOFT_DELETE = """
         UPDATE _____dtf_tasks
         SET
-            virtual_queue = 'DELETED'::_____dtf_virtual_queue_type,
-            deleted_at = now(),
+            virtual_queue = :virtualQueue::_____dtf_virtual_queue_type,
+            deleted_at = :deletedAt,
             version = :version + 1
         WHERE
         (
@@ -447,16 +453,77 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
-    public void softDelete(TaskEntity taskEntity) {
-        int updatedRows = namedParameterJdbcTemplate.update(
+    public TaskEntity softDelete(TaskEntity taskEntity) {
+        taskEntity = prepareToSoftDelete(taskEntity);
+        var updatedRows = namedParameterJdbcTemplate.update(
             SOFT_DELETE,
-            SqlParameters.of(
-                TaskEntity.Fields.id, JdbcTools.asNullableString(taskEntity.getId()), Types.VARCHAR,
-                TaskEntity.Fields.version, taskEntity.getVersion(), Types.BIGINT
-            )
+            toSqlParameterSourceForDeleting(taskEntity)
         );
-        if (updatedRows == 0) {
+        if (updatedRows == 1) {
+            return taskEntity.toBuilder()
+                .version(taskEntity.getVersion() + 1)
+                .build();
+        }
+
+        UUID taskId = taskEntity.getId();
+        if (!filerExisted(List.of(taskId)).isEmpty()) {
             throw new OptimisticLockException(format("Can't update=[%s]", taskEntity), TaskEntity.class);
         }
+        throw new UnknownTaskException(taskId);
+    }
+
+    @Override
+    public void softDeleteAll(Collection<TaskEntity> taskEntities) {
+        taskEntities = taskEntities.stream()
+            .map(this::prepareToSoftDelete)
+            .toList();
+        var batchArgs = SqlParameters.convert(taskEntities, this::toSqlParameterSourceForDeleting);
+        var result = namedParameterJdbcTemplate.batchUpdate(SOFT_DELETE, batchArgs);
+        var notAffected = JdbcTools.filterNotAffected(Lists.newArrayList(taskEntities), result);
+        if (notAffected.isEmpty()) {
+            return;
+        }
+
+        var notAffectedIds = notAffected.stream().map(TaskEntity::getId).toList();
+        var optimisticLockIds = filerExisted(notAffectedIds);
+        var unknownTaskIds = Sets.difference(Sets.newHashSet(notAffectedIds), Sets.newHashSet(optimisticLockIds));
+
+        throw BatchUpdateException.builder()
+            .optimisticLockTaskIds(optimisticLockIds)
+            .unknownTaskIds(Lists.newArrayList(unknownTaskIds))
+            .build();
+    }
+
+    private TaskEntity prepareToSoftDelete(TaskEntity taskEntity) {
+        return taskEntity.toBuilder()
+            .deletedAt(LocalDateTime.now(clock))
+            .virtualQueue(VirtualQueue.DELETED)
+            .build();
+    }
+
+    private MapSqlParameterSource toSqlParameterSourceForDeleting(TaskEntity taskEntity) {
+        return SqlParameters.of(
+            TaskEntity.Fields.id, JdbcTools.asNullableString(taskEntity.getId()), Types.VARCHAR,
+            TaskEntity.Fields.version, taskEntity.getVersion(), Types.BIGINT,
+            TaskEntity.Fields.virtualQueue, JdbcTools.asString(taskEntity.getVirtualQueue()), Types.VARCHAR,
+            TaskEntity.Fields.deletedAt, taskEntity.getDeletedAt(), Types.TIMESTAMP
+        );
+    }
+
+
+    //language=postgresql
+    private static final String FILTER_EXISTED = """
+        SELECT id
+        FROM _____dtf_tasks
+        WHERE
+            id = ANY( (:taskIds)::uuid[] )
+        """;
+
+    private List<UUID> filerExisted(List<UUID> taskIds) {
+        return namedParameterJdbcTemplate.queryForList(
+            FILTER_EXISTED,
+            SqlParameters.of("taskIds", JdbcTools.UUIDsToStringArray(taskIds), Types.ARRAY),
+            UUID.class
+        );
     }
 }

@@ -1,5 +1,6 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.exception.AmbiguousRouteException;
 import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.model.DltTask;
 import com.distributed_task_framework.model.ExecutionContext;
@@ -93,21 +94,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
 
     @Override
     public <T> boolean unregisterTask(TaskDef<T> taskDef) {
-        if (taskRegistryService.unregisterTask(taskDef)) {
-            for (TaskCommandWithDetectorService taskCommandService : taskCommandServices) {
-                if (taskCommandService.isOwnTask(taskDef)) {
-                    try {
-                        //In case of fails, eventually consistency is guaranteed by planner.
-                        //It has to move tasks which can't be planned for a long time to DLT
-                        taskCommandService.cancelAllTaskByTaskDef(taskDef);
-                    } catch (Exception e) {
-                        log.warn("unregisterTask(): can't cancel tasks by taskDef=[{}]", taskDef);
-                    }
-                }
-            }
-            return true;
-        }
-        return false;
+        return taskRegistryService.unregisterTask(taskDef);
     }
 
     @Override
@@ -265,18 +252,18 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
-    public boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) throws Exception {
+    public boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds) throws Exception {
         return groupToRouteAndCall(
             taskIds,
-            TaskCommandService::cancelAllWorkflowByTaskId
+            TaskCommandService::cancelAllWorkflowsByTaskId
         );
     }
 
     @Override
-    public boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
+    public boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
         return groupToRouteAndCall(
             taskIds,
-            TaskCommandService::cancelAllWorkflowByTaskIdImmediately
+            TaskCommandService::cancelAllWorkflowsByTaskIdImmediately
         );
     }
 
@@ -347,6 +334,24 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
         );
     }
 
+    @Override
+    public void waitCompletionAllWorkflows(Collection<TaskId> taskIds) throws TimeoutException, InterruptedException {
+        routeAndRun(
+            taskIds,
+            (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
+                taskCommandService -> taskCommandService.waitCompletionAllWorkflows(taskIds)
+        );
+    }
+
+    @Override
+    public void waitCompletionAllWorkflows(Collection<TaskId> taskIds, Duration timeout) throws TimeoutException, InterruptedException {
+        routeAndRun(
+            taskIds,
+            (ConsumerWith2Exception<TaskCommandService, TimeoutException, InterruptedException>)
+                taskCommandService -> taskCommandService.waitCompletionAllWorkflows(taskIds, timeout)
+        );
+    }
+
     private <T, E extends Throwable> void routeAndRun(TaskDef<T> taskDef,
                                                       ConsumerWithException<TaskCommandService, E> supplier) throws E {
         for (TaskCommandWithDetectorService taskCommandService : taskCommandServices) {
@@ -389,6 +394,26 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
             }
         }
         throw new UnknownTaskException(taskId);
+    }
+
+    private <E1 extends Throwable, E2 extends Throwable> void routeAndRun(Collection<TaskId> taskIds,
+                                                                          ConsumerWith2Exception<TaskCommandService, E1, E2> supplier) throws E1, E2 {
+        var candidateTaskCommandServices = taskIds.stream()
+            .map(taskId -> {
+                    for (TaskCommandWithDetectorService taskCommandService : taskCommandServices) {
+                        if (taskCommandService.isOwnTask(taskId)) {
+                            return taskCommandService;
+                        }
+                    }
+                    throw new UnknownTaskException(taskId);
+                }
+            )
+            .collect(Collectors.toSet());
+
+        if (candidateTaskCommandServices.size() != 1) {
+            throw new AmbiguousRouteException("candidates: %s".formatted(candidateTaskCommandServices));
+        }
+        supplier.accept(candidateTaskCommandServices.iterator().next());
     }
 
     private <T, R, E extends Throwable> R routeAndCall(TaskDef<T> taskDef,

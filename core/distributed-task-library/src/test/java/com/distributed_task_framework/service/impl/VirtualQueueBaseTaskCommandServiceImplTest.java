@@ -1,10 +1,8 @@
 package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.BaseSpringIntegrationTest;
-import com.distributed_task_framework.model.Capabilities;
 import com.distributed_task_framework.model.Partition;
 import com.distributed_task_framework.model.WorkerContext;
-import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import jakarta.annotation.Nullable;
@@ -210,6 +208,25 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
         //verify
         verifyInQueue(task.getId(), VirtualQueue.DELETED);
         verifyPartitionRepositoryIsEmpty();
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    @Test
+    void shouldSoftDeleteAllWhenFinalizeAll() {
+        //when
+        var canceledTaskModelOne = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var canceledTaskModelTwo = extendedTaskGenerator.generateDefaultAndSave(String.class);
+
+        //do
+        taskCommandService.finalizeAll(List.of(
+                canceledTaskModelOne.getTaskEntity(),
+                canceledTaskModelTwo.getTaskEntity()
+            )
+        );
+
+        //verify
+        verifyInQueue(canceledTaskModelOne.getTaskId().getId(), VirtualQueue.DELETED);
+        verifyInQueue(canceledTaskModelTwo.getTaskId().getId(), VirtualQueue.DELETED);
     }
 
     //todo: other methods from taskRepository

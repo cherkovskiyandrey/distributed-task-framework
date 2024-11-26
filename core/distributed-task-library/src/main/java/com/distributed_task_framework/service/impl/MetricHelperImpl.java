@@ -90,7 +90,7 @@ public class MetricHelperImpl implements MetricHelper {
         List<Tag> allTags = ImmutableList.<Tag>builder()
                 .addAll(tags)
                 .add(buildAffinityGroupTag(taskEntity.getAffinityGroup()))
-                .add(Tag.of("task_name", taskEntity.getTaskName()))
+                .add(Tag.of(TASK_NAME_TAG_NAME, taskEntity.getTaskName()))
                 .build();
         return counter(pathsName, allTags);
     }

@@ -5,6 +5,7 @@ import com.distributed_task_framework.persistence.entity.IdVersionEntity;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskIdEntity;
+import com.google.common.annotations.VisibleForTesting;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -27,6 +28,9 @@ public interface TaskExtendedRepository {
     void updateAll(Collection<ShortTaskEntity> plannedTasks);
 
     Optional<TaskEntity> find(UUID taskId);
+
+    @VisibleForTesting
+    Collection<TaskIdEntity> findAllNotDeletedAndNotCanceled();
 
     List<TaskEntity> findAll(Collection<UUID> taskIds);
 

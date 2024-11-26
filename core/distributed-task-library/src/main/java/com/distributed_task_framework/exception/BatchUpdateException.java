@@ -15,4 +15,9 @@ public class BatchUpdateException extends RuntimeException {
     List<UUID> unknownTaskIds = List.of();
     @Builder.Default
     List<UUID> optimisticLockTaskIds = List.of();
+
+    @Override
+    public String getMessage() {
+        return toString();
+    }
 }

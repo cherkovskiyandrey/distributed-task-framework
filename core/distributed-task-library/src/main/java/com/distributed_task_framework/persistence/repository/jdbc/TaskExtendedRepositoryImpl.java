@@ -42,6 +42,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
         this.clock = clock;
     }
 
+    //language=postgres
     private static final String SAVE_OR_UPDATE_TEMPLATE = """
         INSERT INTO _____dtf_tasks (
             id,
@@ -114,9 +115,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     @Override
     public Collection<TaskEntity> saveAll(Collection<TaskEntity> taskEntities) {
         List<TaskEntity> preparedTaskEntities = taskEntities.stream().map(this::prepareToSave).toList();
-        var sqlParameterSources = preparedTaskEntities.stream()
-            .map(this::toSqlParameterSource)
-            .toArray(MapSqlParameterSource[]::new);
+        var sqlParameterSources = SqlParameters.convert(preparedTaskEntities, this::toSqlParameterSource);
         int[] updateResult = namedParameterJdbcTemplate.batchUpdate(SAVE_OR_UPDATE_TEMPLATE, sqlParameterSources);
         return IntStream.range(0, updateResult.length)
             .mapToObj(i -> updateResult[i] > 0 ? preparedTaskEntities.get(i) : null)
@@ -132,6 +131,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     }
 
 
+    //language=postgresql
     private static final String FIND_BY_PRIMARY_KEY = """
         SELECT * FROM _____dtf_tasks
         WHERE id = :id::uuid
@@ -148,6 +148,28 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     }
 
 
+    //language=postgresql
+    private static final String FIND_ALL_NOT_DELETED = """
+        SELECT task_name, id, workflow_id
+        FROM _____dtf_tasks
+        WHERE
+        (
+            deleted_at IS NULL
+            AND virtual_queue != 'DELETED'::_____dtf_virtual_queue_type
+            AND canceled = FALSE
+        )
+        """;
+
+    @Override
+    public Collection<TaskIdEntity> findAllNotDeletedAndNotCanceled() {
+        return namedParameterJdbcTemplate.query(
+            FIND_ALL_NOT_DELETED,
+            TaskIdEntity.TASK_ID_ROW_MAPPER
+        );
+    }
+
+
+    //language=postgresql
     private static final String UPDATE_TASKS_WITH_VERSION = """
         UPDATE _____dtf_tasks
         SET

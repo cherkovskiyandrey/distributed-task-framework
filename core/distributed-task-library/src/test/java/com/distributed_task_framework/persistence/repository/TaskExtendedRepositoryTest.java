@@ -218,4 +218,31 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
             .map(taskIdEntity -> taskMapper.map(taskIdEntity, commonSettings.getAppName()))
             .containsExactlyInAnyOrderElementsOf(expectedTaskIds);
     }
+
+    @Test
+    void shouldFindAllNotDeletedAndNotCanceled() {
+        //when
+        var testTaskModel = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .taskEntityCustomizer(TestTaskModelCustomizerUtils.removed())
+            .build()
+        );
+        extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+                .taskEntityCustomizer(TestTaskModelCustomizerUtils.canceled())
+            .build()
+        );
+
+        //do
+        var taskIdEntities = taskExtendedRepository.findAllNotDeletedAndNotCanceled();
+
+        //verify
+        @SuppressWarnings("DataFlowIssue")
+        var expectedTaskIds = ImmutableList.of(testTaskModel.getTaskId());
+
+        assertThat(taskIdEntities)
+            .map(taskIdEntity -> taskMapper.map(taskIdEntity, commonSettings.getAppName()))
+            .containsExactlyInAnyOrderElementsOf(expectedTaskIds);
+    }
 }

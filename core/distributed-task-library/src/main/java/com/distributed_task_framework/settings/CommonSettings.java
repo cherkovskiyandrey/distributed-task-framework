@@ -3,13 +3,8 @@ package com.distributed_task_framework.settings;
 import com.google.common.collect.ImmutableRangeMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.Value;
-import lombok.With;
 
 import java.net.URL;
 import java.time.Duration;
@@ -22,10 +17,10 @@ public class CommonSettings {
 
     private static Retry cerateDefaultRetry() {
         return Retry.builder()
-                .retryMode(RetryMode.FIXED)
-                .fixed(Fixed.builder().build())
-                .backoff(Backoff.builder().build())
-                .build();
+            .retryMode(RetryMode.FIXED)
+            .fixed(Fixed.builder().build())
+            .backoff(Backoff.builder().build())
+            .build();
     }
 
     public static final CommonSettings DEFAULT = CommonSettings.builder().build();
@@ -40,11 +35,11 @@ public class CommonSettings {
 
     private static CompletionSettings createCompletionSettings() {
         return CompletionSettings.builder()
-                .handlerInitialDelay(Duration.ofSeconds(1))
-                .handlerFixedDelay(Duration.ofSeconds(1))
-                .defaultTaskTimeout(Duration.ofMinutes(1))
-                .defaultWorkflowTimeout(Duration.ofMinutes(1))
-                .build();
+            .handlerInitialDelay(Duration.ofSeconds(1))
+            .handlerFixedDelay(Duration.ofSeconds(1))
+            .defaultTaskTimeout(Duration.ofMinutes(1))
+            .defaultWorkflowTimeout(Duration.ofMinutes(1))
+            .build();
     }
 
     @Builder.Default

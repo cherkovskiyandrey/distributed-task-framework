@@ -9,11 +9,11 @@ import com.distributed_task_framework.model.WorkerContext;
 import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
 import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.service.impl.remote_commands.CancelTaskByTaskDefCommand;
-import com.distributed_task_framework.service.impl.remote_commands.CancelTaskCommand;
-import com.distributed_task_framework.service.impl.remote_commands.RescheduleByTaskDefCommand;
-import com.distributed_task_framework.service.impl.remote_commands.RescheduleCommand;
-import com.distributed_task_framework.service.impl.remote_commands.ScheduleCommand;
+import com.distributed_task_framework.remote_commands.CancelTaskByTaskDefCommand;
+import com.distributed_task_framework.remote_commands.CancelTaskCommand;
+import com.distributed_task_framework.remote_commands.RescheduleByTaskDefCommand;
+import com.distributed_task_framework.remote_commands.RescheduleCommand;
+import com.distributed_task_framework.remote_commands.ScheduleCommand;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -285,12 +286,12 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) {
+    public boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds) {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 
     @Override
-    public boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
+    public boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 
@@ -311,6 +312,16 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public void waitCompletionAllWorkflow(TaskId taskId, Duration timeout) throws TimeoutException, InterruptedException {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletionAllWorkflows(Collection<TaskId> taskIds) throws TimeoutException, InterruptedException {
+        throw new UnsupportedOperationException("Isn't supported yet");
+    }
+
+    @Override
+    public void waitCompletionAllWorkflows(Collection<TaskId> taskIds, Duration timeout) throws TimeoutException, InterruptedException {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 

@@ -1,5 +1,6 @@
 package com.distributed_task_framework.persistence.repository;
 
+import com.distributed_task_framework.exception.BatchUpdateException;
 import com.distributed_task_framework.model.AffinityGroupStat;
 import com.distributed_task_framework.model.AffinityGroupWrapper;
 import com.distributed_task_framework.persistence.entity.IdVersionEntity;
@@ -38,5 +39,12 @@ public interface VirtualQueueManagerPlannerRepository {
      * @param taskEntity
      * @throws OptimisticLockException
      */
-    void softDelete(TaskEntity taskEntity);
+    TaskEntity softDelete(TaskEntity taskEntity);
+
+    /**
+     *
+     * @param taskEntities
+     * @throws BatchUpdateException
+     */
+    void softDeleteAll(Collection<TaskEntity> taskEntities);
 }

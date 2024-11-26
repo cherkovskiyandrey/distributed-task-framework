@@ -2,8 +2,8 @@ package com.distributed_task_framework.model;
 
 import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
-import com.distributed_task_framework.service.impl.local_commands.SaveCommand;
-import com.distributed_task_framework.service.internal.LocalCommand;
+import com.distributed_task_framework.local_commands.impl.ScheduleCommand;
+import com.distributed_task_framework.local_commands.LocalCommand;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Lists;
@@ -89,14 +89,14 @@ public class WorkerContext {
     public boolean hasNewLocalChildren() {
         return localCommands.stream()
                 .filter(localCommand -> !localCommand.hasTask(currentTaskId))
-                .anyMatch(localCommand -> localCommand instanceof SaveCommand);
+                .anyMatch(localCommand -> localCommand instanceof ScheduleCommand);
     }
 
     public Set<UUID> getAllChildrenIds() {
         return localCommands.stream()
                 .filter(localCommand -> !localCommand.hasTask(currentTaskId))
-                .filter(localCommand -> localCommand instanceof SaveCommand)
-                .map(localCommand -> (SaveCommand) localCommand)
+                .filter(localCommand -> localCommand instanceof ScheduleCommand)
+                .map(localCommand -> (ScheduleCommand) localCommand)
                 .map(localCommand -> localCommand.getTaskEntity().getId())
                 .collect(Collectors.toSet());
     }
@@ -104,9 +104,9 @@ public class WorkerContext {
     public boolean hasCronTasksToSave(Set<UUID> taskIds, TaskRegistryService taskRegistryService) {
         return localCommands.stream()
                 .filter(localCommand -> !localCommand.hasTask(currentTaskId))
-                .filter(localCommand -> localCommand instanceof SaveCommand)
-                .map(localCommand -> (SaveCommand) localCommand)
-                .filter(saveCommand -> taskIds.contains(saveCommand.getTaskEntity().getId()))
+                .filter(localCommand -> localCommand instanceof ScheduleCommand)
+                .map(localCommand -> (ScheduleCommand) localCommand)
+                .filter(scheduleCommand -> taskIds.contains(scheduleCommand.getTaskEntity().getId()))
                 .anyMatch(localCommand -> taskRegistryService.getRegisteredLocalTask(localCommand.getTaskEntity().getTaskName())
                         .map(regTask -> regTask.getTaskSettings().hasCron())
                         .orElse(false)

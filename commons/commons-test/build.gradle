@@ -4,6 +4,11 @@ plugins {
 
 dependencies {
     testFixturesImplementation platform(libs.spring.boot.bom)
+
+    //Lombok
+    testFixturesCompileOnly libs.org.projectlombok.lombok
+    testFixturesAnnotationProcessor libs.org.projectlombok.lombok
+
     testFixturesImplementation platform(libs.testcontainers.bom)
 
     testFixturesApi(libs.spring.boot.starter)

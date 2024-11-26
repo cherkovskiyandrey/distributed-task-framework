@@ -12,6 +12,7 @@ import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.task.TestTaskModel;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
@@ -24,6 +25,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import java.time.Duration;
 import java.util.List;
@@ -269,8 +271,60 @@ class LocalTaskCommandServiceImplIntegrationTest extends BaseSpringIntegrationTe
 
         //do & verify
         assertThatThrownBy(() -> distributedTaskService.waitCompletionAllWorkflow(
-            testTaskModel.getTaskId(),
-            Duration.ofSeconds(5))
+                testTaskModel.getTaskId(),
+                Duration.ofSeconds(3)
+            )
+        )
+            .isInstanceOf(TimeoutException.class);
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    @SneakyThrows
+    @Test
+    void shouldWaitCompletionAllWorkflows() {
+        //when
+        var cyclicBarrier = new CyclicBarrier(2);
+        var testTaskModelsOne = generateIndependentTasksInTheSameWorkflow(5);
+        var testTaskModelsTwo = generateIndependentTasksInTheSameWorkflow(5);
+        CompletableFuture.runAsync(() -> assertThatNoException().isThrownBy(() -> {
+                    cyclicBarrier.await();
+                    for (var testTaskModel : ImmutableList.<TestTaskModel<String>>builder()
+                        .addAll(testTaskModelsOne)
+                        .addAll(testTaskModelsTwo)
+                        .build()) {
+                        TimeUnit.MILLISECONDS.sleep(500);
+                        internalTaskCommandService.finalize(testTaskModel.getTaskEntity());
+                    }
+                }
+            )
+        );
+
+        //do
+        cyclicBarrier.await();
+        distributedTaskService.waitCompletionAllWorkflows(List.of(
+                testTaskModelsOne.get(0).getTaskId(),
+                testTaskModelsTwo.get(0).getTaskId()
+            )
+        );
+
+        //verify
+        testTaskModelsOne.forEach(testTaskModel -> verifyTaskIsFinished(Objects.requireNonNull(testTaskModel.getTaskId())));
+        testTaskModelsTwo.forEach(testTaskModel -> verifyTaskIsFinished(Objects.requireNonNull(testTaskModel.getTaskId())));
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    @SneakyThrows
+    @Test
+    void shouldThrowExceptionWhenWaitCompletionAllWorkflowsWithTimeoutAndTimeoutExpired() {
+        //when
+        var testTaskModelOne = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var testTaskModelTwo = extendedTaskGenerator.generateDefaultAndSave(String.class);
+
+        //do & verify
+        assertThatThrownBy(() -> distributedTaskService.waitCompletionAllWorkflows(
+                List.of(testTaskModelOne.getTaskId(), testTaskModelTwo.getTaskId()),
+                Duration.ofSeconds(3)
+            )
         )
             .isInstanceOf(TimeoutException.class);
     }

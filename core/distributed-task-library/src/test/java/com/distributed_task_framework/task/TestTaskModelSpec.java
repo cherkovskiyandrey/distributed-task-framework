@@ -37,6 +37,10 @@ public class TestTaskModelSpec<T> {
         return new Builder<>(inputType);
     }
 
+    public static <T> Builder<T> builder(TaskDef<T> taskDef) {
+        return new Builder<>(taskDef);
+    }
+
     public static class Builder<T> {
         private final Class<T> inputType;
         TaskDef<T> taskDef;
@@ -50,6 +54,12 @@ public class TestTaskModelSpec<T> {
 
         private Builder(Class<T> inputType) {
             this.inputType = inputType;
+        }
+
+        @SuppressWarnings("unchecked")
+        private Builder(TaskDef<T> taskDef) {
+            this.inputType = (Class<T>) taskDef.getInputMessageType().getRawClass();
+            this.taskDef = taskDef;
         }
 
         public Builder<T> privateTask(String taskName) {

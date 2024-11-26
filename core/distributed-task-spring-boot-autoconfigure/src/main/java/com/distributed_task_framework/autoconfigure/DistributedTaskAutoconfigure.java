@@ -35,7 +35,7 @@ import com.distributed_task_framework.service.impl.CompletionServiceImpl;
 import com.distributed_task_framework.service.impl.CronService;
 import com.distributed_task_framework.service.impl.DeliveryManagerImpl;
 import com.distributed_task_framework.service.impl.DistributedTaskServiceImpl;
-import com.distributed_task_framework.service.impl.InternalTaskCommandProxyService;
+import com.distributed_task_framework.service.impl.InternalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.JoinTaskPlannerImpl;
 import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
@@ -43,7 +43,7 @@ import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.MetricHelperImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
-import com.distributed_task_framework.service.impl.TaskCommandStatHelper;
+import com.distributed_task_framework.service.impl.TaskCommandStatServiceImpl;
 import com.distributed_task_framework.service.impl.TaskLinkManagerImpl;
 import com.distributed_task_framework.service.impl.TaskRegistryServiceImpl;
 import com.distributed_task_framework.service.impl.TaskRouter;
@@ -65,11 +65,13 @@ import com.distributed_task_framework.service.internal.InternalTaskCommandServic
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.PlannerService;
+import com.distributed_task_framework.service.internal.TaskCommandStatService;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import com.distributed_task_framework.service.internal.TaskWorkerFactory;
+import com.distributed_task_framework.service.internal.VirtualQueueBaseTaskCommandService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -562,12 +564,11 @@ public class DistributedTaskAutoconfigure {
     }
 
     @Bean
-    @Qualifier("impl")
     @ConditionalOnMissingBean
-    public VirtualQueueBaseTaskCommandServiceImpl virtualQueueBaseTaskCommandService(PartitionTracker partitionTracker,
-                                                                                     TaskRepository taskRepository,
-                                                                                     WorkerContextManager workerContextManager,
-                                                                                     TaskMapper taskMapper) {
+    public VirtualQueueBaseTaskCommandService virtualQueueBaseTaskCommandService(PartitionTracker partitionTracker,
+                                                                                 TaskRepository taskRepository,
+                                                                                 WorkerContextManager workerContextManager,
+                                                                                 TaskMapper taskMapper) {
         return new VirtualQueueBaseTaskCommandServiceImpl(
             partitionTracker,
             taskRepository,
@@ -577,18 +578,19 @@ public class DistributedTaskAutoconfigure {
     }
 
     @Bean
-    @Qualifier("impl")
     @ConditionalOnMissingBean
-    public TaskCommandStatHelper taskCommandStatHelper(MetricHelper metricHelper) {
-        return new TaskCommandStatHelper(metricHelper);
+    public TaskCommandStatService taskCommandStatService(MetricHelper metricHelper) {
+        return new TaskCommandStatServiceImpl(metricHelper);
     }
 
     @Bean
-    @Qualifier("proxy")
     @ConditionalOnMissingBean
-    public InternalTaskCommandProxyService internalTaskCommandProxyService(@Qualifier("impl")
-                                                                           List<InternalTaskCommandService> internalTaskCommandServices) {
-        return new InternalTaskCommandProxyService(internalTaskCommandServices);
+    public InternalTaskCommandService internalTaskCommandService(VirtualQueueBaseTaskCommandService internalTaskCommandServices,
+                                                                 TaskCommandStatService taskCommandStatService) {
+        return new InternalTaskCommandServiceImpl(
+            internalTaskCommandServices,
+            taskCommandStatService
+        );
     }
 
     @Bean
@@ -614,7 +616,7 @@ public class DistributedTaskAutoconfigure {
                                                                               CronService cronService,
                                                                               CommonSettings commonSettings,
                                                                               TaskLinkManager taskLinkManager,
-                                                                              @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
+                                                                              InternalTaskCommandService internalTaskCommandService,
                                                                               CompletionService completionService,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
@@ -695,7 +697,7 @@ public class DistributedTaskAutoconfigure {
     public LocalAtLeastOnceWorker localAtLeastOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
                                                          @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
-                                                         @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
+                                                         InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
                                                          DltRepository dltRepository,
@@ -729,7 +731,7 @@ public class DistributedTaskAutoconfigure {
     public LocalExactlyOnceWorker localExactlyOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
                                                          @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
-                                                         @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
+                                                         InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
                                                          DltRepository dltRepository,

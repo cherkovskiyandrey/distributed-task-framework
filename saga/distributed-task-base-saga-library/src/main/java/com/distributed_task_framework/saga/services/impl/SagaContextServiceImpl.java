@@ -131,9 +131,9 @@ public class SagaContextServiceImpl implements SagaContextService {
                     expiredSagaRootTasksIds
                 );
 
-                //todo: check potential deadlock
+                //todo: check potential deadlock ?
                 try {
-                    distributedTaskService.cancelAllWorkflowByTaskId(expiredSagaRootTasksIds);
+                    distributedTaskService.cancelAllWorkflowsByTaskId(expiredSagaRootTasksIds);
                 } catch (Exception error) {
                     log.error("handleHangingSagas(): couldn't cancel taskIds=[{}]", expiredSagaRootTasksIds, error);
                     throw new RuntimeException(error);

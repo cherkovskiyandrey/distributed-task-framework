@@ -2,6 +2,7 @@ package com.distributed_task_framework.task;
 
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import lombok.experimental.UtilityClass;
 
 import java.time.LocalDateTime;
@@ -17,9 +18,23 @@ public class TestTaskModelCustomizerUtils {
         };
     }
 
+    public static Function<TaskEntity, TaskEntity> inVirtualQueue(VirtualQueue virtualQueue) {
+        return taskEntity -> taskEntity.toBuilder()
+            .virtualQueue(virtualQueue)
+            .deletedAt(virtualQueue == VirtualQueue.DELETED ? LocalDateTime.now() : null)
+            .build();
+    }
+
     public static Function<TaskEntity, TaskEntity> removed() {
         return taskEntity -> taskEntity.toBuilder()
+            .virtualQueue(VirtualQueue.DELETED)
             .deletedAt(LocalDateTime.now())
+            .build();
+    }
+
+    public static Function<TaskEntity, TaskEntity> canceled() {
+        return taskEntity -> taskEntity.toBuilder()
+            .canceled(true)
             .build();
     }
 

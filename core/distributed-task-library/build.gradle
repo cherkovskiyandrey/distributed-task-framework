@@ -29,4 +29,5 @@ dependencies {
     testImplementation libs.org.apache.httpclient
     testImplementation libs.logback.core
     testImplementation libs.net.logstash.logback.encoder
+    testImplementation libs.instancio.junit
 }

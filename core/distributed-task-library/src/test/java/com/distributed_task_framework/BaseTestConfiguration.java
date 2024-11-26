@@ -7,6 +7,10 @@ import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.persistence.entity.CapabilityEntity;
 import com.distributed_task_framework.persistence.entity.PartitionEntity;
 import com.distributed_task_framework.persistence.entity.PlannerEntity;
+import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
+import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
+import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
+import com.distributed_task_framework.persistence.entity.TaskLinkEntity;
 import com.distributed_task_framework.persistence.entity.TaskMessageEntity;
 import com.distributed_task_framework.persistence.repository.CapabilityRepository;
 import com.distributed_task_framework.persistence.repository.DltRepository;
@@ -14,28 +18,23 @@ import com.distributed_task_framework.persistence.repository.NodeStateRepository
 import com.distributed_task_framework.persistence.repository.PartitionRepository;
 import com.distributed_task_framework.persistence.repository.RegisteredTaskRepository;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
-import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
-import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
-import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
-import com.distributed_task_framework.persistence.entity.TaskLinkEntity;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
 import com.distributed_task_framework.service.impl.CompletionServiceImpl;
 import com.distributed_task_framework.service.impl.CronService;
 import com.distributed_task_framework.service.impl.DistributedTaskServiceImpl;
-import com.distributed_task_framework.service.impl.InternalTaskCommandProxyService;
+import com.distributed_task_framework.service.impl.InternalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.MetricHelperImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
-import com.distributed_task_framework.service.impl.TaskCommandStatHelper;
+import com.distributed_task_framework.service.impl.TaskCommandStatServiceImpl;
 import com.distributed_task_framework.service.impl.TaskLinkManagerImpl;
 import com.distributed_task_framework.service.impl.TaskRegistryServiceImpl;
 import com.distributed_task_framework.service.impl.TaskWorkerFactoryImpl;
@@ -45,20 +44,22 @@ import com.distributed_task_framework.service.impl.WorkerContextManagerImpl;
 import com.distributed_task_framework.service.impl.WorkerManagerImpl;
 import com.distributed_task_framework.service.impl.workers.LocalAtLeastOnceWorker;
 import com.distributed_task_framework.service.impl.workers.LocalExactlyOnceWorker;
-import com.distributed_task_framework.service.internal.CompletionService;
-import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.service.internal.CapabilityRegister;
 import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.PlannerService;
+import com.distributed_task_framework.service.internal.TaskCommandStatService;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import com.distributed_task_framework.service.internal.TaskWorkerFactory;
+import com.distributed_task_framework.service.internal.VirtualQueueBaseTaskCommandService;
+import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.Fixed;
@@ -465,11 +466,10 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    @Qualifier("impl")
-    public VirtualQueueBaseTaskCommandServiceImpl virtualQueueBaseTaskCommandService(PartitionTracker partitionTracker,
-                                                                                     TaskRepository taskRepository,
-                                                                                     WorkerContextManager workerContextManager,
-                                                                                     TaskMapper taskMapper) {
+    public VirtualQueueBaseTaskCommandService virtualQueueBaseTaskCommandService(PartitionTracker partitionTracker,
+                                                                                 TaskRepository taskRepository,
+                                                                                 WorkerContextManager workerContextManager,
+                                                                                 TaskMapper taskMapper) {
         return new VirtualQueueBaseTaskCommandServiceImpl(
             partitionTracker,
             taskRepository,
@@ -479,18 +479,19 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    @Qualifier("impl")
-    public TaskCommandStatHelper taskCommandStatHelper(MetricHelper metricHelper) {
-        return new TaskCommandStatHelper(
+    public TaskCommandStatService taskCommandStatService(MetricHelper metricHelper) {
+        return new TaskCommandStatServiceImpl(
             metricHelper
         );
     }
 
     @Bean
-    @Qualifier("proxy")
-    public InternalTaskCommandService internalTaskCommandProxyService(@Qualifier("impl")
-                                                                      List<InternalTaskCommandService> internalTaskCommandServices) {
-        return new InternalTaskCommandProxyService(internalTaskCommandServices);
+    public InternalTaskCommandService internalTaskCommandService(VirtualQueueBaseTaskCommandService internalTaskCommandServices,
+                                                                 TaskCommandStatService taskCommandStatService) {
+        return new InternalTaskCommandServiceImpl(
+            internalTaskCommandServices,
+            taskCommandStatService
+        );
     }
 
     @Bean
@@ -498,9 +499,9 @@ public class BaseTestConfiguration {
                                                TaskRepository taskRepository,
                                                WorkerContextManager workerContextManager) {
         return new CompletionServiceImpl(
-                commonSettings,
-                taskRepository,
-                workerContextManager
+            commonSettings,
+            taskRepository,
+            workerContextManager
         );
     }
 
@@ -513,23 +514,23 @@ public class BaseTestConfiguration {
                                                                               TaskSerializer taskSerializer,
                                                                               CronService cronService,
                                                                               CommonSettings commonSettings,
-                                                                              @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
+                                                                              InternalTaskCommandService internalTaskCommandService,
                                                                               TaskLinkManager taskLinkManager,
                                                                               CompletionService completionService,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
-                workerContextManager,
-                transactionManager,
-                taskRepository,
-                taskMapper,
-                taskRegistryService,
-                taskSerializer,
-                cronService,
-                commonSettings,
-                internalTaskCommandService,
-                taskLinkManager,
-                completionService,
-                clock
+            workerContextManager,
+            transactionManager,
+            taskRepository,
+            taskMapper,
+            taskRegistryService,
+            taskSerializer,
+            cronService,
+            commonSettings,
+            internalTaskCommandService,
+            taskLinkManager,
+            completionService,
+            clock
         );
     }
 
@@ -566,7 +567,7 @@ public class BaseTestConfiguration {
     public LocalAtLeastOnceWorker localAtLeastOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
                                                          PlatformTransactionManager transactionManager,
-                                                         @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
+                                                         InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
                                                          DltRepository dltRepository,
@@ -600,7 +601,7 @@ public class BaseTestConfiguration {
     public LocalExactlyOnceWorker localExactlyOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
                                                          PlatformTransactionManager transactionManager,
-                                                         @Qualifier("proxy") InternalTaskCommandService internalTaskCommandService,
+                                                         InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
                                                          DltRepository dltRepository,

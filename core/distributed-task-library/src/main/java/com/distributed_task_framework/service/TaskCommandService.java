@@ -7,6 +7,7 @@ import com.distributed_task_framework.model.TaskId;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
@@ -245,17 +246,17 @@ public interface TaskCommandService {
      * @param taskIds
      * @return
      */
-    boolean cancelAllWorkflowByTaskId(List<TaskId> taskIds) throws Exception;
+    boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds) throws Exception;
 
     /**
-     * The same as {@link this#cancelAllWorkflowByTaskId(List)} but when invoked from
+     * The same as {@link this#cancelAllWorkflowsByTaskId(List)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
      * @param taskIds
      * @return
      */
-    boolean cancelAllWorkflowByTaskIdImmediately(List<TaskId> taskIds) throws Exception;
+    boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) throws Exception;
 
     /**
      * Wait until task referenced by taskId is completed.
@@ -285,11 +286,29 @@ public interface TaskCommandService {
     void waitCompletionAllWorkflow(TaskId taskId) throws TimeoutException, InterruptedException;
 
     /**
-     * Wait until workflow referenced by workflowId is completed.
+     * Wait until workflow referenced by taskId is completed.
      * Return immediately in case all tasks are already completed.
      *
      * @param taskId
      * @throws java.util.concurrent.TimeoutException when default timeout is reached and task is still in progress
      */
     void waitCompletionAllWorkflow(TaskId taskId, Duration timeout) throws TimeoutException, InterruptedException;
+
+    /**
+     * Wait until all workflows referenced by taskIds are completed.
+     * Return immediately in case all tasks are already completed.
+     *
+     * @param taskIds
+     * @throws java.util.concurrent.TimeoutException when default timeout is reached and task is still in progress
+     */
+    void waitCompletionAllWorkflows(Collection<TaskId> taskIds) throws TimeoutException, InterruptedException;
+
+    /**
+     * Wait until all workflows referenced by taskIds are completed.
+     * Return immediately in case all tasks are already completed.
+     *
+     * @param taskIds
+     * @throws java.util.concurrent.TimeoutException when default timeout is reached and task is still in progress
+     */
+    void waitCompletionAllWorkflows(Collection<TaskId> taskIds, Duration timeout) throws TimeoutException, InterruptedException;
 }

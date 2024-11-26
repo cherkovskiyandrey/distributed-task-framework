@@ -25,7 +25,7 @@ import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.utils.CommandHelper;
+import com.distributed_task_framework.utils.LocalCommandHelper;
 import com.fasterxml.jackson.databind.JavaType;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -98,6 +98,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
 
         final TaskEntity finalTaskEntity = taskEntity;
         try {
+            log.info("execute(): begin taskId=[{}], thread=[{}]", taskEntity.getId(), Thread.currentThread().getId());
             getRunInternalTimer(finalTaskEntity).record(() -> runInternal(finalTaskEntity, registeredTask));
         } catch (Exception exception) {
             //think about recurrent tasks and there's cancellation
@@ -189,7 +190,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                         .assignedWorker(null)
                         .executionDateUtc(nextTryDateTime.orElseThrow())
                         .build();
-                internalTaskCommandService.forceReschedule(taskEntity);
+                internalTaskCommandService.reschedule(taskEntity);
             } catch (Exception internalException) {
                 logTaskUpdateException(finalTaskEntity, internalException);
             }
@@ -199,20 +200,8 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             throw throwable;
         } finally {
             workerContextManager.cleanCurrentContext();
-            log.info("execute(): completed taskId=[{}]", taskId);
+            log.info("execute(): completed taskId=[{}], threadId=[{}]", taskId, Thread.currentThread().getId());
         }
-    }
-
-    private void cleanContext() {
-        workerContextManager.getCurrentContext()
-                .map(workerContext -> WorkerContext.builder()
-                        .workflowId(workerContext.getWorkflowId())
-                        .workflowName(workerContext.getWorkflowName())
-                        .currentTaskId(workerContext.getCurrentTaskId())
-                        .taskSettings(workerContext.getTaskSettings())
-                        .taskEntity(workerContext.getTaskEntity())
-                        .build())
-                .ifPresent(workerContextManager::setCurrentContext);
     }
 
     private String reasonMessage(boolean hasToInterruptRetrying) {
@@ -299,7 +288,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             try {
                 new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
                     taskLinkManager.markLinksAsCompleted(finalTaskEntity.getId());
-                    internalTaskCommandService.finalize(taskEntity);
+                    internalTaskCommandService.finalize(finalTaskEntity);
                     getCancelCounter(finalTaskEntity).increment();
                 });
             } catch (Exception internalException) {
@@ -446,7 +435,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
 
     @SneakyThrows
     private void handlePostponedCommands(WorkerContext currentContext) {
-        CommandHelper.collapseToBatchedCommands(currentContext.getLocalCommands())
+        LocalCommandHelper.collapseToBatchedCommands(currentContext.getLocalCommands())
                 .forEach(command -> command.execute(internalTaskCommandService));
         remoteCommandRepository.saveAll(currentContext.getRemoteCommandsToSend());
         for (var joinTaskMessage : currentContext.getTaskMessagesToSave().values()) {

@@ -24,21 +24,26 @@ import static org.mockito.Mockito.verify;
 @FieldDefaults(level = AccessLevel.PROTECTED)
 public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWorkerIntegrationTest {
 
+    @SuppressWarnings("DataFlowIssue")
     @SneakyThrows
-    @SuppressWarnings("unchecked")
     @Test
-    void shouldCancelAllWorkflowByTaskId() {
+    void shouldCancelAllWorkflowByTaskIdIncludedCurrentOne() {
         //when
-        var taskModelsGroupOne = generateIndependentTasksInTheSameWorkflow(10);
-        var taskModelsGroupTwo = generateIndependentTasksInTheSameWorkflow(10);
+        var cancelingTaskModelGroupOne = generateIndependentTasksInTheSameWorkflow(10);
+        var cancelingTaskModelGroupTwo = generateIndependentTasksInTheSameWorkflow(10);
         var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
-            .action(ctx -> distributedTaskService.cancelAllWorkflowByTaskId(
-                List.of(
-                    taskModelsGroupOne.get(0).getTaskId(),
-                    taskModelsGroupTwo.get(0).getTaskId()
-                )
-            ))
+            .withSameWorkflowAs(cancelingTaskModelGroupOne.get(0).getTaskId())
+            .action(ctx -> {
+                    distributedTaskService.reschedule(ctx.getCurrentTaskId(), Duration.ofHours(1));
+                    distributedTaskService.cancelAllWorkflowsByTaskId(
+                        List.of(
+                            cancelingTaskModelGroupOne.get(0).getTaskId(),
+                            cancelingTaskModelGroupTwo.get(0).getTaskId()
+                        )
+                    );
+                }
+            )
             .build()
         );
 
@@ -46,10 +51,9 @@ public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWor
         getTaskWorker().execute(rootTaskModel.getTaskEntity(), rootTaskModel.getRegisteredTask());
 
         //verify
-        verify(rootTaskModel.getMockedTask(), Mockito.never()).onFailure(any(FailedExecutionContext.class));
         verifyTaskIsFinished(rootTaskModel.getTaskId());
-        taskModelsGroupOne.forEach(taskModel -> verifyTaskIsCanceled(taskModel.getTaskEntity()));
-        taskModelsGroupTwo.forEach(taskModel -> verifyTaskIsCanceled(taskModel.getTaskEntity()));
+        cancelingTaskModelGroupOne.forEach(taskModel -> verifyTaskIsCanceled(taskModel.getTaskEntity()));
+        cancelingTaskModelGroupTwo.forEach(taskModel -> verifyTaskIsCanceled(taskModel.getTaskEntity()));
     }
 
     @Test
@@ -61,7 +65,7 @@ public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWor
         var taskModelsGroupTwo = generateIndependentTasksInTheSameWorkflow(10);
         var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
-            .action(ctx -> distributedTaskService.cancelAllWorkflowByTaskId(
+            .action(ctx -> distributedTaskService.cancelAllWorkflowsByTaskId(
                 List.of(
                     taskModelsGroupOne.get(0).getTaskId(),
                     taskModelsGroupTwo.get(0).getTaskId()
@@ -85,6 +89,7 @@ public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWor
         );
     }
 
+    @SuppressWarnings("DataFlowIssue")
     @Test
     void shouldCancelAllWorkflowByTaskIdWhenParallelExecutionAndImmediately() {
         //when
@@ -95,7 +100,7 @@ public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWor
         var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
             .action(ctx -> {
-                distributedTaskService.cancelAllWorkflowByTaskIdImmediately(
+                distributedTaskService.cancelAllWorkflowsByTaskIdImmediately(
                     List.of(
                         taskModelsGroupOne.get(0).getTaskId(),
                         taskModelsGroupTwo.get(0).getTaskId()
@@ -129,7 +134,7 @@ public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWor
         var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
             .action(ctx -> {
-                distributedTaskService.cancelAllWorkflowByTaskId(List.of(taskModelOne.getTaskId(), taskModelTwo.getTaskId()));
+                distributedTaskService.cancelAllWorkflowsByTaskId(List.of(taskModelOne.getTaskId(), taskModelTwo.getTaskId()));
                 CompletableFuture.supplyAsync(() -> emulateParallelExecution(taskModelOne.getTaskEntity())).join();
                 CompletableFuture.supplyAsync(() -> emulateParallelExecution(taskModelTwo.getTaskEntity())).join();
             })
@@ -157,7 +162,7 @@ public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWor
         var rootTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
             .action(ctx -> {
-                distributedTaskService.cancelAllWorkflowByTaskId(taskModels);
+                distributedTaskService.cancelAllWorkflowsByTaskId(taskModels);
                 throw new RuntimeException();
             })
             .build()
@@ -189,7 +194,7 @@ public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWor
             .action(ctx -> {
                 distributedTaskService.reschedule(taskModelOne.getTaskId(), Duration.ofMinutes(1));
                 distributedTaskService.reschedule(taskModelTwo.getTaskId(), Duration.ofMinutes(1));
-                distributedTaskService.cancelAllWorkflowByTaskId(taskModels);
+                distributedTaskService.cancelAllWorkflowsByTaskId(taskModels);
             })
             .build()
         );
