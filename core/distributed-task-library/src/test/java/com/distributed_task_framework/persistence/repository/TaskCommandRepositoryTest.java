@@ -42,7 +42,8 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         var toReschedule = originalTaskEntity.getTaskEntity().toBuilder()
             .executionDateUtc(LocalDateTime.now(clock))
             .failures(2)
-            .assignedWorker(UUID.randomUUID())
+            .assignedWorker(null)
+            .lastAssignedDateUtc(null)
             .build();
 
         //do
@@ -59,7 +60,8 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         var toReschedule = testTaskModel.getTaskEntity().toBuilder()
             .version(2L)
             .executionDateUtc(LocalDateTime.now(clock))
-            .assignedWorker(UUID.randomUUID())
+            .assignedWorker(null)
+            .lastAssignedDateUtc(null)
             .build();
 
         //do
@@ -76,7 +78,8 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
         var toReschedule = testTaskModel.getTaskEntity().toBuilder()
             .version(2L)
             .executionDateUtc(LocalDateTime.now(clock))
-            .assignedWorker(UUID.randomUUID())
+            .assignedWorker(null)
+            .lastAssignedDateUtc(null)
             .build();
 
         //do
@@ -89,20 +92,30 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
     @Test
     void shouldForceReschedule() {
         //when
-        var testTaskModel = createSimpleTestTaskModelIn(VirtualQueue.READY);
-        var toReschedule = testTaskModel.getTaskEntity().toBuilder()
-            .version(10L)
-            .failures(2)
-            .executionDateUtc(LocalDateTime.now(clock))
-            .assignedWorker(UUID.randomUUID())
+        var taskEntity = createSimpleTestTaskModelIn(VirtualQueue.READY).getTaskEntity();
+        var timeToReschedule = LocalDateTime.now(clock).plusHours(10);
+        var toReschedule = taskEntity.toBuilder()
+            .executionDateUtc(timeToReschedule)
+            .failures(10)
             .build();
+        var touched = taskRepository.saveOrUpdate(taskEntity.toBuilder()
+            .assignedWorker(UUID.randomUUID())
+            .build()
+        );
 
         //do
         boolean result = repository.forceReschedule(toReschedule);
 
         //verify
         assertThat(result).isTrue();
-        verifyInRepository(toReschedule);
+        var expected = touched.toBuilder()
+            .version(touched.getVersion() + 1)
+            .failures(10)
+            .executionDateUtc(timeToReschedule)
+            .assignedWorker(null)
+            .lastAssignedDateUtc(null)
+            .build();
+        verifyInRepository(expected);
     }
 
     @Test
@@ -126,18 +139,29 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
     @Test
     void shouldForceRescheduleAll() {
         //when
-        var originalTaskEntity = createSimpleTestTaskModelIn(VirtualQueue.READY);
-        var toReschedule = originalTaskEntity.getTaskEntity().toBuilder()
-            .version(10L)
-            .executionDateUtc(LocalDateTime.now(clock))
-            .assignedWorker(UUID.randomUUID())
+        var taskEntity = createSimpleTestTaskModelIn(VirtualQueue.READY).getTaskEntity();
+        var timeToReschedule = LocalDateTime.now(clock).plusHours(10);
+        var toReschedule = taskEntity.toBuilder()
+            .executionDateUtc(timeToReschedule)
+            .failures(10)
             .build();
+        var touched = taskRepository.saveOrUpdate(taskEntity.toBuilder()
+            .assignedWorker(UUID.randomUUID())
+            .build()
+        );
 
         //do
         repository.forceRescheduleAll(List.of(toReschedule));
 
         //verify
-        verifyInRepository(toReschedule);
+        var expected = touched.toBuilder()
+            .version(touched.getVersion() + 1)
+            .failures(10)
+            .executionDateUtc(timeToReschedule)
+            .assignedWorker(null)
+            .lastAssignedDateUtc(null)
+            .build();
+        verifyInRepository(expected);
     }
 
     @Test

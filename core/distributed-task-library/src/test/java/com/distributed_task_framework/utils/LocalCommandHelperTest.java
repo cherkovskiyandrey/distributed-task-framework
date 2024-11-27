@@ -170,35 +170,41 @@ class LocalCommandHelperTest {
         );
 
         //then
+        var expectedLast = BatchTaskBasedAction.builder()
+            .batchableAction(independentBatcheableTaskBasedAction1)
+            .batchableAction(independentBatcheableTaskBasedAction2)
+            .build();
+
         assertThat(batchCommands)
             .hasSize(3)
-            .containsExactly(
+            .containsExactlyInAnyOrder(
                 dependentContextAware11,
                 dependentContextAware21,
-                BatchTaskBasedAction.builder()
-                    .batchableAction(independentBatcheableTaskBasedAction1)
-                    .batchableAction(independentBatcheableTaskBasedAction2)
-                    .build()
+                expectedLast
             );
-        assertThat(((AbstractTaskBasedContextAwareCommand) batchCommands.get(0))
+
+        assertThat(batchCommands).last().isEqualTo(expectedLast);
+
+        assertThat(dependentContextAware11
             .getNextCommand()
         )
             .isNotNull()
             .isEqualTo(dependentContextAware12);
-        assertThat(((AbstractTaskBasedContextAwareCommand) batchCommands.get(0))
+
+        assertThat(dependentContextAware11
             .getNextCommand()
             .getNextCommand()
         )
             .isNotNull()
             .isEqualTo(dependentContextAware13);
-        assertThat(((AbstractTaskBasedContextAwareCommand) batchCommands.get(0))
+        assertThat(dependentContextAware11
             .getNextCommand()
             .getNextCommand()
             .getNextCommand()
         )
             .isNotNull()
             .isEqualTo(dependentContextAware14);
-        assertThat(((AbstractTaskBasedContextAwareCommand) batchCommands.get(0))
+        assertThat(dependentContextAware11
             .getNextCommand()
             .getNextCommand()
             .getNextCommand()

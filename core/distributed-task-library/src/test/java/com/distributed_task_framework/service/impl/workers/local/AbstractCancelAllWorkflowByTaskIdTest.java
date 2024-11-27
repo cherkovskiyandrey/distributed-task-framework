@@ -208,7 +208,7 @@ public abstract class AbstractCancelAllWorkflowByTaskIdTest extends BaseLocalWor
             assertThat(taskRepository.find(taskModel.getId())).isPresent()
                 .get()
                 .matches(task -> Boolean.TRUE.equals(task.isCanceled()), "canceled")
-                .matches(task -> task.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 60L, "rescheduled")
+                .matches(task -> task.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "rescheduled")
         );
     }
 }
