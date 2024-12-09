@@ -3,8 +3,9 @@ package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.annotations.SagaMethod;
-import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
-import com.distributed_task_framework.saga.services.SagaContextService;
+import com.distributed_task_framework.saga.models.SagaPipeline;
+import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.services.SagaTaskFactory;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -22,19 +23,21 @@ import java.lang.reflect.Method;
 public class SagaTaskFactoryImpl implements SagaTaskFactory {
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
-    SagaContextService sagaContextService;
+    SagaManager sagaManager;
+    SagaContextRepository sagaContextRepository;
     TaskSerializer taskSerializer;
     SagaHelper sagaHelper;
 
     @Override
-    public SagaTask sagaTask(TaskDef<SagaEmbeddedPipelineContext> taskDef,
+    public SagaTask sagaTask(TaskDef<SagaPipeline> taskDef,
                              Method method,
                              Object bean,
                              SagaMethod sagaMethodAnnotation) {
         return new SagaTask(
             sagaRegister,
             distributedTaskService,
-            sagaContextService,
+            sagaManager,
+            sagaContextRepository,
             taskSerializer,
             sagaHelper,
             taskDef,
@@ -45,11 +48,11 @@ public class SagaTaskFactoryImpl implements SagaTaskFactory {
     }
 
     @Override
-    public SagaRevertTask sagaRevertTask(TaskDef<SagaEmbeddedPipelineContext> taskDef, Method method, Object bean) {
+    public SagaRevertTask sagaRevertTask(TaskDef<SagaPipeline> taskDef, Method method, Object bean) {
         return new SagaRevertTask(
             sagaRegister,
             distributedTaskService,
-            sagaContextService,
+            sagaManager,
             sagaHelper,
             taskDef,
             method,

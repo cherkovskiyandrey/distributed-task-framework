@@ -1,11 +1,11 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
+import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.models.SagaOperation;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
-import com.distributed_task_framework.saga.services.SagaContextService;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaEntryPoint;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
@@ -36,7 +36,7 @@ public class SagaEntryPointImpl implements SagaEntryPoint {
     PlatformTransactionManager transactionManager;
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
-    SagaContextService sagaContextService;
+    SagaManager sagaManager;
     SagaHelper sagaHelper;
 
     @SneakyThrows
@@ -46,8 +46,8 @@ public class SagaEntryPointImpl implements SagaEntryPoint {
                                                                         INPUT input) {
         Objects.requireNonNull(input);
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
-        TaskDef<SagaEmbeddedPipelineContext> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaPipeline> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
         var revertOperationSagaSchemaArguments = SagaSchemaArguments.of(
@@ -56,7 +56,7 @@ public class SagaEntryPointImpl implements SagaEntryPoint {
             SagaArguments.THROWABLE
         );
 
-        SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext = sagaHelper.buildContextFor(
+        SagaPipeline sagaPipeline = sagaHelper.buildContextFor(
             null,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
@@ -65,18 +65,18 @@ public class SagaEntryPointImpl implements SagaEntryPoint {
             input
         );
 
-        return wrapToSagaFlowBuilder(sagaEmbeddedPipelineContext, sagaOperation.getMethod().getReturnType());
+        return wrapToSagaFlowBuilder(sagaPipeline, sagaOperation.getMethod().getReturnType());
     }
 
     @Override
     public <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(Function<INPUT, OUTPUT> operation, INPUT input) {
         Objects.requireNonNull(input);
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
 
-        SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext = sagaHelper.buildContextFor(
+        SagaPipeline sagaPipeline = sagaHelper.buildContextFor(
             null,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
@@ -85,21 +85,21 @@ public class SagaEntryPointImpl implements SagaEntryPoint {
             input
         );
 
-        return wrapToSagaFlowBuilder(sagaEmbeddedPipelineContext, sagaOperation.getMethod().getReturnType());
+        return wrapToSagaFlowBuilder(sagaPipeline, sagaOperation.getMethod().getReturnType());
     }
 
-    private <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext,
+    private <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipeline sagaPipeline,
                                                                                  @Nullable Class<?> methodOutputType) {
         return SagaFlowBuilderImpl.<INPUT, OUTPUT>builder()
             .userName(userName)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
             .transactionManager(transactionManager)
-            .sagaContextService(sagaContextService)
+            .sagaManager(sagaManager)
             .distributedTaskService(distributedTaskService)
             .sagaHelper(sagaHelper)
             .sagaRegister(sagaRegister)
-            .sagaParentEmbeddedPipelineContext(sagaEmbeddedPipelineContext)
+            .sagaParentEmbeddedPipelineContext(sagaPipeline)
             .methodOutputType(methodOutputType)
             .build();
     }

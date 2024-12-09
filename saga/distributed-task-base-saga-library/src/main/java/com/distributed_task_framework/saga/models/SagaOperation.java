@@ -8,5 +8,5 @@ import java.lang.reflect.Method;
 @Value
 public class SagaOperation {
     Method method;
-    TaskDef<SagaEmbeddedPipelineContext> taskDef;
+    TaskDef<SagaPipeline> taskDef;
 }

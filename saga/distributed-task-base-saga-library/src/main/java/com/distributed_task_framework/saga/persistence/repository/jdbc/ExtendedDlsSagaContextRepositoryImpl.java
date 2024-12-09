@@ -1,6 +1,6 @@
 package com.distributed_task_framework.saga.persistence.repository.jdbc;
 
-import com.distributed_task_framework.saga.persistence.entities.DlsSagaContextEntity;
+import com.distributed_task_framework.saga.persistence.entities.DlsSagaEntity;
 import com.distributed_task_framework.saga.persistence.repository.ExtendedDlsSagaContextRepository;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.google.common.collect.Lists;
@@ -25,7 +25,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
 
     //language=postgresql
     private static final String SAVE_OR_UPDATE = """
-            INSERT INTO _____dtf_saga_context_dls (
+            INSERT INTO _____dtf_saga_dls (
                 saga_id,
                 user_name,
                 created_date_utc,
@@ -50,7 +50,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             """;
 
     @Override
-    public Collection<DlsSagaContextEntity> saveOrUpdateAll(Collection<DlsSagaContextEntity> dlsSagaContextEntities) {
+    public Collection<DlsSagaEntity> saveOrUpdateAll(Collection<DlsSagaEntity> dlsSagaContextEntities) {
         var params = dlsSagaContextEntities.stream()
                 .map(this::toSqlParameterSource)
                 .toArray(MapSqlParameterSource[]::new);
@@ -61,14 +61,14 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
         return Sets.newHashSet(JdbcTools.filterAffected(Lists.newArrayList(dlsSagaContextEntities), affectedRows));
     }
 
-    private MapSqlParameterSource toSqlParameterSource(DlsSagaContextEntity dlsSagaContextEntity) {
+    private MapSqlParameterSource toSqlParameterSource(DlsSagaEntity dlsSagaEntity) {
         var mapSqlParameterSource = new MapSqlParameterSource();
-        mapSqlParameterSource.addValue(DlsSagaContextEntity.Fields.sagaId, JdbcTools.asNullableString(dlsSagaContextEntity.getSagaId()), Types.VARCHAR);
-        mapSqlParameterSource.addValue(DlsSagaContextEntity.Fields.userName, JdbcTools.asNullableString(dlsSagaContextEntity.getUserName()), Types.VARCHAR);
-        mapSqlParameterSource.addValue(DlsSagaContextEntity.Fields.createdDateUtc, dlsSagaContextEntity.getCreatedDateUtc(), Types.TIMESTAMP);
-        mapSqlParameterSource.addValue(DlsSagaContextEntity.Fields.expirationDateUtc, dlsSagaContextEntity.getExpirationDateUtc(), Types.TIMESTAMP);
-        mapSqlParameterSource.addValue(DlsSagaContextEntity.Fields.rootTaskId, dlsSagaContextEntity.getRootTaskId(), Types.BINARY);
-        mapSqlParameterSource.addValue(DlsSagaContextEntity.Fields.lastPipelineContext, dlsSagaContextEntity.getLastPipelineContext(), Types.BINARY);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.sagaId, JdbcTools.asNullableString(dlsSagaEntity.getSagaId()), Types.VARCHAR);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.userName, JdbcTools.asNullableString(dlsSagaEntity.getUserName()), Types.VARCHAR);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.createdDateUtc, dlsSagaEntity.getCreatedDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.expirationDateUtc, dlsSagaEntity.getExpirationDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.rootTaskId, dlsSagaEntity.getRootTaskId(), Types.BINARY);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.lastPipelineContext, dlsSagaEntity.getLastPipelineContext(), Types.BINARY);
         return mapSqlParameterSource;
     }
 }

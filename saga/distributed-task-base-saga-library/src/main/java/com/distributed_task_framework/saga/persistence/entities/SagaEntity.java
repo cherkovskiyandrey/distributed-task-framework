@@ -13,18 +13,19 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Table("_____dtf_saga_context")
+@Table("_____dtf_saga")
 @Value
 @FieldNameConstants
 @AllArgsConstructor(access = AccessLevel.PUBLIC)
 @Builder(toBuilder = true)
-public class SagaContextEntity {
+public class SagaEntity {
     @Id
     UUID sagaId;
     String userName;
     LocalDateTime createdDateUtc;
     LocalDateTime completedDateUtc;
     LocalDateTime expirationDateUtc;
+    boolean canceled;
     @ToString.Exclude
     byte[] rootTaskId;
     @Nullable

@@ -3,8 +3,8 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaParseObjectException;
-import com.distributed_task_framework.saga.models.SagaEmbeddedActionContext;
-import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
+import com.distributed_task_framework.saga.models.SagaAction;
+import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.fasterxml.jackson.databind.JavaType;
@@ -27,17 +27,17 @@ public class SagaHelper {
     TaskSerializer taskSerializer;
 
     @SneakyThrows
-    public <INPUT> SagaEmbeddedPipelineContext buildContextFor(@Nullable SagaEmbeddedPipelineContext parentSagaContext,
-                                                               TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef,
-                                                               SagaSchemaArguments operationSagaSchemaArguments,
-                                                               @Nullable TaskDef<SagaEmbeddedPipelineContext> sagaRevertMethodTaskDef,
-                                                               @Nullable SagaSchemaArguments revertOperationSagaSchemaArguments,
-                                                               @Nullable INPUT input) {
+    public <INPUT> SagaPipeline buildContextFor(@Nullable SagaPipeline parentSagaContext,
+                                                TaskDef<SagaPipeline> sagaMethodTaskDef,
+                                                SagaSchemaArguments operationSagaSchemaArguments,
+                                                @Nullable TaskDef<SagaPipeline> sagaRevertMethodTaskDef,
+                                                @Nullable SagaSchemaArguments revertOperationSagaSchemaArguments,
+                                                @Nullable INPUT input) {
 
         if (parentSagaContext == null) {
-            parentSagaContext = new SagaEmbeddedPipelineContext();
+            parentSagaContext = new SagaPipeline();
         }
-        parentSagaContext.addSagaContext(SagaEmbeddedActionContext.builder()
+        parentSagaContext.addAction(SagaAction.builder()
                 .sagaMethodTaskName(sagaMethodTaskDef.getTaskName())
                 .operationSagaSchemaArguments(operationSagaSchemaArguments)
                 .sagaRevertMethodTaskName(sagaRevertMethodTaskDef != null ? sagaRevertMethodTaskDef.getTaskName() : null)
@@ -90,6 +90,6 @@ public class SagaHelper {
     }
 
     public boolean isVoidType(Class<?> returnType) {
-        return returnType.equals(Void.TYPE) || returnType.equals(void.class);
+        return returnType.equals(Void.TYPE);
     }
 }

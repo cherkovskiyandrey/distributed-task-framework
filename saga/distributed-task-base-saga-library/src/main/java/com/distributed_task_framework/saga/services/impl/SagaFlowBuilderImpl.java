@@ -3,14 +3,14 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
-import com.distributed_task_framework.saga.models.SagaContext;
-import com.distributed_task_framework.saga.models.SagaEmbeddedActionContext;
-import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
+import com.distributed_task_framework.saga.models.Saga;
+import com.distributed_task_framework.saga.models.SagaAction;
+import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.models.SagaOperation;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
 import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
-import com.distributed_task_framework.saga.services.SagaContextService;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
@@ -44,12 +44,12 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     @Nullable
     String affinity;
     PlatformTransactionManager transactionManager;
-    SagaContextService sagaContextService;
+    SagaManager sagaManager;
     DistributedTaskService distributedTaskService;
     SagaRegister sagaRegister;
     SagaHelper sagaHelper;
     TaskSerializer taskSerializer;
-    SagaEmbeddedPipelineContext sagaParentEmbeddedPipelineContext;
+    SagaPipeline sagaParentEmbeddedPipelineContext;
     @Nullable
     Class<?> methodOutputType;
 
@@ -58,8 +58,8 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation,
                                                                 RevertibleThreeConsumer<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> revertOperation) {
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
-        TaskDef<SagaEmbeddedPipelineContext> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaPipeline> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(
             SagaArguments.PARENT_OUTPUT,
@@ -87,7 +87,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     @Override
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation) {
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(
             SagaArguments.PARENT_OUTPUT,
@@ -110,8 +110,8 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation,
                                                                 RevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation) {
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
-        TaskDef<SagaEmbeddedPipelineContext> revertSagaMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaPipeline> revertSagaMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.PARENT_OUTPUT);
         var revertOperationSagaSchemaArguments = SagaSchemaArguments.of(
@@ -135,7 +135,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     @Override
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation) {
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaEmbeddedPipelineContext> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.PARENT_OUTPUT);
 
@@ -152,13 +152,13 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     }
 
     @SuppressWarnings("unchecked")
-    private <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaEmbeddedPipelineContext sagaEmbeddedPipelineContext,
+    private <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipeline sagaPipeline,
                                                                                @Nullable Class<?> methodOutputType) {
         return (SagaFlowBuilder<ROOT_INPUT, OUTPUT>) this.toBuilder()
             .userName(userName)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
-            .sagaParentEmbeddedPipelineContext(sagaEmbeddedPipelineContext)
+            .sagaParentEmbeddedPipelineContext(sagaPipeline)
             .methodOutputType(methodOutputType)
             .build();
     }
@@ -193,30 +193,30 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         UUID sagaId = sagaParentEmbeddedPipelineContext.getSagaId();
         sagaParentEmbeddedPipelineContext.rewind();
         sagaParentEmbeddedPipelineContext.moveToNext();
-        SagaEmbeddedActionContext currentSagaEmbeddedActionContext = sagaParentEmbeddedPipelineContext.getCurrentSagaContext();
+        SagaAction currentSagaAction = sagaParentEmbeddedPipelineContext.getCurrentAction();
 
         TaskId taskId = distributedTaskService.schedule(
-            sagaRegister.resolveByTaskName(currentSagaEmbeddedActionContext.getSagaMethodTaskName()),
+            sagaRegister.resolveByTaskName(currentSagaAction.getSagaMethodTaskName()),
             makeContext(sagaParentEmbeddedPipelineContext)
         );
 
-        var sagaContext = SagaContext.builder()
+        var sagaContext = Saga.builder()
             .sagaId(sagaId)
             .name(userName)
             .rootTaskId(taskId)
             .lastPipelineContext(sagaParentEmbeddedPipelineContext)
             .build();
-        sagaContextService.create(sagaContext);
+        sagaManager.create(sagaContext);
 
         return SagaFlowImpl.<PARENT_OUTPUT>builder()
             .distributedTaskService(distributedTaskService)
-            .sagaContextService(sagaContextService)
+            .sagaManager(sagaManager)
             .sagaId(sagaId)
             .resultType((Class<PARENT_OUTPUT>) methodOutputType)
             .build();
     }
 
-    private ExecutionContext<SagaEmbeddedPipelineContext> makeContext(SagaEmbeddedPipelineContext sagaParentEmbeddedPipelineContext) {
+    private ExecutionContext<SagaPipeline> makeContext(SagaPipeline sagaParentEmbeddedPipelineContext) {
         return StringUtils.isNotBlank(affinityGroup) && StringUtils.isNotBlank(affinity) ?
             ExecutionContext.withAffinityGroup(
                 sagaParentEmbeddedPipelineContext,

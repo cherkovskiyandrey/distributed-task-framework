@@ -1,6 +1,6 @@
 package com.distributed_task_framework.saga.persistence.repository;
 
-import com.distributed_task_framework.saga.persistence.entities.DlsSagaContextEntity;
+import com.distributed_task_framework.saga.persistence.entities.DlsSagaEntity;
 
 import java.util.Collection;
 
@@ -13,5 +13,5 @@ public interface ExtendedDlsSagaContextRepository {
      * @return only affected entities
      */
     @SuppressWarnings("UnusedReturnValue")
-    Collection<DlsSagaContextEntity> saveOrUpdateAll(Collection<DlsSagaContextEntity> dlsSagaContextEntities);
+    Collection<DlsSagaEntity> saveOrUpdateAll(Collection<DlsSagaEntity> dlsSagaContextEntities);
 }

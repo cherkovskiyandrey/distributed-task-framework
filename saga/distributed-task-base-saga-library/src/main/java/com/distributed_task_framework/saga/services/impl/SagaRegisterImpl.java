@@ -11,7 +11,7 @@ import com.distributed_task_framework.saga.exceptions.SagaMethodDuplicateExcepti
 import com.distributed_task_framework.saga.exceptions.SagaMethodResolvingException;
 import com.distributed_task_framework.saga.exceptions.SagaTaskNotFoundException;
 import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMapper;
-import com.distributed_task_framework.saga.models.SagaEmbeddedPipelineContext;
+import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.models.SagaOperation;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
@@ -98,8 +98,8 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
     }
 
     @Override
-    public TaskDef<SagaEmbeddedPipelineContext> resolveByTaskName(String taskName) {
-        return taskRegistryService.<SagaEmbeddedPipelineContext>getRegisteredLocalTaskDef(taskName)
+    public TaskDef<SagaPipeline> resolveByTaskName(String taskName) {
+        return taskRegistryService.<SagaPipeline>getRegisteredLocalTaskDef(taskName)
             .orElseThrow(() -> new SagaTaskNotFoundException(taskName));
     }
 
@@ -153,7 +153,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                     throw new SagaMethodDuplicateException(taskName);
                 }
 
-                var taskDef = TaskDef.privateTaskDef(taskName, SagaEmbeddedPipelineContext.class);
+                var taskDef = TaskDef.privateTaskDef(taskName, SagaPipeline.class);
                 methodToSagaOperation.put(taskName, new SagaOperation(method, taskDef));
                 sagaContextDiscovery.registerMethod(method.toString(), sagaMethodAnnotation);
 
@@ -175,7 +175,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
                 @SuppressWarnings("OptionalGetWithoutIsPresent")
                 SagaRevertMethod sagaRevertMethodAnnotation = ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).get();
                 var revertTaskName = SagaNamingUtils.taskNameFor(method);
-                var taskDef = TaskDef.privateTaskDef(revertTaskName, SagaEmbeddedPipelineContext.class);
+                var taskDef = TaskDef.privateTaskDef(revertTaskName, SagaPipeline.class);
                 if (revertMethodToSagaOperation.containsKey(revertTaskName)) {
                     throw new SagaMethodDuplicateException(revertTaskName);
                 }

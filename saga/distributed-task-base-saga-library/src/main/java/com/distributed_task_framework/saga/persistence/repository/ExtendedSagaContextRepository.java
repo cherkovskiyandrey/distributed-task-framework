@@ -1,6 +1,6 @@
 package com.distributed_task_framework.saga.persistence.repository;
 
-import com.distributed_task_framework.saga.persistence.entities.SagaContextEntity;
+import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
 
 import java.time.Duration;
 import java.util.List;
@@ -9,9 +9,9 @@ import java.util.UUID;
 public interface ExtendedSagaContextRepository {
 
     @SuppressWarnings("UnusedReturnValue")
-    SagaContextEntity saveOrUpdate(SagaContextEntity sagaContextEntity);
+    SagaEntity saveOrUpdate(SagaEntity sagaEntity);
 
-    List<SagaContextEntity> findExpired();
+    List<SagaEntity> findExpired();
 
     List<UUID> removeCompleted(Duration delay);
 

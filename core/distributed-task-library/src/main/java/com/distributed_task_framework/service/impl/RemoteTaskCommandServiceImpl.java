@@ -19,6 +19,7 @@ import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.task.common.RemoteStubTask;
 import lombok.AccessLevel;
+import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -56,7 +57,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
-        return executeTxAware(
+        return executeTxAwareWithException(
                 () -> schedule(taskDef, executionContext, Duration.ZERO, false),
                 false
         );
@@ -69,7 +70,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public <T> TaskId scheduleImmediately(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
-        return executeTxAware(
+        return executeTxAwareWithException(
                 () -> schedule(taskDef, executionContext, Duration.ZERO, true),
                 true
         );
@@ -77,7 +78,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
-        return executeTxAware(
+        return executeTxAwareWithException(
                 () -> schedule(taskDef, executionContext, delay, false),
                 false
         );
@@ -90,7 +91,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public <T> TaskId scheduleImmediately(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
-        return executeTxAware(
+        return executeTxAwareWithException(
                 () -> schedule(taskDef, executionContext, delay, true),
                 true
         );
@@ -132,7 +133,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public void reschedule(TaskId taskId, Duration delay) throws Exception {
-        executeTxAware(
+        executeTxAwareWithException(
                 () -> reschedule(taskId, delay, false),
                 false
         );
@@ -140,7 +141,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public void rescheduleImmediately(TaskId taskId, Duration delay) throws Exception {
-        executeTxAware(
+        executeTxAwareWithException(
                 () -> reschedule(taskId, delay, true),
                 true
         );
@@ -182,7 +183,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public <T> void rescheduleByTaskDef(TaskDef<T> taskDef, Duration delay) throws Exception {
-        executeTxAware(
+        executeTxAwareWithException(
                 () -> rescheduleByTaskDef(taskDef, false),
                 false
         );
@@ -190,7 +191,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
 
     @Override
     public <T> void rescheduleByTaskDefImmediately(TaskDef<T> taskDef, Duration delay) throws Exception {
-        executeTxAware(
+        executeTxAwareWithException(
                 () -> rescheduleByTaskDef(taskDef, true),
                 true
         );
@@ -212,7 +213,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public boolean cancelTaskExecution(TaskId taskId) throws Exception {
+    public boolean cancelTaskExecution(TaskId taskId) {
         return executeTxAware(
                 () -> cancelTaskExecution(taskId, false),
                 false
@@ -220,14 +221,15 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public boolean cancelTaskExecutionImmediately(TaskId taskId) throws Exception {
+    public boolean cancelTaskExecutionImmediately(TaskId taskId) {
         return executeTxAware(
                 () -> cancelTaskExecution(taskId, true),
                 true
         );
     }
 
-    private boolean cancelTaskExecution(TaskId taskId, boolean isImmediately) throws IOException {
+    @SneakyThrows
+    private boolean cancelTaskExecution(TaskId taskId, boolean isImmediately) {
         var command = CancelTaskCommand.builder()
                 .taskId(taskId)
                 .build();
@@ -244,7 +246,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef) throws Exception {
+    public <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef) {
         return executeTxAware(
                 () -> cancelAllTaskByTaskDef(taskDef, false),
                 false
@@ -252,14 +254,15 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) throws Exception {
+    public <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) {
         return executeTxAware(
                 () -> cancelAllTaskByTaskDef(taskDef, true),
                 true
         );
     }
 
-    private <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef, boolean isImmediately) throws IOException {
+    @SneakyThrows
+    private <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef, boolean isImmediately) {
         var command = CancelTaskByTaskDefCommand.<T>builder()
                 .taskDef(taskDef)
                 .build();
@@ -291,7 +294,7 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
     }
 
     @Override
-    public boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
+    public boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) {
         throw new UnsupportedOperationException("Isn't supported yet");
     }
 

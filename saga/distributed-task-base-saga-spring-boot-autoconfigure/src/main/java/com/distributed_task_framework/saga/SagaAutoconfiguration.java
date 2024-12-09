@@ -11,13 +11,13 @@ import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
 import com.distributed_task_framework.saga.services.SagaContextDiscovery;
-import com.distributed_task_framework.saga.services.SagaContextService;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaEntryPoint;
 import com.distributed_task_framework.saga.services.SagaProcessor;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.services.SagaTaskFactory;
 import com.distributed_task_framework.saga.services.impl.SagaContextDiscoveryImpl;
-import com.distributed_task_framework.saga.services.impl.SagaContextServiceImpl;
+import com.distributed_task_framework.saga.services.impl.SagaManagerImpl;
 import com.distributed_task_framework.saga.services.impl.SagaHelper;
 import com.distributed_task_framework.saga.services.impl.SagaProcessorImpl;
 import com.distributed_task_framework.saga.services.impl.SagaRegisterImpl;
@@ -26,7 +26,6 @@ import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -100,15 +99,15 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaContextService sagaContextService(DistributedTaskService distributedTaskService,
-                                                 SagaContextRepository sagaContextRepository,
-                                                 DlsSagaContextRepository dlsSagaContextRepository,
-                                                 SagaHelper sagaHelper,
-                                                 ContextMapper contextMapper,
-                                                 @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
-                                                 Clock clock,
-                                                 SagaConfiguration sagaConfiguration) {
-        return new SagaContextServiceImpl(
+    public SagaManager sagaContextService(DistributedTaskService distributedTaskService,
+                                          SagaContextRepository sagaContextRepository,
+                                          DlsSagaContextRepository dlsSagaContextRepository,
+                                          SagaHelper sagaHelper,
+                                          ContextMapper contextMapper,
+                                          @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                          Clock clock,
+                                          SagaConfiguration sagaConfiguration) {
+        return new SagaManagerImpl(
             distributedTaskService,
             sagaContextRepository,
             dlsSagaContextRepository,
@@ -157,13 +156,13 @@ public class SagaAutoconfiguration {
     public SagaProcessor sagaProcessor(@Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                        SagaRegister sagaRegister,
                                        DistributedTaskService distributedTaskService,
-                                       SagaContextService sagaContextService,
+                                       SagaManager sagaManager,
                                        SagaHelper sagaHelper) {
         return new SagaProcessorImpl(
             transactionManager,
             sagaRegister,
             distributedTaskService,
-            sagaContextService,
+            sagaManager,
             sagaHelper
         );
     }
@@ -173,12 +172,14 @@ public class SagaAutoconfiguration {
     public SagaTaskFactory sagaTaskFactory(@Lazy SagaRegister sagaRegister,
                                            DistributedTaskService distributedTaskService,
                                            TaskSerializer taskSerializer,
-                                           SagaContextService sagaContextService,
+                                           SagaManager sagaManager,
+                                           SagaContextRepository sagaContextRepository,
                                            SagaHelper sagaHelper) {
         return new SagaTaskFactoryImpl(
             sagaRegister,
             distributedTaskService,
-            sagaContextService,
+            sagaManager,
+            sagaContextRepository,
             taskSerializer,
             sagaHelper
         );

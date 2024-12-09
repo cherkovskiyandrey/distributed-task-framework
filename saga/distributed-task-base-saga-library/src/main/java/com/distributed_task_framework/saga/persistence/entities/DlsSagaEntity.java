@@ -13,12 +13,12 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Table("_____dtf_saga_context_dls")
+@Table("_____dtf_saga_dls")
 @Value
 @FieldNameConstants
 @AllArgsConstructor(access = AccessLevel.PUBLIC)
 @Builder(toBuilder = true)
-public class DlsSagaContextEntity {
+public class DlsSagaEntity {
     @Id
     UUID sagaId;
     String userName;

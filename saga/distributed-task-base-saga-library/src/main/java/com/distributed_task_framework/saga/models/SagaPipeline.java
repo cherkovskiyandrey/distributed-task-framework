@@ -16,15 +16,15 @@ import java.util.UUID;
 @Getter
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SagaEmbeddedPipelineContext {
+public class SagaPipeline {
     final UUID sagaId;
-    final List<SagaEmbeddedActionContext> sagaEmbeddedActionContexts;
+    final List<SagaAction> sagaActions;
     int cursor;
     boolean forward;
 
-    public SagaEmbeddedPipelineContext() {
+    public SagaPipeline() {
         this.sagaId = UUID.randomUUID();
-        this.sagaEmbeddedActionContexts = Lists.newArrayList();
+        this.sagaActions = Lists.newArrayList();
         this.cursor = -1;
         this.forward = true;
     }
@@ -38,11 +38,22 @@ public class SagaEmbeddedPipelineContext {
     }
 
     /**
-     * Set direction to backward and move cursor to BEFORE the first valid revert operation.
+     * Set direction to backward and move cursor to BEFORE the first valid revert operation from current one.
      */
     public void rewindToRevertFromCurrentPosition() {
+        rewindToRevertFromPosition(cursor + 1);
+    }
+
+    /**
+     * Set direction to backward and move cursor to BEFORE the first valid revert operation from previous one.
+     */
+    public void rewindToRevertFromPrevPosition() {
+        rewindToRevertFromPosition(cursor);
+    }
+
+    private void rewindToRevertFromPosition(int position) {
         forward = false;
-        cursor = Math.min(cursor + 1, sagaEmbeddedActionContexts.size());
+        cursor = Math.min(position, sagaActions.size());
         for (; cursor > 0; cursor -= 1) {
             if (hasValidRevertOperation(cursor - 1)) {
                 return;
@@ -60,7 +71,7 @@ public class SagaEmbeddedPipelineContext {
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean hasNext() {
         if (forward) {
-            return cursor + 1 < sagaEmbeddedActionContexts.size();
+            return cursor + 1 < sagaActions.size();
         }
 
         for (var revCursor = cursor; revCursor > 0; revCursor -= 1) {
@@ -96,85 +107,85 @@ public class SagaEmbeddedPipelineContext {
      */
     @VisibleForTesting
     void moveToEnd() {
-        if (sagaEmbeddedActionContexts.isEmpty()) {
+        if (sagaActions.isEmpty()) {
             return;
         }
 
         if (forward) {
-            cursor = sagaEmbeddedActionContexts.size() - 1;
+            cursor = sagaActions.size() - 1;
         } else {
             cursor = 0;
         }
     }
 
     /**
-     * Return SagaContext on current position.
+     * Return SagaAction on current position.
      *
      * @return
      */
     @JsonIgnore
-    public SagaEmbeddedActionContext getCurrentSagaContext() {
+    public SagaAction getCurrentAction() {
         checkBorders();
-        return sagaEmbeddedActionContexts.get(cursor);
+        return sagaActions.get(cursor);
     }
 
     @JsonIgnore
-    public SagaEmbeddedActionContext getRootSagaContext() {
+    public SagaAction getRootAction() {
         checkBorders();
-        return sagaEmbeddedActionContexts.get(0);
+        return sagaActions.get(0);
     }
 
     /**
-     * Get parent SagaContext if exists.
+     * Get parent SagaAction if exists.
      * Always return parent from forward standpoint.
      *
      * @return
      */
     @JsonIgnore
-    public Optional<SagaEmbeddedActionContext> getParentSagaContext() {
+    public Optional<SagaAction> getParentAction() {
         checkBorders();
         if (cursor - 1 >= 0) {
-            return Optional.ofNullable(sagaEmbeddedActionContexts.get(cursor - 1));
+            return Optional.ofNullable(sagaActions.get(cursor - 1));
         }
         return Optional.empty();
     }
 
     /**
-     * Add SagaContext to next position.
+     * Add SagaAction to next position.
      * Always add to forward direction.
      *
-     * @param sagaEmbeddedActionContext
+     * @param sagaAction
      */
     @JsonIgnore
-    public void addSagaContext(SagaEmbeddedActionContext sagaEmbeddedActionContext) {
+    public void addAction(SagaAction sagaAction) {
         if (!forward) {
             throw new UnsupportedOperationException("Isn't supported");
         }
-        sagaEmbeddedActionContexts.add(sagaEmbeddedActionContext);
+        sagaActions.add(sagaAction);
     }
 
     /**
-     * Set SagaContext on current position.
+     * Set SagaAction on current position.
      *
-     * @param currentSagaEmbeddedActionContext
+     * @param sagaAction
      */
     @JsonIgnore
-    public void setCurrentSagaContext(SagaEmbeddedActionContext currentSagaEmbeddedActionContext) {
+    public void setCurrentAction(SagaAction sagaAction) {
         checkBorders();
-        sagaEmbeddedActionContexts.set(cursor, currentSagaEmbeddedActionContext);
+        sagaActions.set(cursor, sagaAction);
     }
 
     private void checkBorders() {
-        if (sagaEmbeddedActionContexts.isEmpty() || cursor < 0 || cursor >= sagaEmbeddedActionContexts.size()) {
+        if (sagaActions.isEmpty() || cursor < 0 || cursor >= sagaActions.size()) {
             throw new SagaOutBoundException(
-                "checkBorders(): rawCursor=[%d], sagaContexts.size=[%d]".formatted(cursor, sagaEmbeddedActionContexts.size())
+                "checkBorders(): rawCursor=[%d], sagaContexts.size=[%d]".formatted(cursor, sagaActions.size())
             );
         }
     }
 
     @JsonIgnore
     private boolean hasValidRevertOperation(int cursor) {
-        var sagaContext = sagaEmbeddedActionContexts.get(cursor);
+        var sagaContext = sagaActions.get(cursor);
         return sagaContext != null && sagaContext.getSagaRevertMethodTaskName() != null;
     }
 }

@@ -1,1 +1,2 @@
-DROP TABLE IF EXISTS _____dtf_saga_context;
+DROP TABLE IF EXISTS _____dtf_saga_dls;
+DROP TABLE IF EXISTS _____dtf_saga;

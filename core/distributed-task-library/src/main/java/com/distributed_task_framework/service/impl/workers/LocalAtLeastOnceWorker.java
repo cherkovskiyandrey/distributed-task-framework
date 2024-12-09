@@ -82,9 +82,6 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
 
     @Override
     public <T> void execute(TaskEntity taskEntity, RegisteredTask<T> registeredTask) {
-
-        //todo: log which thread begin processing
-
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         Task<T> task = registeredTask.getTask();
         var taskSettings = registeredTask.getTaskSettings();
@@ -288,6 +285,8 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
             try {
                 new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
                     taskLinkManager.markLinksAsCompleted(finalTaskEntity.getId());
+
+                    //don't move shutdown sagas to DLT because it is explicit action
                     internalTaskCommandService.finalize(finalTaskEntity);
                     getCancelCounter(finalTaskEntity).increment();
                 });

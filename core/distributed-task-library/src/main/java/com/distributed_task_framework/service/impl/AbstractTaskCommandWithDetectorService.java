@@ -3,6 +3,7 @@ package com.distributed_task_framework.service.impl;
 import com.distributed_task_framework.model.WorkerContext;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -12,6 +13,7 @@ import com.distributed_task_framework.service.internal.TaskCommandWithDetectorSe
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PROTECTED, makeFinal = true)
@@ -20,8 +22,8 @@ public abstract class AbstractTaskCommandWithDetectorService implements TaskComm
     WorkerContextManager workerContextManager;
     PlatformTransactionManager transactionManager;
 
-    protected void executeTxAware(RunnableWithException action, boolean isImmediately) throws Exception {
-        executeTxAware(
+    protected void executeTxAwareWithException(RunnableWithException action, boolean isImmediately) throws Exception {
+        executeTxAwareWithException(
                 () -> {
                     action.execute();
                     return null;
@@ -30,7 +32,12 @@ public abstract class AbstractTaskCommandWithDetectorService implements TaskComm
         );
     }
 
-    protected <U> U executeTxAware(SupplierWithException<U> action, boolean isImmediately) throws Exception {
+    @SneakyThrows
+    protected <U> U executeTxAware(Supplier<U> action, boolean isImmediately) {
+        return executeTxAwareWithException(action::get, isImmediately);
+    }
+
+    protected <U> U executeTxAwareWithException(SupplierWithException<U> action, boolean isImmediately) throws Exception {
         Optional<WorkerContext> currentContext = workerContextManager.getCurrentContext();
         if (currentContext.isPresent() &&
                 isImmediately &&

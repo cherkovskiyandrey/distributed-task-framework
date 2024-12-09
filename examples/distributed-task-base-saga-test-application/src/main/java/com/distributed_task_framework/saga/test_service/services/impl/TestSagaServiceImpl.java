@@ -161,8 +161,6 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .build();
         throwExceptionIfRequired(1, testDataDto);
 
-        //TimeUnit.SECONDS.sleep(90);
-
         return SagaRevertableDto.<TestDataEntity>builder()
                 .prevValue(testDataRepository.findById(testDataEntity.getId()).orElse(null))
                 .newValue(testDataRepository.save(testDataEntity))

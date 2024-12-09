@@ -10,13 +10,23 @@ import java.util.UUID;
 
 @Value
 @Builder
-public class SagaContext {
+public class Saga {
     UUID sagaId;
     String name;
     LocalDateTime createdDateUtc;
+    /**
+     * Means workflow is completed, including revert flow in case of error.
+     */
     @Nullable
     LocalDateTime completedDateUtc;
+    /**
+     * Expiration date for certain saga.
+     */
     LocalDateTime expirationDateUtc;
+    /**
+     * Flag means this saga is canceled gracefully or hard.
+     */
+    boolean canceled;
     TaskId rootTaskId;
-    SagaEmbeddedPipelineContext lastPipelineContext;
+    SagaPipeline lastPipelineContext;
 }

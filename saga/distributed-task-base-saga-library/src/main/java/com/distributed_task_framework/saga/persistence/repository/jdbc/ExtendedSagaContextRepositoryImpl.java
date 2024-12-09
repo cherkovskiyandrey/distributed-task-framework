@@ -1,8 +1,9 @@
 package com.distributed_task_framework.saga.persistence.repository.jdbc;
 
-import com.distributed_task_framework.saga.persistence.entities.SagaContextEntity;
+import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
 import com.distributed_task_framework.saga.persistence.repository.ExtendedSagaContextRepository;
 import com.distributed_task_framework.utils.JdbcTools;
+import com.distributed_task_framework.utils.SqlParameters;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -27,7 +28,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
 
     //language=postgresql
     private static final String SAVE_OR_UPDATE = """
-        INSERT INTO _____dtf_saga_context (
+        INSERT INTO _____dtf_saga (
             saga_id,
             user_name,
             created_date_utc,
@@ -61,31 +62,31 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
         """;
 
     @Override
-    public SagaContextEntity saveOrUpdate(SagaContextEntity sagaContextEntity) {
-        var parameterSource = toSqlParameterSource(sagaContextEntity);
+    public SagaEntity saveOrUpdate(SagaEntity sagaEntity) {
+        var parameterSource = toSqlParameterSource(sagaEntity);
         namedParameterJdbcTemplate.update(
             SAVE_OR_UPDATE,
             parameterSource
         );
-        return sagaContextEntity;
+        return sagaEntity;
     }
 
 
     //language=postgresql
     private static final String FIND_EXPIRED = """
         SELECT *
-        FROM _____dtf_saga_context
+        FROM _____dtf_saga
         WHERE
             completed_date_utc IS NULL
             AND expiration_date_utc <= :expirationDateUtc
         """;
 
-    private final static BeanPropertyRowMapper<SagaContextEntity> SAGA_CONTEXT_ENTITY_MAPPER = new BeanPropertyRowMapper<>(SagaContextEntity.class);
+    private final static BeanPropertyRowMapper<SagaEntity> SAGA_CONTEXT_ENTITY_MAPPER = new BeanPropertyRowMapper<>(SagaEntity.class);
 
     @Override
-    public List<SagaContextEntity> findExpired() {
+    public List<SagaEntity> findExpired() {
         var mapSqlParameterSource = new MapSqlParameterSource();
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.expirationDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.expirationDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP);
         return namedParameterJdbcTemplate.query(
             FIND_EXPIRED,
             mapSqlParameterSource,
@@ -95,7 +96,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
 
     //language=postgresql
     private static final String REMOVE_ALL = """
-        DELETE FROM _____dtf_saga_context
+        DELETE FROM _____dtf_saga
         WHERE
             saga_id = ANY( (:sagaIds)::uuid[] )
         RETURNING saga_id
@@ -114,7 +115,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
 
     //language=postgresql
     private static final String REMOVE_EXPIRED_RESULT = """
-        DELETE FROM _____dtf_saga_context
+        DELETE FROM _____dtf_saga
         WHERE
             completed_date_utc IS NOT NULL
             AND completed_date_utc < :timeThreshold
@@ -123,26 +124,24 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
 
     @Override
     public List<UUID> removeCompleted(Duration delay) {
-        var mapSqlParameterSource = new MapSqlParameterSource();
-        mapSqlParameterSource.addValue("timeThreshold", LocalDateTime.now(clock).minus(delay), Types.TIMESTAMP);
         return namedParameterJdbcTemplate.queryForList(
             REMOVE_EXPIRED_RESULT,
-            mapSqlParameterSource,
+            SqlParameters.of("timeThreshold", LocalDateTime.now(clock).minus(delay), Types.TIMESTAMP),
             UUID.class
         );
     }
 
-    private MapSqlParameterSource toSqlParameterSource(SagaContextEntity sagaContextEntity) {
+    private MapSqlParameterSource toSqlParameterSource(SagaEntity sagaEntity) {
         var mapSqlParameterSource = new MapSqlParameterSource();
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.sagaId, sagaContextEntity.getSagaId(), Types.VARCHAR);
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.userName, JdbcTools.asNullableString(sagaContextEntity.getUserName()), Types.VARCHAR);
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.createdDateUtc, sagaContextEntity.getCreatedDateUtc(), Types.TIMESTAMP);
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.completedDateUtc, sagaContextEntity.getCompletedDateUtc(), Types.TIMESTAMP);
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.expirationDateUtc, sagaContextEntity.getExpirationDateUtc(), Types.TIMESTAMP);
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.rootTaskId, sagaContextEntity.getRootTaskId(), Types.BINARY);
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.exceptionType, sagaContextEntity.getExceptionType(), Types.VARCHAR);
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.result, sagaContextEntity.getResult(), Types.BINARY);
-        mapSqlParameterSource.addValue(SagaContextEntity.Fields.lastPipelineContext, sagaContextEntity.getLastPipelineContext(), Types.BINARY);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.sagaId, sagaEntity.getSagaId(), Types.VARCHAR);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.userName, JdbcTools.asNullableString(sagaEntity.getUserName()), Types.VARCHAR);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.createdDateUtc, sagaEntity.getCreatedDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.completedDateUtc, sagaEntity.getCompletedDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.expirationDateUtc, sagaEntity.getExpirationDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.rootTaskId, sagaEntity.getRootTaskId(), Types.BINARY);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.exceptionType, sagaEntity.getExceptionType(), Types.VARCHAR);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.result, sagaEntity.getResult(), Types.BINARY);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.lastPipelineContext, sagaEntity.getLastPipelineContext(), Types.BINARY);
         return mapSqlParameterSource;
     }
 }

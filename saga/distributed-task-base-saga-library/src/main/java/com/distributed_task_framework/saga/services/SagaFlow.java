@@ -11,14 +11,14 @@ import java.util.concurrent.TimeoutException;
 public interface SagaFlow<T> {
 
     /**
-     * Wait until saga is completed.
+     * Wait until saga is completed (including revert flow in case of error).
      *
      * @throws TimeoutException when default timeout exceed
      */
     void waitCompletion() throws SagaNotFoundException, InterruptedException, TimeoutException;
 
     /**
-     * Wait until saga is completed with timeout.
+     * Wait until saga is completed (including revert flow in case of error) with timeout.
      *
      * @param timeout how much wait for completion
      * @throws TimeoutException when timeout exceed
@@ -45,7 +45,7 @@ public interface SagaFlow<T> {
     Optional<T> get(Duration timeout) throws SagaNotFoundException, SagaExecutionException, InterruptedException, TimeoutException;
 
     /**
-     * Check whether saga is completed or not.
+     * Check whether saga is completed or not (including revert flow in case of error).
      *
      * @return
      */
@@ -57,4 +57,21 @@ public interface SagaFlow<T> {
      * @return trackId for saga
      */
     UUID trackId();
+
+    /**
+     * Cancel saga.
+     * If flag "gracefully" is true:
+     * <ol>
+     *     <li>If saga in progress, it will wait for completion of current operation and start revert flow</li>
+     *     <li>If saga in progress of revert flow, this command do nothing</li>
+     * </ol>
+     * If flag "gracefully" is false: cancel saga immediately. Means:
+     * <ol>
+     *     <li>Interrupt thread which execute of current saga step or revert step</li>
+     *     <li>Prevent to run revert flow</li>
+     * </ol>
+     *
+     * @param gracefully
+     */
+    void cancel(boolean gracefully);
 }

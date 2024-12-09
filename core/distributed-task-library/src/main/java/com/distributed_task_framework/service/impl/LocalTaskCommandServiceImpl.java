@@ -291,7 +291,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                            Duration delay,
                                            boolean isImmediately,
                                            boolean hasToDropJoin) throws Exception {
-        return executeTxAware(
+        return executeTxAwareWithException(
             () -> scheduleBase(
                 taskDef,
                 executionContext,
@@ -400,7 +400,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     void rescheduleBaseTxAware(TaskId taskId,
                                Duration delay,
                                boolean isImmediately) throws Exception {
-        executeTxAware(
+        executeTxAwareWithException(
             () -> rescheduleBase(
                 taskId,
                 delay,
@@ -459,7 +459,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     <T> void rescheduleByTaskDefBaseTxAware(TaskDef<T> taskDef,
                                             Duration delay,
                                             boolean isImmediately) throws Exception {
-        executeTxAware(
+        executeTxAwareWithException(
             () -> rescheduleByTaskDefBase(
                 taskDef,
                 delay,
@@ -508,16 +508,16 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     }
 
     @Override
-    public boolean cancelTaskExecution(TaskId taskId) throws Exception {
+    public boolean cancelTaskExecution(TaskId taskId) {
         return cancelTaskExecutionBaseTxAware(taskId, false);
     }
 
     @Override
-    public boolean cancelTaskExecutionImmediately(TaskId taskId) throws Exception {
+    public boolean cancelTaskExecutionImmediately(TaskId taskId) {
         return cancelTaskExecutionBaseTxAware(taskId, true);
     }
 
-    private boolean cancelTaskExecutionBaseTxAware(TaskId taskId, boolean isImmediately) throws Exception {
+    private boolean cancelTaskExecutionBaseTxAware(TaskId taskId, boolean isImmediately) {
         return executeTxAware(
             () -> cancelTaskExecutionBase(taskId, isImmediately),
             isImmediately
@@ -562,16 +562,16 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     }
 
     @Override
-    public <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef) throws Exception {
+    public <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef) {
         return cancelAllTaskByTaskIdBaseTxAware(taskDef, false);
     }
 
     @Override
-    public <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) throws Exception {
+    public <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) {
         return cancelAllTaskByTaskIdBaseTxAware(taskDef, true);
     }
 
-    private <T> boolean cancelAllTaskByTaskIdBaseTxAware(TaskDef<T> taskDef, boolean isImmediately) throws Exception {
+    private <T> boolean cancelAllTaskByTaskIdBaseTxAware(TaskDef<T> taskDef, boolean isImmediately) {
         return executeTxAware(
             () -> cancelAllTaskByTaskDefBase(taskDef, isImmediately),
             isImmediately
@@ -613,26 +613,26 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     }
 
     @Override
-    public boolean cancelWorkflowByTaskId(TaskId taskId) throws Exception {
+    public boolean cancelWorkflowByTaskId(TaskId taskId) {
         return cancelAllWorkflowByTaskIdTxAware(List.of(taskId), false);
     }
 
     @Override
-    public boolean cancelWorkflowByTaskIdImmediately(TaskId taskId) throws Exception {
+    public boolean cancelWorkflowByTaskIdImmediately(TaskId taskId) {
         return cancelAllWorkflowByTaskIdTxAware(List.of(taskId), true);
     }
 
     @Override
-    public boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds) throws Exception {
+    public boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds) {
         return cancelAllWorkflowByTaskIdTxAware(taskIds, false);
     }
 
     @Override
-    public boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
+    public boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) {
         return cancelAllWorkflowByTaskIdTxAware(taskIds, true);
     }
 
-    private boolean cancelAllWorkflowByTaskIdTxAware(List<TaskId> taskIds, boolean isImmediately) throws Exception {
+    private boolean cancelAllWorkflowByTaskIdTxAware(List<TaskId> taskIds, boolean isImmediately) {
         return executeTxAware(
             () -> cancelWorkflowByTaskIdBase(taskIds, isImmediately),
             isImmediately

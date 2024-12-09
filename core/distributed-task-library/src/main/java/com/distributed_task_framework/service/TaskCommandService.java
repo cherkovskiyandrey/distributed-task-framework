@@ -185,7 +185,7 @@ public interface TaskCommandService {
      * @param taskId
      * @return
      */
-    boolean cancelTaskExecution(TaskId taskId) throws Exception;
+    boolean cancelTaskExecution(TaskId taskId);
 
     /**
      * The same as {@link this#cancelTaskExecution(TaskId)} but when invoked from
@@ -194,9 +194,8 @@ public interface TaskCommandService {
      *
      * @param taskId
      * @return
-     * @throws IOException
      */
-    boolean cancelTaskExecutionImmediately(TaskId taskId) throws Exception;
+    boolean cancelTaskExecutionImmediately(TaskId taskId);
 
     /**
      * Cancel all tasks by taskDef.
@@ -207,7 +206,7 @@ public interface TaskCommandService {
      * @return
      * @throws IOException
      */
-    <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef) throws Exception;
+    <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef);
 
     /**
      * The same as {@link this#cancelAllTaskByTaskDef(TaskDef)} but when invoked from
@@ -219,7 +218,7 @@ public interface TaskCommandService {
      * @return
      * @throws IOException
      */
-    <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) throws Exception;
+    <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef);
 
     /**
      * Cancel all current tasks related to workflow.
@@ -228,7 +227,7 @@ public interface TaskCommandService {
      * @param taskId
      * @return
      */
-    boolean cancelWorkflowByTaskId(TaskId taskId) throws Exception;
+    boolean cancelWorkflowByTaskId(TaskId taskId);
 
     /**
      * The same as {@link this#cancelWorkflowByTaskId(TaskId)} but when invoked from
@@ -246,7 +245,7 @@ public interface TaskCommandService {
      * @param taskIds
      * @return
      */
-    boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds) throws Exception;
+    boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds);
 
     /**
      * The same as {@link this#cancelAllWorkflowsByTaskId(List)} but when invoked from
@@ -256,7 +255,7 @@ public interface TaskCommandService {
      * @param taskIds
      * @return
      */
-    boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) throws Exception;
+    boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds);
 
     /**
      * Wait until task referenced by taskId is completed.

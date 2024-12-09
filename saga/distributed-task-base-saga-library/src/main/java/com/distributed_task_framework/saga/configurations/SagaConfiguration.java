@@ -2,7 +2,7 @@ package com.distributed_task_framework.saga.configurations;
 
 import com.distributed_task_framework.autoconfigure.DistributedTaskProperties;
 import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.saga.services.SagaContextService;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import lombok.AccessLevel;
@@ -44,7 +44,7 @@ public class SagaConfiguration {
     public static class Common {
         /**
          * Cache expiration for internal purpose.
-         * Mostly to cover cases when user invoke method like {@link SagaContextService#isCompleted(UUID)}
+         * Mostly to cover cases when user invoke method like {@link SagaManager#isCompleted(UUID)}
          */
         @Builder.Default
         Duration cacheExpiration = Duration.ofSeconds(1);

@@ -15,7 +15,6 @@ import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.utils.BiPredicateWithException;
 import com.distributed_task_framework.utils.ConsumerWith2Exception;
 import com.distributed_task_framework.utils.ConsumerWithException;
 import com.distributed_task_framework.utils.FunctionWithException;
@@ -32,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -204,7 +204,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
-    public boolean cancelTaskExecution(TaskId taskId) throws Exception {
+    public boolean cancelTaskExecution(TaskId taskId) {
         return routeAndCall(
             taskId,
             taskCommandService -> taskCommandService.cancelTaskExecution(taskId)
@@ -212,7 +212,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
-    public boolean cancelTaskExecutionImmediately(TaskId taskId) throws Exception {
+    public boolean cancelTaskExecutionImmediately(TaskId taskId) {
         return routeAndCall(
             taskId,
             taskCommandService -> taskCommandService.cancelTaskExecutionImmediately(taskId)
@@ -220,7 +220,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
-    public <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef) throws Exception {
+    public <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef) {
         return routeAndCall(
             taskDef,
             taskCommandService -> taskCommandService.cancelAllTaskByTaskDef(taskDef)
@@ -228,7 +228,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
-    public <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) throws Exception {
+    public <T> boolean cancelAllTaskByTaskDefImmediately(TaskDef<T> taskDef) {
         return routeAndCall(
             taskDef,
             taskCommandService -> taskCommandService.cancelAllTaskByTaskDefImmediately(taskDef)
@@ -236,7 +236,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
-    public boolean cancelWorkflowByTaskId(TaskId taskId) throws Exception {
+    public boolean cancelWorkflowByTaskId(TaskId taskId) {
         return routeAndCall(
             taskId,
             taskCommandService -> taskCommandService.cancelWorkflowByTaskId(taskId)
@@ -252,7 +252,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
-    public boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds) throws Exception {
+    public boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds) {
         return groupToRouteAndCall(
             taskIds,
             TaskCommandService::cancelAllWorkflowsByTaskId
@@ -260,7 +260,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
-    public boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) throws Exception {
+    public boolean cancelAllWorkflowsByTaskIdImmediately(List<TaskId> taskIds) {
         return groupToRouteAndCall(
             taskIds,
             TaskCommandService::cancelAllWorkflowsByTaskIdImmediately
@@ -268,7 +268,7 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     private boolean groupToRouteAndCall(List<TaskId> taskIds,
-                                        BiPredicateWithException<TaskCommandWithDetectorService, List<TaskId>, Exception> action) throws Exception {
+                                        BiPredicate<TaskCommandWithDetectorService, List<TaskId>> action) {
         Map<Optional<TaskCommandWithDetectorService>, List<TaskId>> serviceToTasks = taskIds.stream()
             .collect(Collectors.groupingBy(this::detectService));
 

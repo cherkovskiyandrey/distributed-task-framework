@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class SagaEmbeddedPipelineContextTest {
+class SagaPipelineTest {
 
     @Nested
     class HasNextTest {
@@ -15,7 +15,7 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldHasNextWhenEmpty() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
 
             //do & verify
             assertThat(sagaEmbeddedPipelineContext.hasNext()).isFalse();
@@ -24,8 +24,8 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldHasNextWhenOneElementForward() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.rewind();
 
             //do & verify
@@ -35,7 +35,7 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldNotHasNextWhenBackwardAndEmpty() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
             //do & verify
@@ -45,8 +45,8 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldHasNextWhenBackwardAndOnlyOne() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(withRevertSaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
             sagaEmbeddedPipelineContext.moveToEnd();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
@@ -57,10 +57,10 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldNotHasNextWhenBackwardAndNotEmptyButEmptyRevertOperations() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
             //do & verify
@@ -70,10 +70,10 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldHasNextWhenBackwardAndHasFirstRevertOperation() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(withRevertSaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
             sagaEmbeddedPipelineContext.moveToEnd();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
@@ -84,10 +84,10 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldHasNextWhenBackwardAndHasNotFirstRevertOperation() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(withRevertSaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToEnd();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
@@ -102,7 +102,7 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldThrowExceptionWhenEmpty() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
 
             //do & verify
             assertThatThrownBy(sagaEmbeddedPipelineContext::moveToNext).isInstanceOf(SagaOutBoundException.class);
@@ -111,9 +111,9 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldMoveToNextWhenOneElementForward() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
             var sagaAction = emptySaga();
-            sagaEmbeddedPipelineContext.addSagaContext(sagaAction);
+            sagaEmbeddedPipelineContext.addAction(sagaAction);
             sagaEmbeddedPipelineContext.moveToEnd();
             sagaEmbeddedPipelineContext.rewind();
 
@@ -121,14 +121,14 @@ class SagaEmbeddedPipelineContextTest {
             sagaEmbeddedPipelineContext.moveToNext();
 
             //verify
-            assertThat(sagaEmbeddedPipelineContext.getCurrentSagaContext())
+            assertThat(sagaEmbeddedPipelineContext.getCurrentAction())
                 .matches(actualSagaContext -> actualSagaContext == sagaAction);
         }
 
         @Test
         void shouldThrowExceptionWhenBackwardAndEmpty() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
             //do & verify
@@ -138,9 +138,9 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldMoveToNextWhenBackwardAndOnlyOne() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
             var revertSagaAction = withRevertSaga();
-            sagaEmbeddedPipelineContext.addSagaContext(revertSagaAction);
+            sagaEmbeddedPipelineContext.addAction(revertSagaAction);
             sagaEmbeddedPipelineContext.moveToEnd();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
@@ -148,17 +148,17 @@ class SagaEmbeddedPipelineContextTest {
             sagaEmbeddedPipelineContext.moveToNext();
 
             //verify
-            assertThat(sagaEmbeddedPipelineContext.getCurrentSagaContext())
+            assertThat(sagaEmbeddedPipelineContext.getCurrentAction())
                 .matches(actualSagaContext -> actualSagaContext == revertSagaAction);
         }
 
         @Test
         void shouldThrowExceptionWhenBackwardAndNotEmptyButEmptyRevertOperations() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToEnd();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
@@ -169,11 +169,11 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldMoveToNextWhenBackwardAndHasFirstRevertOperation() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
             var revertSagaAction = withRevertSaga();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(revertSagaAction);
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(revertSagaAction);
             sagaEmbeddedPipelineContext.moveToEnd();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
@@ -181,18 +181,18 @@ class SagaEmbeddedPipelineContextTest {
             sagaEmbeddedPipelineContext.moveToNext();
 
             //verify
-            assertThat(sagaEmbeddedPipelineContext.getCurrentSagaContext())
+            assertThat(sagaEmbeddedPipelineContext.getCurrentAction())
                 .matches(actualSagaContext -> actualSagaContext == revertSagaAction);
         }
 
         @Test
         void shouldMoveToNextWhenBackwardAndHasNotFirstRevertOperation() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
             var revertSagaAction = withRevertSaga();
-            sagaEmbeddedPipelineContext.addSagaContext(revertSagaAction);
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(revertSagaAction);
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToEnd();
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
 
@@ -200,7 +200,7 @@ class SagaEmbeddedPipelineContextTest {
             sagaEmbeddedPipelineContext.moveToNext();
 
             //verify
-            assertThat(sagaEmbeddedPipelineContext.getCurrentSagaContext())
+            assertThat(sagaEmbeddedPipelineContext.getCurrentAction())
                 .matches(actualSagaContext -> actualSagaContext == revertSagaAction);
         }
     }
@@ -211,7 +211,7 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldSetTo0WhenBackwardAndEmpty() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
 
             //do
             sagaEmbeddedPipelineContext.rewindToRevertFromCurrentPosition();
@@ -223,8 +223,8 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldSetBefore0WhenBackwardAndOnlyOne() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(withRevertSaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
             sagaEmbeddedPipelineContext.moveToEnd();
 
             //do
@@ -237,10 +237,10 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldSetTo0WhenBackwardAndNotEmptyButEmptyRevertOperations() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToEnd();
 
             //do
@@ -253,10 +253,10 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldSetBeforeFirstWhenBackwardAndHasLastRevertOperation() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(withRevertSaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
             sagaEmbeddedPipelineContext.moveToEnd();
 
             //do
@@ -269,10 +269,10 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldSetBeforeFirstRevertWhenBackwardAndHasFirstRevertOperation() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(withRevertSaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToEnd();
 
             //do
@@ -285,10 +285,10 @@ class SagaEmbeddedPipelineContextTest {
         @Test
         void shouldBeIdempotent() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(withRevertSaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
             sagaEmbeddedPipelineContext.moveToEnd();
 
             //do
@@ -302,123 +302,125 @@ class SagaEmbeddedPipelineContextTest {
         }
     }
 
+    //todo: rewindToRevertFromPrevPosition
+
     @Nested
-    class GetCurrentSagaContextTest {
+    class GetCurrentSagaTest {
 
         @Test
         void shouldReturnElementsFromCursorWhenGetCurrentSagaContext() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             var sagaContext = emptySaga();
-            sagaEmbeddedPipelineContext.addSagaContext(sagaContext);
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(sagaContext);
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToNext();
             sagaEmbeddedPipelineContext.moveToNext();
 
             //do & verify
-            assertThat(sagaEmbeddedPipelineContext.getCurrentSagaContext())
+            assertThat(sagaEmbeddedPipelineContext.getCurrentAction())
                 .matches(actualSagaContext -> actualSagaContext == sagaContext);
         }
 
         @Test
         void shouldThrowExceptionWhenGetCurrentSagaContextAndCursorBeforeFirstElement() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
 
             //do & verify
-            assertThatThrownBy(sagaEmbeddedPipelineContext::getCurrentSagaContext).isInstanceOf(SagaOutBoundException.class);
+            assertThatThrownBy(sagaEmbeddedPipelineContext::getCurrentAction).isInstanceOf(SagaOutBoundException.class);
         }
 
         @Test
         void shouldThrowExceptionWhenGetCurrentSagaContext() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
 
             //do & verify
-            assertThatThrownBy(sagaEmbeddedPipelineContext::getCurrentSagaContext).isInstanceOf(SagaOutBoundException.class);
+            assertThatThrownBy(sagaEmbeddedPipelineContext::getCurrentAction).isInstanceOf(SagaOutBoundException.class);
         }
     }
 
     @Nested
-    class GetRootSagaContextTest {
+    class GetRootSagaTest {
 
         @Test
         void shouldThrowExceptionWhenEmpty() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
 
             //do & verify
-            assertThatThrownBy(sagaEmbeddedPipelineContext::getRootSagaContext).isInstanceOf(SagaOutBoundException.class);
+            assertThatThrownBy(sagaEmbeddedPipelineContext::getRootAction).isInstanceOf(SagaOutBoundException.class);
         }
 
         @Test
         void shouldReturnRootContext() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
             var sagaContext = emptySaga();
-            sagaEmbeddedPipelineContext.addSagaContext(sagaContext);
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(sagaContext);
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToNext();
             sagaEmbeddedPipelineContext.moveToNext();
 
             //do & verify
-            assertThat(sagaEmbeddedPipelineContext.getRootSagaContext())
+            assertThat(sagaEmbeddedPipelineContext.getRootAction())
                 .matches(actualSagaContext -> actualSagaContext == sagaContext);
         }
     }
 
     @Nested
-    class GetParentSagaContextTest {
+    class GetParentSagaTest {
 
         @Test
         void shouldThrowExceptionWhenEmpty() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
 
             //do & verify
-            assertThatThrownBy(sagaEmbeddedPipelineContext::getParentSagaContext).isInstanceOf(SagaOutBoundException.class);
+            assertThatThrownBy(sagaEmbeddedPipelineContext::getParentAction).isInstanceOf(SagaOutBoundException.class);
         }
 
         @Test
         void shouldReturnEmptyWhenFromFirstElement() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToNext();
 
             //do & verify
-            assertThat(sagaEmbeddedPipelineContext.getParentSagaContext()).isEmpty();
+            assertThat(sagaEmbeddedPipelineContext.getParentAction()).isEmpty();
         }
 
         @Test
         void shouldReturnParentWhenFromNotFirstElement() {
             //when
-            var sagaEmbeddedPipelineContext = new SagaEmbeddedPipelineContext();
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
             var sagaElement = emptySaga();
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
-            sagaEmbeddedPipelineContext.addSagaContext(sagaElement);
-            sagaEmbeddedPipelineContext.addSagaContext(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(sagaElement);
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
             sagaEmbeddedPipelineContext.moveToNext();
             sagaEmbeddedPipelineContext.moveToNext();
             sagaEmbeddedPipelineContext.moveToNext();
 
             //do & verify
-            assertThat(sagaEmbeddedPipelineContext.getParentSagaContext())
+            assertThat(sagaEmbeddedPipelineContext.getParentAction())
                 .isPresent()
                 .get()
                 .matches(actualSagaContext -> actualSagaContext == sagaElement);
         }
     }
 
-    private SagaEmbeddedActionContext emptySaga() {
-        return SagaEmbeddedActionContext.builder().build();
+    private SagaAction emptySaga() {
+        return SagaAction.builder().build();
     }
 
-    private SagaEmbeddedActionContext withRevertSaga() {
-        return SagaEmbeddedActionContext.builder()
+    private SagaAction withRevertSaga() {
+        return SagaAction.builder()
             .sagaRevertMethodTaskName("revert")
             .build();
     }
