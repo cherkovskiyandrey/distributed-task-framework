@@ -124,15 +124,23 @@ Add starter to your project
 ```groovy
 implementation 'com.distributed_task_framework:distributed-task-spring-boot-starter:<the most recent version>'
 ```
-Add liquibase init script to your service:
+Add liquibase scripts from `./resources/db/changelog/distributed-task-framework` to your service:
 
 ```yaml
 databaseChangeLog:
   - include:
       file: db/changelog/distributed-task-framework/db.changelog-dtf-init.yaml
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-002-fix_vq_cdu_index.yaml
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-003-feature-wait-task.yaml
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-004-feature-statefull-task.yaml
+  - include: 
+      ...
 ```
 If you use another DB migration framework, rely on the raw SQL scripts: [001_dtf_init.up.sql](distributed-task-library%2Fsrc%2Fmain%2Fresources%2Fdb%2Fchangelog%2Fdistributed-task-framework%2Fsql%2F001_dtf_init.up.sql) and
-[001_dtf_init.down.sql](distributed-task-library%2Fsrc%2Fmain%2Fresources%2Fdb%2Fchangelog%2Fdistributed-task-framework%2Fsql%2F001_dtf_init.down.sql)
+[001_dtf_init.down.sql](distributed-task-library%2Fsrc%2Fmain%2Fresources%2Fdb%2Fchangelog%2Fdistributed-task-framework%2Fsql%2F001_dtf_init.down.sql) and others in the `./resources/db/changelog/distributed-task-framework/sql` 
 
 Give application name and enable DTF in `application.yml`:
 

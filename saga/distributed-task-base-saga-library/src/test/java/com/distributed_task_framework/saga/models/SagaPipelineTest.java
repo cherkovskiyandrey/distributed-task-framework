@@ -302,7 +302,102 @@ class SagaPipelineTest {
         }
     }
 
-    //todo: rewindToRevertFromPrevPosition
+    @Nested
+    class RewindToRevertFromPrevPositionTest {
+
+        @Test
+        void shouldSetTo0WhenBackwardAndEmpty() {
+            //when
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+
+            //do
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+
+            //verify
+            assertThat(sagaEmbeddedPipelineContext.getCursor()).isEqualTo(0);
+        }
+
+        @Test
+        void shouldSetTo0WhenBackwardAndOnlyOne() {
+            //when
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
+            sagaEmbeddedPipelineContext.moveToEnd();
+
+            //do
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+
+            //verify
+            assertThat(sagaEmbeddedPipelineContext.getCursor()).isEqualTo(0);
+        }
+
+        @Test
+        void shouldSetTo0WhenBackwardAndNotEmptyButEmptyRevertOperations() {
+            //when
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.moveToEnd();
+
+            //do
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+
+            //do & verify
+            assertThat(sagaEmbeddedPipelineContext.getCursor()).isEqualTo(0);
+        }
+
+        @Test
+        void shouldSetBeforePrevWhenBackwardAndHasTwoLastRevertOperation() {
+            //when
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
+            sagaEmbeddedPipelineContext.moveToEnd();
+
+            //do
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+
+            //do & verify
+            assertThat(sagaEmbeddedPipelineContext.getCursor()).isEqualTo(2);
+        }
+
+        @Test
+        void shouldSetBeforeFirstRevertWhenBackwardAndHasFirstRevertOperation() {
+            //when
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.moveToEnd();
+
+            //do
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+
+            //do & verify
+            assertThat(sagaEmbeddedPipelineContext.getCursor()).isEqualTo(1);
+        }
+
+        @Test
+        void shouldBeIdempotent() {
+            //when
+            var sagaEmbeddedPipelineContext = new SagaPipeline();
+            sagaEmbeddedPipelineContext.addAction(emptySaga());
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
+            sagaEmbeddedPipelineContext.addAction(withRevertSaga());
+            sagaEmbeddedPipelineContext.moveToEnd();
+
+            //do
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+            sagaEmbeddedPipelineContext.rewindToRevertFromPrevPosition();
+
+            //do & verify
+            assertThat(sagaEmbeddedPipelineContext.getCursor()).isEqualTo(2);
+        }
+    }
 
     @Nested
     class GetCurrentSagaTest {

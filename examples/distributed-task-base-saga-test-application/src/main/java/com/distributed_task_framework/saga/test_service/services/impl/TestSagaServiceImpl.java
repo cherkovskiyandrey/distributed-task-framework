@@ -35,6 +35,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
@@ -113,6 +114,11 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .trackId();
     }
 
+    @Override
+    public void cancel(UUID sagaId, boolean gracefully) {
+        sagaProcessor.getFlow(sagaId, Audit.class).cancel(gracefully);
+    }
+
     @SneakyThrows
     @Override
     public Optional<Audit> sagaCallPollResult(UUID trackId) {
@@ -160,6 +166,7 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .data(testDataDto.getRemoteOneData() + testDataDto.getRemoteTwoData())
                 .build();
         throwExceptionIfRequired(1, testDataDto);
+        delayIfRequired(1, testDataDto);
 
         return SagaRevertableDto.<TestDataEntity>builder()
                 .prevValue(testDataRepository.findById(testDataEntity.getId()).orElse(null))
@@ -208,6 +215,7 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .remoteOneData(testDataDto.getRemoteOneData())
                 .build();
         throwExceptionIfRequired(2, testDataDto);
+        delayIfRequired(2, testDataDto);
         return remoteServiceOne.create(remoteOneDto);
     }
 
@@ -229,6 +237,7 @@ public class TestSagaServiceImpl implements TestSagaService {
                 .remoteTwoData(testDataDto.getRemoteTwoData())
                 .build();
         throwExceptionIfRequired(3, testDataDto);
+        delayIfRequired(3, testDataDto);
         return remoteServiceTwo.create(remoteTwoDto);
     }
 
@@ -245,6 +254,7 @@ public class TestSagaServiceImpl implements TestSagaService {
     @SagaMethod(name = "saveAudit")
     public Audit saveAudit(RemoteTwoDto remoteTwoDto, TestDataDto testDataDto) {
         throwExceptionIfRequired(4, testDataDto);
+        delayIfRequired(4, testDataDto);
         return auditRepository.save(Audit.builder()
                 .who("I")
                 .when(Instant.now())
@@ -256,6 +266,15 @@ public class TestSagaServiceImpl implements TestSagaService {
     private void throwExceptionIfRequired(int level, TestDataDto testDataDto) {
         if (Objects.equals(level, testDataDto.getThrowExceptionOnLevel())) {
             throw new RuntimeException("emulate exception!");
+        }
+    }
+
+    @SneakyThrows
+    private void delayIfRequired(int level, TestDataDto testDataDto) {
+        if (Objects.equals(level, testDataDto.getLevelToDelay())) {
+            log.info("START DURATION: {}", testDataDto.getSyntheticDelayOnEachLevel());
+            TimeUnit.MILLISECONDS.sleep(testDataDto.getSyntheticDelayOnEachLevel().toMillis());
+            log.info("STOP DURATION: {}", testDataDto.getSyntheticDelayOnEachLevel());
         }
     }
 }

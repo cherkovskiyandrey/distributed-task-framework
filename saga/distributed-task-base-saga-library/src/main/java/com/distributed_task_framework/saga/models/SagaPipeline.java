@@ -53,7 +53,7 @@ public class SagaPipeline {
 
     private void rewindToRevertFromPosition(int position) {
         forward = false;
-        cursor = Math.min(position, sagaActions.size());
+        cursor = Math.max(Math.min(position, sagaActions.size()), 0);
         for (; cursor > 0; cursor -= 1) {
             if (hasValidRevertOperation(cursor - 1)) {
                 return;

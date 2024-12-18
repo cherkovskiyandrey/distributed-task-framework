@@ -9,5 +9,5 @@ public interface TaskWorker {
 
     boolean isApplicable(TaskEntity taskEntity, TaskSettings taskParameters);
 
-    <T> void execute(TaskEntity taskEntity, RegisteredTask<T> registeredTask);
+    <T, U> void execute(TaskEntity taskEntity, RegisteredTask<T> registeredTask);
 }

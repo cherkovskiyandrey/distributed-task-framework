@@ -6,19 +6,20 @@ import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeoutException;
 
 public interface SagaFlow<T> {
 
     /**
-     * Wait until saga is completed (including revert flow in case of error).
+     * Wait until saga is completed (including revert flow in case of error or graceful cancellation).
      *
      * @throws TimeoutException when default timeout exceed
      */
     void waitCompletion() throws SagaNotFoundException, InterruptedException, TimeoutException;
 
     /**
-     * Wait until saga is completed (including revert flow in case of error) with timeout.
+     * Wait until saga is completed (including revert flow in case of error or graceful cancellation) with timeout.
      *
      * @param timeout how much wait for completion
      * @throws TimeoutException when timeout exceed
@@ -30,9 +31,17 @@ public interface SagaFlow<T> {
      * Saga result - the latest output of task in saga chain.
      *
      * @return the result of saga
-     * @throws TimeoutException when default timeout exceed
+     * @throws SagaNotFoundException  if saga doesn't exist or completed and was removed by timeout
+     * @throws SagaExecutionException if any task (exclude rollback) threw an exception, contains original caused exception
+     * @throws InterruptedException   if any thread has interrupted the current thread
+     * @throws TimeoutException       if default timeout exceed
+     * @throws CancellationException  if the computation was cancelled
      */
-    Optional<T> get() throws SagaNotFoundException, SagaExecutionException, InterruptedException, TimeoutException;
+    Optional<T> get() throws SagaNotFoundException,
+        SagaExecutionException,
+        InterruptedException,
+        TimeoutException,
+        CancellationException;
 
     /**
      * Wait and return the result of saga with timeout.
@@ -40,24 +49,33 @@ public interface SagaFlow<T> {
      *
      * @param timeout how much wait for completion
      * @return the result of saga
-     * @throws TimeoutException when default timeout exceed
+     * @throws SagaNotFoundException  if saga doesn't exist or completed and was removed by timeout
+     * @throws SagaExecutionException if any task (exclude rollback) threw an exception, contains original caused exception
+     * @throws InterruptedException   if any thread has interrupted the current thread
+     * @throws TimeoutException       if timeout exceed
+     * @throws CancellationException  if the computation was cancelled
      */
-    Optional<T> get(Duration timeout) throws SagaNotFoundException, SagaExecutionException, InterruptedException, TimeoutException;
+    Optional<T> get(Duration timeout) throws SagaNotFoundException,
+        SagaExecutionException,
+        InterruptedException,
+        TimeoutException,
+        CancellationException;
 
     /**
-     * Check whether saga is completed or not (including revert flow in case of error).
+     * Check whether saga is completed or not (including revert flow in case of error or graceful cancellation).
      *
      * @return
      */
     boolean isCompleted() throws SagaNotFoundException;
 
     /**
-     * Return a trackId in order to poll saga completion later.
+     * Return a trackId in order to poll saga completion or cancel later.
      *
      * @return trackId for saga
      */
     UUID trackId();
 
+    //todo: exception
     /**
      * Cancel saga.
      * If flag "gracefully" is true:
@@ -73,5 +91,5 @@ public interface SagaFlow<T> {
      *
      * @param gracefully
      */
-    void cancel(boolean gracefully);
+    void cancel(boolean gracefully) throws SagaNotFoundException;
 }

@@ -17,7 +17,6 @@ import java.util.UUID;
 import static com.distributed_task_framework.model.ExecutionContext.withAffinityGroup;
 import static com.distributed_task_framework.test_service.tasks.PrivateTaskDefinitions.MAP_REDUCE_AFFINITY_GROUP;
 import static com.distributed_task_framework.test_service.tasks.PrivateTaskDefinitions.MAP_REDUCE_PARENT_TASK;
-import com.distributed_task_framework.test_service.tasks.dto.SimpleMessageDto;
 
 @RestController
 @RequestMapping("api/test-task")
@@ -52,7 +51,9 @@ public class TestTaskController {
     @Operation(summary = "Count words frequency with map/reduce task")
     @PostMapping("count-words")
     public void executeMapReduce(@RequestBody MapReduceDto dto) throws Exception {
-        distributedTaskService.schedule(MAP_REDUCE_PARENT_TASK,
-                withAffinityGroup(dto, MAP_REDUCE_AFFINITY_GROUP, UUID.randomUUID().toString()));
+        distributedTaskService.schedule(
+            MAP_REDUCE_PARENT_TASK,
+            withAffinityGroup(dto, MAP_REDUCE_AFFINITY_GROUP, UUID.randomUUID().toString())
+        );
     }
 }

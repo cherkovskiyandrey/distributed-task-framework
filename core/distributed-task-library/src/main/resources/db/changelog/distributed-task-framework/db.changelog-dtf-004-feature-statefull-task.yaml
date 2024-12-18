@@ -1,14 +1,14 @@
 databaseChangeLog:
   - changeSet:
-      id: '3'
+      id: '4'
       author: Cherkovskiy Andrey
       changes:
         - sqlFile:
             dbms: postgresql
-            path: db/changelog/distributed-task-framework/sql/003_dtf_feature_wait_task.up.sql
+            path: db/changelog/distributed-task-framework/sql/004_dtf_feature_statefull_task.up.sql
             encoding: UTF8
       rollback:
         - sqlFile:
             dbms: postgresql
-            path: db/changelog/distributed-task-framework/sql/003_dtf_feature_wait_task.down.sql
+            path: db/changelog/distributed-task-framework/sql/004_dtf_feature_statefull_task.down.sql
             encoding: UTF8

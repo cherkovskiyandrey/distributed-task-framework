@@ -1,0 +1,1 @@
+ALTER TABLE "_____dtf_tasks" DROP COLUMN "local_state";

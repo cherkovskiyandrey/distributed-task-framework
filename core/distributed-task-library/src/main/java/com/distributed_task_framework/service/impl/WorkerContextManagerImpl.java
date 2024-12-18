@@ -39,6 +39,7 @@ public class WorkerContextManagerImpl implements WorkerContextManager {
                 .currentTaskId(currentContext.getCurrentTaskId())
                 .taskSettings(currentContext.getTaskSettings())
                 .taskEntity(currentContext.getTaskEntity())
+                .stateHolder(currentContext.getStateHolder())
                 .build()
         );
     }

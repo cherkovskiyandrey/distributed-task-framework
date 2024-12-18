@@ -97,18 +97,14 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
     //language=postgresql
     private static final String REMOVE_ALL = """
         DELETE FROM _____dtf_saga
-        WHERE
-            saga_id = ANY( (:sagaIds)::uuid[] )
-        RETURNING saga_id
+        WHERE saga_id = ANY( (:sagaIds)::uuid[] )
         """;
 
     @Override
     public void removeAll(List<UUID> sagaIds) {
-        var mapSqlParameterSource = new MapSqlParameterSource();
-        mapSqlParameterSource.addValue("sagaIds", sagaIds, Types.ARRAY);
         namedParameterJdbcTemplate.update(
             REMOVE_ALL,
-            mapSqlParameterSource
+            SqlParameters.of("sagaIds", JdbcTools.UUIDsToStringArray(sagaIds), Types.ARRAY)
         );
     }
 
@@ -133,7 +129,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
 
     private MapSqlParameterSource toSqlParameterSource(SagaEntity sagaEntity) {
         var mapSqlParameterSource = new MapSqlParameterSource();
-        mapSqlParameterSource.addValue(SagaEntity.Fields.sagaId, sagaEntity.getSagaId(), Types.VARCHAR);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaEntity.getSagaId()), Types.VARCHAR);
         mapSqlParameterSource.addValue(SagaEntity.Fields.userName, JdbcTools.asNullableString(sagaEntity.getUserName()), Types.VARCHAR);
         mapSqlParameterSource.addValue(SagaEntity.Fields.createdDateUtc, sagaEntity.getCreatedDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(SagaEntity.Fields.completedDateUtc, sagaEntity.getCompletedDateUtc(), Types.TIMESTAMP);

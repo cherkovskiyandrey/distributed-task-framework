@@ -19,5 +19,7 @@ public interface TestSagaService {
 
     UUID sagaCallAsync(TestDataDto testDataDto);
 
+    void cancel(UUID sagaId, boolean gracefully);
+
     Optional<Audit> sagaCallPollResult(UUID trackId);
 }

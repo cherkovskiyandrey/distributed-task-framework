@@ -44,6 +44,8 @@ public class WorkerContext {
     Map<UUID, JoinTaskMessage<Object>> taskMessagesToSave = Maps.newHashMap();
     @Builder.Default
     Set<UUID> dropJoinTasksIds = Sets.newHashSet();
+    @Builder.Default
+    StateHolder<Object> stateHolder = new StateHolder<>(null);
 
     @SuppressWarnings("unchecked")
     public <T> List<JoinTaskMessage<T>> getJoinMessagesFromBranch(TaskDef<T> taskDef) {

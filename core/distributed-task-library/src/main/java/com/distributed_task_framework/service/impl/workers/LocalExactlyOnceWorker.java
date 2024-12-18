@@ -76,7 +76,7 @@ public class LocalExactlyOnceWorker extends LocalAtLeastOnceWorker implements Ta
     }
 
     @Override
-    protected <T> void runInternal(final TaskEntity taskEntity, RegisteredTask<T> registeredTask) {
+    protected <T, U> void runInternal(final TaskEntity taskEntity, RegisteredTask<T> registeredTask) {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transactionTemplate.executeWithoutResult(status -> super.runInternal(taskEntity, registeredTask));

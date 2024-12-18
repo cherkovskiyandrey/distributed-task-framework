@@ -4,6 +4,12 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 
+/**
+ * Base interface for simple general task.
+ * Is applicable for general cases.
+ *
+ * @param <T>
+ */
 public interface Task<T> {
 
     /**
@@ -16,7 +22,8 @@ public interface Task<T> {
      *
      * @param executionContext
      */
-    void execute(ExecutionContext<T> executionContext) throws Exception;
+    default void execute(ExecutionContext<T> executionContext) throws Exception {
+    }
 
 
     /**

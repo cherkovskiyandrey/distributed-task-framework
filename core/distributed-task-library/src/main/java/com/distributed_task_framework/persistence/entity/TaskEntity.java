@@ -51,6 +51,9 @@ public class TaskEntity {
     byte[] messageBytes;
     @Nullable
     @ToString.Exclude
+    byte[] localState;
+    @Nullable
+    @ToString.Exclude
     byte[] joinMessageBytes;
     int failures;
 }

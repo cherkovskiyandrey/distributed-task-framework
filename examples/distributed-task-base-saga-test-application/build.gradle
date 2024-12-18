@@ -9,6 +9,7 @@ dependencies {
     implementation libs.springdoc.openapi.starter.webmvc.ui
     implementation libs.apache.commons.io
     implementation libs.micrometer.registry.prometheus
+    implementation libs.jackson.datatype.jsr310
 
     runtimeOnly libs.postgresql
 }

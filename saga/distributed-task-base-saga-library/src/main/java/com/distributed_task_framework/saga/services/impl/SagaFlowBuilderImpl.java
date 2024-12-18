@@ -10,10 +10,10 @@ import com.distributed_task_framework.saga.models.SagaOperation;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
 import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
-import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
@@ -49,7 +49,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     SagaRegister sagaRegister;
     SagaHelper sagaHelper;
     TaskSerializer taskSerializer;
-    SagaPipeline sagaParentEmbeddedPipelineContext;
+    SagaPipeline sagaParentPipeline;
     @Nullable
     Class<?> methodOutputType;
 
@@ -73,7 +73,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         );
 
         var sagaPipelineContext = sagaHelper.buildContextFor(
-            sagaParentEmbeddedPipelineContext,
+            sagaParentPipeline,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
             sagaRevertMethodTaskDef,
@@ -95,7 +95,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         );
 
         var sagaPipelineContext = sagaHelper.buildContextFor(
-            sagaParentEmbeddedPipelineContext,
+            sagaParentPipeline,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
             null,
@@ -121,7 +121,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         );
 
         var sagaPipelineContext = sagaHelper.buildContextFor(
-            sagaParentEmbeddedPipelineContext,
+            sagaParentPipeline,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
             revertSagaMethodTaskDef,
@@ -140,7 +140,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.PARENT_OUTPUT);
 
         var sagaPipelineContext = sagaHelper.buildContextFor(
-            sagaParentEmbeddedPipelineContext,
+            sagaParentPipeline,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
             null,
@@ -158,7 +158,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
             .userName(userName)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
-            .sagaParentEmbeddedPipelineContext(sagaPipeline)
+            .sagaParentPipeline(sagaPipeline)
             .methodOutputType(methodOutputType)
             .build();
     }
@@ -190,21 +190,21 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     @SneakyThrows
     @Override
     public SagaFlow<PARENT_OUTPUT> start() {
-        UUID sagaId = sagaParentEmbeddedPipelineContext.getSagaId();
-        sagaParentEmbeddedPipelineContext.rewind();
-        sagaParentEmbeddedPipelineContext.moveToNext();
-        SagaAction currentSagaAction = sagaParentEmbeddedPipelineContext.getCurrentAction();
+        UUID sagaId = sagaParentPipeline.getSagaId();
+        sagaParentPipeline.rewind();
+        sagaParentPipeline.moveToNext();
+        SagaAction currentSagaAction = sagaParentPipeline.getCurrentAction();
 
         TaskId taskId = distributedTaskService.schedule(
             sagaRegister.resolveByTaskName(currentSagaAction.getSagaMethodTaskName()),
-            makeContext(sagaParentEmbeddedPipelineContext)
+            makeContext(sagaParentPipeline)
         );
 
         var sagaContext = Saga.builder()
             .sagaId(sagaId)
             .name(userName)
             .rootTaskId(taskId)
-            .lastPipelineContext(sagaParentEmbeddedPipelineContext)
+            .lastPipelineContext(sagaParentPipeline)
             .build();
         sagaManager.create(sagaContext);
 

@@ -36,11 +36,6 @@ public class ExecutionContext<T> {
      */
     LocalDateTime workflowCreatedDateUtc;
     /**
-     * Optional name of workflow.
-     */
-    @Nullable
-    String workflowName;
-    /**
      * Current task id.
      */
     TaskId currentTaskId;
@@ -132,7 +127,6 @@ public class ExecutionContext<T> {
         return ExecutionContext.<U>builder()
                 .workflowId(this.getWorkflowId())
                 .workflowCreatedDateUtc(this.getWorkflowCreatedDateUtc())
-                .workflowName(this.getWorkflowName())
                 .affinity(this.affinity)
                 .affinityGroup(this.affinityGroup)
                 .inputMessage(inputMessage)
@@ -149,7 +143,6 @@ public class ExecutionContext<T> {
         return ExecutionContext.<U>builder()
                 .workflowId(this.getWorkflowId())
                 .workflowCreatedDateUtc(this.getWorkflowCreatedDateUtc())
-                .workflowName(this.getWorkflowName())
                 .affinity(this.affinity)
                 .affinityGroup(this.affinityGroup)
                 .inputMessage(null)

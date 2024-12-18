@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -198,9 +199,16 @@ public class SagaManagerImpl implements SagaManager {
             .orElseThrow(() -> new SagaNotFoundException(
                 "Saga with id=[%s] doesn't exists or has been completed for a long time".formatted(sagaId))
             );
+
+        if (sagaResultEntity.isCanceled()) {
+            throw new CancellationException(
+                "Saga with id=[%s] has been gracefully canceled".formatted(sagaId)
+            );
+        }
+
         boolean isCompleted = sagaResultEntity.getCompletedDateUtc() != null;
         var sagaResult = sagaResultEntity.getResult();
-        if (isCompleted || sagaResult == null) {
+        if (!isCompleted || sagaResult == null) {
             return Optional.empty();
         }
 
@@ -230,6 +238,7 @@ public class SagaManagerImpl implements SagaManager {
         );
     }
 
+    //todo: concurrent changes possible!!! use select for update
     @Override
     public void setFailResult(UUID sagaId, byte[] serializedException, JavaType exceptionType) {
         update(
@@ -254,6 +263,7 @@ public class SagaManagerImpl implements SagaManager {
         return sagaContextRepository.isCanceled(sagaId);
     }
 
+    //todo: the problem in concurrent!! use select for update!!!
     @Override
     public void cancel(UUID sagaId) {
         log.info("cancel(): cancel sagaId=[{}]", sagaId);

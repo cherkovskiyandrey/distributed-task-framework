@@ -375,6 +375,7 @@ public class BaseTestConfiguration {
         objectMapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, true);
         objectMapper.configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false);
         objectMapper.configure(SerializationFeature.WRITE_SELF_REFERENCES_AS_NULL, true);
+        objectMapper.configure(SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS, false);
         objectMapper.registerModule(new JavaTimeModule());
         return objectMapper;
     }

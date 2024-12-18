@@ -3,8 +3,8 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
-import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaFlow;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.service.DistributedTaskService;
 import lombok.Builder;
 import lombok.Value;
@@ -63,7 +63,7 @@ public class SagaFlowImpl<T> implements SagaFlow<T> {
     }
 
     @Override
-    public void cancel(boolean gracefully) {
+    public void cancel(boolean gracefully) throws SagaNotFoundException {
         if (gracefully) {
             sagaManager.cancel(sagaId);
         } else {

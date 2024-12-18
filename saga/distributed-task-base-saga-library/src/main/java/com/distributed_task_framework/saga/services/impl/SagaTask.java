@@ -2,14 +2,13 @@ package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
+import com.distributed_task_framework.model.StateHolder;
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.model.TypeDef;
 import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
-import com.distributed_task_framework.saga.exceptions.SagaInterruptedException;
 import com.distributed_task_framework.saga.models.SagaAction;
 import com.distributed_task_framework.saga.models.SagaPipeline;
-import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
-import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
 import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
@@ -18,7 +17,7 @@ import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
-import com.distributed_task_framework.task.Task;
+import com.distributed_task_framework.task.StatefulTask;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import lombok.AccessLevel;
@@ -38,11 +37,10 @@ import java.util.Optional;
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class SagaTask implements Task<SagaPipeline> {
+public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedException> {
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
     SagaManager sagaManager;
-    SagaContextRepository sagaContextRepository;
     TaskSerializer taskSerializer;
     SagaHelper sagaHelper;
     TaskDef<SagaPipeline> taskDef;
@@ -56,17 +54,25 @@ public class SagaTask implements Task<SagaPipeline> {
     }
 
     @Override
-    public void execute(ExecutionContext<SagaPipeline> executionContext) throws Exception {
+    public TypeDef<SerializedException> stateDef() {
+        return TypeDef.of(SerializedException.class);
+    }
+
+    @Override
+    public void execute(ExecutionContext<SagaPipeline> executionContext,
+                        StateHolder<SerializedException> stateHolder) throws Exception {
         SagaPipeline sagaPipeline = executionContext.getInputMessageOrThrow();
         var sagaId = sagaPipeline.getSagaId();
+        boolean isLastAction = !sagaPipeline.hasNext();
+
         if (sagaManager.isCompleted(sagaId)) {
             log.info("execute(): sagaId=[{}] has been completed or shutdown, stop execution.", sagaId);
             return;
         }
-
         if (sagaManager.isCanceled(sagaId)) {
             log.info("execute(): sagaId=[{}] has been canceled, start interrupting...", sagaId);
-            throw new SagaInterruptedException(sagaId);
+            scheduleNextRevertOrCompleteBeforeExecution(executionContext, stateHolder, sagaPipeline);
+            return;
         }
 
         SagaAction currentSagaAction = sagaPipeline.getCurrentAction();
@@ -105,7 +111,14 @@ public class SagaTask implements Task<SagaPipeline> {
             );
         };
 
-        if (!sagaPipeline.hasNext()) {
+        if (isLastAction) {
+            if (sagaManager.isCanceled(sagaId)) {
+                log.info("execute(): sagaId=[{}] has been canceled on the final step, scheduling interrupting...", sagaId);
+                sagaPipeline.rewindToRevertFromCurrentPosition();
+                scheduleNextRevertOrComplete(executionContext, sagaPipeline);
+                return;
+            }
+
             Class<?> returnType = method.getReturnType();
             if (!sagaHelper.isVoidType(returnType)) {
                 sagaManager.setOkResult(sagaId, taskSerializer.writeValue(result));
@@ -128,19 +141,37 @@ public class SagaTask implements Task<SagaPipeline> {
         sagaManager.track(sagaPipeline);
     }
 
+    private void scheduleNextRevertOrCompleteBeforeExecution(ExecutionContext<SagaPipeline> executionContext,
+                                                             StateHolder<SerializedException> stateHolder,
+                                                             SagaPipeline sagaPipeline) throws Exception {
+        boolean hasFailedAttempts = executionContext.getExecutionAttempt() > 1;
+        if (hasFailedAttempts) {
+            var serializedExceptionOpt = stateHolder.get();
+            if (serializedExceptionOpt.isPresent()) {
+                var serializedException = serializedExceptionOpt.get();
+                SagaAction currentSagaAction = sagaPipeline.getCurrentAction().toBuilder()
+                    .exceptionType(serializedException.exceptionType().toCanonical())
+                    .serializedException(serializedException.serializedException())
+                    .build();
+                sagaPipeline.setCurrentAction(currentSagaAction);
+            }
+            sagaPipeline.rewindToRevertFromCurrentPosition();
+        } else {
+            sagaPipeline.rewindToRevertFromPrevPosition();
+        }
+        scheduleNextRevertOrComplete(executionContext, sagaPipeline);
+    }
+
     @Override
-    public boolean onFailureWithResult(FailedExecutionContext<SagaPipeline> failedExecutionContext) throws Exception {
+    public boolean onFailureWithResult(FailedExecutionContext<SagaPipeline> failedExecutionContext,
+                                       StateHolder<SerializedException> stateHolder) throws Exception {
         SagaPipeline sagaPipeline = failedExecutionContext.getInputMessageOrThrow();
         Throwable exception = failedExecutionContext.getError();
         boolean isNoRetryException = Arrays.stream(sagaMethodAnnotation.noRetryFor())
             .map(thrCls -> ExceptionUtils.throwableOfType(exception, thrCls))
-            .anyMatch(Objects::nonNull)
-            || ExceptionUtils.throwableOfType(exception, SagaInternalException.class) != null;
+            .anyMatch(Objects::nonNull);
 
-        boolean isLastAttempt = failedExecutionContext.isLastAttempt()
-            || isNoRetryException
-            || ExceptionUtils.throwableOfType(exception, SagaInterruptedException.class) != null;
-
+        boolean isLastAttempt = failedExecutionContext.isLastAttempt() || isNoRetryException;
         log.error("onFailureWithResult(): saga operation error failedExecutionContext=[{}], failures=[{}], isLastAttempt=[{}]",
             failedExecutionContext,
             failedExecutionContext.getFailures(),
@@ -148,20 +179,27 @@ public class SagaTask implements Task<SagaPipeline> {
             failedExecutionContext.getError()
         );
 
-        if (isLastAttempt) {
-            scheduleNextRevertIfRequired(exception, failedExecutionContext);
-        } else {
-            var serializedException = toSerializedException(exception);
-            //the idea to save exception between attempts in order to use it when meet cancellation of saga;
-            //in that case we will reuse original exception instead of use SagaInterruptedException
-            sagaManager.setFailResult(
-                sagaPipeline.getSagaId(),
-                serializedException.serializedException(),
-                serializedException.exceptionType()
-            );
+        var serializedException = toSerializedException(exception);
+        if (!isLastAttempt) {
+            stateHolder.set(serializedException);
+            return false;
         }
 
-        return isLastAttempt;
+        var currentSagaAction = sagaPipeline.getCurrentAction().toBuilder()
+            .exceptionType(serializedException.exceptionType().toCanonical())
+            .serializedException(serializedException.serializedException())
+            .build();
+        sagaPipeline.setCurrentAction(currentSagaAction);
+
+        sagaManager.setFailResult(
+            sagaPipeline.getSagaId(),
+            serializedException.serializedException(),
+            serializedException.exceptionType()
+        );
+        sagaPipeline.rewindToRevertFromCurrentPosition();
+        scheduleNextRevertOrComplete(failedExecutionContext, sagaPipeline);
+
+        return true;
     }
 
     private SerializedException toSerializedException(Throwable exception) throws IOException {
@@ -174,48 +212,14 @@ public class SagaTask implements Task<SagaPipeline> {
         return new SerializedException(serializedException, exceptionType);
     }
 
-    private void scheduleNextRevertIfRequired(Throwable exception,
-                                              FailedExecutionContext<SagaPipeline> failedExecutionContext) throws Exception {
-        SagaPipeline sagaPipeline = failedExecutionContext.getInputMessageOrThrow();
-        SagaAction currentSagaAction = sagaPipeline.getCurrentAction();
-
-        boolean hasBeenInterrupted = ExceptionUtils.throwableOfType(exception, SagaInterruptedException.class) != null;
-        boolean hasFailedBeforeInterrupted = hasBeenInterrupted && failedExecutionContext.getFailures() > 1;
-
-        if (hasFailedBeforeInterrupted) {
-            //reuse original exception instead of SagaInterruptedException
-            SagaEntity sagaEntity = sagaContextRepository.findById(sagaPipeline.getSagaId()).orElseThrow();
-            currentSagaAction = currentSagaAction.toBuilder()
-                .exceptionType(sagaEntity.getExceptionType())
-                .serializedException(sagaEntity.getResult())
-                .build();
-            sagaPipeline.setCurrentAction(currentSagaAction);
-            sagaPipeline.rewindToRevertFromCurrentPosition();
-
-        } else if (hasBeenInterrupted) {
-            sagaPipeline.rewindToRevertFromPrevPosition();
-
-        } else {
-            var serializedException = toSerializedException(exception);
-            sagaManager.setFailResult(
-                sagaPipeline.getSagaId(),
-                serializedException.serializedException(),
-                serializedException.exceptionType()
-            );
-            currentSagaAction = currentSagaAction.toBuilder()
-                .exceptionType(serializedException.exceptionType().toCanonical())
-                .serializedException(serializedException.serializedException())
-                .build();
-            sagaPipeline.setCurrentAction(currentSagaAction);
-            sagaPipeline.rewindToRevertFromCurrentPosition();
-        }
-
+    private void scheduleNextRevertOrComplete(ExecutionContext<SagaPipeline> executionContext,
+                                              SagaPipeline sagaPipeline) throws Exception {
         if (sagaPipeline.hasNext()) {
             sagaPipeline.moveToNext();
-            currentSagaAction = sagaPipeline.getCurrentAction();
+            var currentSagaAction = sagaPipeline.getCurrentAction();
             distributedTaskService.schedule(
                 sagaRegister.resolveByTaskName(currentSagaAction.getSagaRevertMethodTaskName()),
-                failedExecutionContext.withNewMessage(sagaPipeline)
+                executionContext.withNewMessage(sagaPipeline)
             );
             sagaManager.track(sagaPipeline);
         } else {
@@ -223,8 +227,9 @@ public class SagaTask implements Task<SagaPipeline> {
         }
     }
 
-    record SerializedException(
+    public record SerializedException(
         byte[] serializedException,
         JavaType exceptionType
-    ){}
+    ) {
+    }
 }

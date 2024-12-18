@@ -1,9 +1,9 @@
 package com.distributed_task_framework.saga.services.impl;
 
-import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaEntryPoint;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaFlowWithoutResult;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaProcessor;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -17,10 +17,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import java.util.UUID;
 
 
-
 /**
  * 1. Реализовать возможность отмены саги - который будет останавливать сагу на текущем моменте
- *  и запускать ролбэк асинхронный (-)
+ * и запускать ролбэк асинхронный (-)
+ * 2. Покрыть тестами новую фичу в dtf: StatefulTask (-)
  * 2. Дореализовать все остальные методы (-)
  * 2. todo: now it will not work, because DTF doesn't allow to create tasks form exception (+)
  * //          ^^^^ - fixed, need to be covered by tests (-)
@@ -29,7 +29,7 @@ import java.util.UUID;
  * 5. Подумать над перф тестом (-)
  * 6. Временно ронять контескт если кол-во тасок больше чем dtf может за раз запланировать (-) ???
  * 7. Поддержка map/reduce через расширение контекста SagaEmbeddedPipelineContext и динамического достраивания DAG-а из самих тасок
- *  (вернее во время старта - достаточно создать 1 уровень map/reduce, дальше из тасок динамически достраивать DAG) (-)
+ * (вернее во время старта - достаточно создать 1 уровень map/reduce, дальше из тасок динамически достраивать DAG) (-)
  * 8. Think about exactly once for remote http call - could be possible only based on remote tasks (-)
  */
 @Slf4j
@@ -46,13 +46,13 @@ public class SagaProcessorImpl implements SagaProcessor {
     public SagaEntryPoint create(String name) {
         StringUtils.requireNotBlank(name, "name");
         return SagaEntryPointImpl.builder()
-                .userName(name)
-                .transactionManager(transactionManager)
-                .sagaRegister(sagaRegister)
-                .distributedTaskService(distributedTaskService)
-                .sagaManager(sagaManager)
-                .sagaHelper(sagaHelper)
-                .build();
+            .userName(name)
+            .transactionManager(transactionManager)
+            .sagaRegister(sagaRegister)
+            .distributedTaskService(distributedTaskService)
+            .sagaManager(sagaManager)
+            .sagaHelper(sagaHelper)
+            .build();
     }
 
     @Override
@@ -61,25 +61,25 @@ public class SagaProcessorImpl implements SagaProcessor {
         StringUtils.requireNotBlank(affinityGroup, "affinityGroup");
         StringUtils.requireNotBlank(affinity, "affinity");
         return SagaEntryPointImpl.builder()
-                .userName(name)
-                .affinityGroup(affinityGroup)
-                .affinity(affinity)
-                .transactionManager(transactionManager)
-                .sagaRegister(sagaRegister)
-                .distributedTaskService(distributedTaskService)
-                .sagaManager(sagaManager)
-                .sagaHelper(sagaHelper)
-                .build();
+            .userName(name)
+            .affinityGroup(affinityGroup)
+            .affinity(affinity)
+            .transactionManager(transactionManager)
+            .sagaRegister(sagaRegister)
+            .distributedTaskService(distributedTaskService)
+            .sagaManager(sagaManager)
+            .sagaHelper(sagaHelper)
+            .build();
     }
 
     @Override
     public <OUTPUT> SagaFlow<OUTPUT> getFlow(UUID trackId, Class<OUTPUT> trackingClass) {
         return SagaFlowImpl.<OUTPUT>builder()
-                .distributedTaskService(distributedTaskService)
-                .sagaManager(sagaManager)
-                .sagaId(trackId)
-                .resultType(trackingClass)
-                .build();
+            .distributedTaskService(distributedTaskService)
+            .sagaManager(sagaManager)
+            .sagaId(trackId)
+            .resultType(trackingClass)
+            .build();
     }
 
     @Override
