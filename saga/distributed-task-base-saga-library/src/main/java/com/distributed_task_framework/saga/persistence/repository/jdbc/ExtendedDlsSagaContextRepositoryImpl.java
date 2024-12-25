@@ -27,7 +27,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
     private static final String SAVE_OR_UPDATE = """
             INSERT INTO _____dtf_saga_dls (
                 saga_id,
-                user_name,
+                name,
                 created_date_utc,
                 expiration_date_utc,
                 root_task_id,
@@ -42,7 +42,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             ) ON CONFLICT (saga_id) DO UPDATE
                 SET
                     saga_id = excluded.saga_id,
-                    user_name = excluded.user_name,
+                    name = excluded.name,
                     created_date_utc = excluded.created_date_utc,
                     expiration_date_utc = excluded.expiration_date_utc,
                     root_task_id = excluded.root_task_id,
@@ -64,7 +64,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
     private MapSqlParameterSource toSqlParameterSource(DlsSagaEntity dlsSagaEntity) {
         var mapSqlParameterSource = new MapSqlParameterSource();
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.sagaId, JdbcTools.asNullableString(dlsSagaEntity.getSagaId()), Types.VARCHAR);
-        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.userName, JdbcTools.asNullableString(dlsSagaEntity.getUserName()), Types.VARCHAR);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.name, JdbcTools.asNullableString(dlsSagaEntity.getName()), Types.VARCHAR);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.createdDateUtc, dlsSagaEntity.getCreatedDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.expirationDateUtc, dlsSagaEntity.getExpirationDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.rootTaskId, dlsSagaEntity.getRootTaskId(), Types.BINARY);

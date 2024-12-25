@@ -19,18 +19,16 @@ import java.util.UUID;
 
 /**
  * 1. Реализовать возможность отмены саги - который будет останавливать сагу на текущем моменте
- * и запускать ролбэк асинхронный (-)
+ * и запускать ролбэк асинхронный (+)
  * 2. Покрыть тестами новую фичу в dtf: StatefulTask (-)
- * 2. Дореализовать все остальные методы (-)
- * 2. todo: now it will not work, because DTF doesn't allow to create tasks form exception (+)
- * //          ^^^^ - fixed, need to be covered by tests (-)
- * 3. Покрыть абсолютно все тестами (-)
- * 4. Написать более честный example используя мок сервис для эмуляции взаимодействия с внешним сервисом (-)
- * 5. Подумать над перф тестом (-)
- * 6. Временно ронять контескт если кол-во тасок больше чем dtf может за раз запланировать (-) ???
- * 7. Поддержка map/reduce через расширение контекста SagaEmbeddedPipelineContext и динамического достраивания DAG-а из самих тасок
+ * 3. Дореализовать все остальные методы (-)
+ * 4. Покрыть абсолютно все тестами (-)
+ * 5. Написать более честный example используя мок сервис для эмуляции взаимодействия с внешним сервисом (-)
+ * 6. Подумать над перф тестом (-)
+ * 7. Временно ронять контескт если кол-во тасок больше чем dtf может за раз запланировать (-) ???
+ * 8. Поддержка map/reduce через расширение контекста SagaEmbeddedPipelineContext и динамического достраивания DAG-а из самих тасок
  * (вернее во время старта - достаточно создать 1 уровень map/reduce, дальше из тасок динамически достраивать DAG) (-)
- * 8. Think about exactly once for remote http call - could be possible only based on remote tasks (-)
+ * 9. Think about exactly once for remote http call - could be possible only based on remote tasks (-)
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -46,7 +44,7 @@ public class SagaProcessorImpl implements SagaProcessor {
     public SagaEntryPoint create(String name) {
         StringUtils.requireNotBlank(name, "name");
         return SagaEntryPointImpl.builder()
-            .userName(name)
+            .name(name)
             .transactionManager(transactionManager)
             .sagaRegister(sagaRegister)
             .distributedTaskService(distributedTaskService)
@@ -61,7 +59,7 @@ public class SagaProcessorImpl implements SagaProcessor {
         StringUtils.requireNotBlank(affinityGroup, "affinityGroup");
         StringUtils.requireNotBlank(affinity, "affinity");
         return SagaEntryPointImpl.builder()
-            .userName(name)
+            .name(name)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
             .transactionManager(transactionManager)

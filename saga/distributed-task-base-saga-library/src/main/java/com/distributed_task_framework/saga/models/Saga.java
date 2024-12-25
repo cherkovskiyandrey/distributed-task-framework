@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.models;
 
 import com.distributed_task_framework.model.TaskId;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.annotation.Nullable;
 import lombok.Builder;
 import lombok.Value;
@@ -28,5 +29,9 @@ public class Saga {
      */
     boolean canceled;
     TaskId rootTaskId;
-    SagaPipeline lastPipelineContext;
+
+    @JsonIgnore
+    public boolean isCompleted() {
+        return completedDateUtc != null;
+    }
 }

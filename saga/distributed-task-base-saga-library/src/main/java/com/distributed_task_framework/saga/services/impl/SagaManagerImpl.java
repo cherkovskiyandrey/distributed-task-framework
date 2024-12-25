@@ -1,9 +1,11 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.saga.configurations.SagaConfiguration;
+import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.mappers.ContextMapper;
+import com.distributed_task_framework.saga.models.CreateSagaRequest;
 import com.distributed_task_framework.saga.models.Saga;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
@@ -37,6 +39,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -161,7 +164,7 @@ public class SagaManagerImpl implements SagaManager {
     }
 
     @Override
-    public void create(Saga sagaContext) {
+    public void create(CreateSagaRequest sagaContext) {
         var expirationTimeout = Optional.ofNullable(sagaConfiguration.getSagaPropertiesGroup().get(sagaContext.getName()))
             .map(SagaConfiguration.SagaProperties::getExpirationTimeout)
             .orElse(sagaConfiguration.getContext().getExpirationTimeout());
@@ -175,33 +178,20 @@ public class SagaManagerImpl implements SagaManager {
     }
 
     @Override
-    public void track(SagaPipeline context) {
-        update(
-            context.getSagaId(),
-            sagaContextEntity -> sagaContextEntity.toBuilder()
-                .lastPipelineContext(contextMapper.sagaEmbeddedPipelineContextToByteArray(context))
-                .build()
-        );
-    }
-
-    @Override
     public Saga get(UUID sagaId) throws SagaNotFoundException {
-        return sagaContextRepository.findById(sagaId)
-            .map(contextMapper::toModel)
-            .orElseThrow(() -> new SagaNotFoundException(
-                "Saga with id=[%s] doesn't exists or has been completed for a long time".formatted(sagaId))
-            );
+        return getIfExists(sagaId).orElseThrow(sagaNotFoundException(sagaId));
     }
 
     @Override
-    public <T> Optional<T> getSagaResult(UUID sagaId, Class<T> resultType) throws SagaExecutionException {
+    public <T> Optional<T> getSagaResult(UUID sagaId, Class<T> resultType) throws
+        SagaNotFoundException,
+        SagaExecutionException,
+        SagaCancellationException {
         var sagaResultEntity = sagaContextRepository.findById(sagaId)
-            .orElseThrow(() -> new SagaNotFoundException(
-                "Saga with id=[%s] doesn't exists or has been completed for a long time".formatted(sagaId))
-            );
+            .orElseThrow(sagaNotFoundException(sagaId));
 
         if (sagaResultEntity.isCanceled()) {
-            throw new CancellationException(
+            throw new SagaCancellationException(
                 "Saga with id=[%s] has been gracefully canceled".formatted(sagaId)
             );
         }
@@ -219,59 +209,79 @@ public class SagaManagerImpl implements SagaManager {
     }
 
     @Override
-    public void complete(UUID sagaId) {
-        update(
-            sagaId,
-            sagaContextEntity -> sagaContextEntity.toBuilder()
-                .completedDateUtc(LocalDateTime.now(clock))
-                .build()
-        );
-    }
-
-    @Override
-    public void setOkResult(UUID sagaId, byte[] serializedValue) {
-        update(
-            sagaId,
-            sagaContextEntity -> sagaContextEntity.toBuilder()
-                .result(serializedValue)
-                .build()
-        );
-    }
-
-    //todo: concurrent changes possible!!! use select for update
-    @Override
-    public void setFailResult(UUID sagaId, byte[] serializedException, JavaType exceptionType) {
-        update(
-            sagaId,
-            sagaContextEntity -> sagaContextEntity.toBuilder()
-                .result(serializedException)
-                .exceptionType(exceptionType.toCanonical())
-                .build()
-        );
+    public Optional<Saga> getIfExists(UUID sagaId) {
+        return sagaContextRepository.findShortById(sagaId)
+            .map(contextMapper::toModel);
     }
 
     //because of exposed to client
     @Cacheable(cacheNames = "commonSagaCacheManager", key = "#root.args[0]")
     @Override
-    public boolean isCompleted(UUID sagaId) {
-        return sagaContextRepository.isCompleted(sagaId);
+    public boolean isCompleted(UUID sagaId) throws SagaNotFoundException {
+        return sagaContextRepository.isCompleted(sagaId)
+            .orElseThrow(sagaNotFoundException(sagaId));
     }
 
-    //don't have a cache because of doesn't exposed to client
     @Override
     public boolean isCanceled(UUID sagaId) {
-        return sagaContextRepository.isCanceled(sagaId);
+        return sagaContextRepository.isCanceled(sagaId)
+            .orElseThrow(sagaNotFoundException(sagaId));
     }
 
-    //todo: the problem in concurrent!! use select for update!!!
     @Override
-    public void cancel(UUID sagaId) {
+    public void trackIfExists(SagaPipeline context) {
+        updateUnderLock(
+            context.getSagaId(),
+            sagaContextEntity -> sagaContextEntity.toBuilder()
+                .lastPipelineContext(contextMapper.sagaEmbeddedPipelineContextToByteArray(context))
+                .build(),
+            false
+        );
+    }
+
+    @Override
+    public void completeIfExists(UUID sagaId) {
+        updateUnderLock(
+            sagaId,
+            sagaContextEntity -> sagaContextEntity.toBuilder()
+                .completedDateUtc(LocalDateTime.now(clock))
+                .build(),
+            false
+        );
+    }
+
+    @Override
+    public void setOkResultIfExists(UUID sagaId, byte[] serializedValue) {
+        updateUnderLock(
+            sagaId,
+            sagaContextEntity -> sagaContextEntity.toBuilder()
+                .result(serializedValue)
+                .build(),
+            false
+        );
+    }
+
+    @Override
+    public void setFailResultIfExists(UUID sagaId, byte[] serializedException, JavaType exceptionType) {
+        updateUnderLock(
+            sagaId,
+            sagaContextEntity -> sagaContextEntity.toBuilder()
+                .result(serializedException)
+                .exceptionType(exceptionType.toCanonical())
+                .build(),
+            false
+        );
+    }
+
+    @Override
+    public void cancel(UUID sagaId) throws SagaNotFoundException {
         log.info("cancel(): cancel sagaId=[{}]", sagaId);
-        update(
+        updateUnderLock(
             sagaId,
             sagaEntity -> sagaEntity.toBuilder()
                 .canceled(true)
-                .build()
+                .build(),
+            true
         );
     }
 
@@ -286,12 +296,34 @@ public class SagaManagerImpl implements SagaManager {
             );
     }
 
-    private void update(UUID sagaId, Function<SagaEntity, SagaEntity> updateAction) {
-        sagaContextRepository.findById(sagaId)
-            .map(updateAction)
-            .ifPresentOrElse(
-                sagaContextRepository::save,
-                () -> log.warn("update(): saga context {} has been expired", sagaId)
-            );
+    // NOTE: We use pessimistic update in order to protect from parallel changes, and
+    // we will prepare to support parallel-saga mode. Parallel changes may be from client code,
+    // for example cancellation and task any code from task.
+    // Or for instance, in that mode SagaPipeline will be merged with existed in db before saving.
+    private void updateUnderLock(UUID sagaId,
+                                 Function<SagaEntity, SagaEntity> updateAction,
+                                 boolean strictMode) throws SagaNotFoundException {
+        var transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+        transactionTemplate.executeWithoutResult(status -> {
+                sagaContextRepository.findByIdIfExists(sagaId)
+                    .map(updateAction)
+                    .ifPresentOrElse(
+                        sagaContextRepository::save,
+                        () -> {
+                            if (strictMode) {
+                                throw sagaNotFoundException(sagaId).get();
+                            }
+                            log.warn("updateUnderLock(): saga {} doesn't exist", sagaId);
+                        }
+                    );
+            }
+        );
+    }
+
+    private Supplier<? extends RuntimeException> sagaNotFoundException(UUID sagaId) {
+        return () -> new SagaNotFoundException(
+            "Saga with id=[%s] doesn't exists or has been completed for a long time".formatted(sagaId)
+        );
     }
 }

@@ -3,7 +3,7 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
-import com.distributed_task_framework.saga.models.Saga;
+import com.distributed_task_framework.saga.models.CreateSagaRequest;
 import com.distributed_task_framework.saga.models.SagaAction;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.models.SagaOperation;
@@ -38,7 +38,7 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 @Value
 @Builder(toBuilder = true)
 public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
-    String userName;
+    String name;
     @Nullable
     String affinityGroup;
     @Nullable
@@ -155,7 +155,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     private <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipeline sagaPipeline,
                                                                                @Nullable Class<?> methodOutputType) {
         return (SagaFlowBuilder<ROOT_INPUT, OUTPUT>) this.toBuilder()
-            .userName(userName)
+            .name(name)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
             .sagaParentPipeline(sagaPipeline)
@@ -200,9 +200,9 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
             makeContext(sagaParentPipeline)
         );
 
-        var sagaContext = Saga.builder()
+        var sagaContext = CreateSagaRequest.builder()
             .sagaId(sagaId)
-            .name(userName)
+            .name(name)
             .rootTaskId(taskId)
             .lastPipelineContext(sagaParentPipeline)
             .build();
@@ -216,13 +216,13 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
             .build();
     }
 
-    private ExecutionContext<SagaPipeline> makeContext(SagaPipeline sagaParentEmbeddedPipelineContext) {
+    private ExecutionContext<SagaPipeline> makeContext(SagaPipeline sagaPipeline) {
         return StringUtils.isNotBlank(affinityGroup) && StringUtils.isNotBlank(affinity) ?
             ExecutionContext.withAffinityGroup(
-                sagaParentEmbeddedPipelineContext,
+                sagaPipeline,
                 affinityGroup,
                 affinity
             ) :
-            ExecutionContext.simple(sagaParentEmbeddedPipelineContext);
+            ExecutionContext.simple(sagaPipeline);
     }
 }

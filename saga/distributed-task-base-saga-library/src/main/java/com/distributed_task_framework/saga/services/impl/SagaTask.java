@@ -65,11 +65,18 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
         var sagaId = sagaPipeline.getSagaId();
         boolean isLastAction = !sagaPipeline.hasNext();
 
-        if (sagaManager.isCompleted(sagaId)) {
-            log.info("execute(): sagaId=[{}] has been completed or shutdown, stop execution.", sagaId);
+        var sagaOpt = sagaManager.getIfExists(sagaId);
+        if (sagaOpt.isEmpty()) {
+            log.warn("execute(): sagaId=[{}] doesn't exists, stop execution.", sagaId);
             return;
         }
-        if (sagaManager.isCanceled(sagaId)) {
+
+        var saga = sagaOpt.get();
+        if (saga.isCompleted()) {
+            log.info("execute(): sagaId=[{}] has been completed, stop execution.", sagaId);
+            return;
+        }
+        if (saga.isCanceled()) {
             log.info("execute(): sagaId=[{}] has been canceled, start interrupting...", sagaId);
             scheduleNextRevertOrCompleteBeforeExecution(executionContext, stateHolder, sagaPipeline);
             return;
@@ -111,19 +118,24 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
             );
         };
 
-        if (isLastAction) {
-            if (sagaManager.isCanceled(sagaId)) {
-                log.info("execute(): sagaId=[{}] has been canceled on the final step, scheduling interrupting...", sagaId);
-                sagaPipeline.rewindToRevertFromCurrentPosition();
-                scheduleNextRevertOrComplete(executionContext, sagaPipeline);
-                return;
-            }
+        sagaOpt = sagaManager.getIfExists(sagaId);
+        if (sagaOpt.isEmpty()) {
+            log.warn("execute(): sagaId=[{}] doesn't exists, stop execution.", sagaId);
+            return;
+        }
+        if (sagaOpt.get().isCanceled()) {
+            log.info("execute(): sagaId=[{}] has been canceled in the end of current step, scheduling interrupting...", sagaId);
+            sagaPipeline.rewindToRevertFromCurrentPosition();
+            scheduleNextRevertOrComplete(executionContext, sagaPipeline);
+            return;
+        }
 
+        if (isLastAction) {
             Class<?> returnType = method.getReturnType();
             if (!sagaHelper.isVoidType(returnType)) {
-                sagaManager.setOkResult(sagaId, taskSerializer.writeValue(result));
+                sagaManager.setOkResultIfExists(sagaId, taskSerializer.writeValue(result));
             }
-            sagaManager.complete(sagaId);
+            sagaManager.completeIfExists(sagaId);
             return; //last task in sequence
         }
 
@@ -138,7 +150,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
             sagaRegister.resolveByTaskName(nextSagaContext.getSagaMethodTaskName()),
             executionContext.withNewMessage(sagaPipeline)
         );
-        sagaManager.track(sagaPipeline);
+        sagaManager.trackIfExists(sagaPipeline);
     }
 
     private void scheduleNextRevertOrCompleteBeforeExecution(ExecutionContext<SagaPipeline> executionContext,
@@ -191,7 +203,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
             .build();
         sagaPipeline.setCurrentAction(currentSagaAction);
 
-        sagaManager.setFailResult(
+        sagaManager.setFailResultIfExists(
             sagaPipeline.getSagaId(),
             serializedException.serializedException(),
             serializedException.exceptionType()
@@ -221,9 +233,9 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
                 sagaRegister.resolveByTaskName(currentSagaAction.getSagaRevertMethodTaskName()),
                 executionContext.withNewMessage(sagaPipeline)
             );
-            sagaManager.track(sagaPipeline);
+            sagaManager.trackIfExists(sagaPipeline);
         } else {
-            sagaManager.complete(sagaPipeline.getSagaId());
+            sagaManager.completeIfExists(sagaPipeline.getSagaId());
         }
     }
 

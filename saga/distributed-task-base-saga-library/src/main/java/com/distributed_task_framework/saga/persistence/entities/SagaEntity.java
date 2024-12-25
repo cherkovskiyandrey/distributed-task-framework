@@ -21,8 +21,9 @@ import java.util.UUID;
 public class SagaEntity {
     @Id
     UUID sagaId;
-    String userName;
+    String name;
     LocalDateTime createdDateUtc;
+    @Nullable
     LocalDateTime completedDateUtc;
     LocalDateTime expirationDateUtc;
     boolean canceled;

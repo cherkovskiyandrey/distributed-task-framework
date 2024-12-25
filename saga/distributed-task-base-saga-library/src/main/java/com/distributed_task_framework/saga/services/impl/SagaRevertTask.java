@@ -45,8 +45,15 @@ public class SagaRevertTask implements Task<SagaPipeline> {
     public void execute(ExecutionContext<SagaPipeline> executionContext) throws Exception {
         SagaPipeline sagaPipeline = executionContext.getInputMessageOrThrow();
         var sagaId = sagaPipeline.getSagaId();
-        if (sagaManager.isCompleted(sagaId)) {
-            log.info("execute(): sagaId=[{}] has been completed or shutdown, stop execution.", sagaId);
+        var sagaOpt = sagaManager.getIfExists(sagaId);
+        if (sagaOpt.isEmpty()) {
+            log.warn("execute(): sagaId=[{}] doesn't exists, stop execution.", sagaId);
+            return;
+        }
+
+        var saga = sagaOpt.get();
+        if (saga.isCompleted()) {
+            log.info("execute(): sagaId=[{}] has been completed, stop execution of revert.", sagaId);
             return;
         }
 
@@ -130,7 +137,7 @@ public class SagaRevertTask implements Task<SagaPipeline> {
                 "scheduleNextRevertIfRequired(): revert chain has been completed for sagaPipelineContext with id=[{}]",
                 sagaPipeline.getSagaId()
             );
-            sagaManager.complete(sagaPipeline.getSagaId());
+            sagaManager.completeIfExists(sagaPipeline.getSagaId());
             return;
         }
 
@@ -140,6 +147,6 @@ public class SagaRevertTask implements Task<SagaPipeline> {
             sagaRegister.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
             executionContext.withNewMessage(sagaPipeline)
         );
-        sagaManager.track(sagaPipeline);
+        sagaManager.trackIfExists(sagaPipeline);
     }
 }

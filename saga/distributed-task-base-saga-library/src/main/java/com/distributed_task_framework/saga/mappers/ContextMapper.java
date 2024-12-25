@@ -1,10 +1,12 @@
 package com.distributed_task_framework.saga.mappers;
 
 import com.distributed_task_framework.model.TaskId;
+import com.distributed_task_framework.saga.models.CreateSagaRequest;
 import com.distributed_task_framework.saga.models.Saga;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.persistence.entities.DlsSagaEntity;
 import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
+import com.distributed_task_framework.saga.persistence.entities.ShortSagaEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.mapstruct.Mapper;
@@ -21,7 +23,9 @@ public abstract class ContextMapper {
 
     public abstract Saga toModel(SagaEntity sagaEntity);
 
-    public abstract SagaEntity toEntity(Saga sagaContext);
+    public abstract Saga toModel(ShortSagaEntity sagaEntity);
+
+    public abstract SagaEntity toEntity(CreateSagaRequest sagaContext);
 
     public abstract DlsSagaEntity mapToDls(SagaEntity sagaEntity);
 

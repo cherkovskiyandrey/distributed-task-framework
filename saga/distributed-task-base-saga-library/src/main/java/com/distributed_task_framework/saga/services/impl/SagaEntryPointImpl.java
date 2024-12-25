@@ -28,7 +28,7 @@ import java.util.function.Function;
 @Value
 @Builder(toBuilder = true)
 public class SagaEntryPointImpl implements SagaEntryPoint {
-    String userName;
+    String name;
     @Nullable
     String affinityGroup;
     @Nullable
@@ -91,7 +91,7 @@ public class SagaEntryPointImpl implements SagaEntryPoint {
     private <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipeline sagaPipeline,
                                                                                  @Nullable Class<?> methodOutputType) {
         return SagaFlowBuilderImpl.<INPUT, OUTPUT>builder()
-            .userName(userName)
+            .name(name)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
             .transactionManager(transactionManager)

@@ -21,7 +21,7 @@ import java.util.UUID;
 public class DlsSagaEntity {
     @Id
     UUID sagaId;
-    String userName;
+    String name;
     LocalDateTime createdDateUtc;
     LocalDateTime expirationDateUtc;
     @ToString.Exclude

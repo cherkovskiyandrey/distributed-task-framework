@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.persistence.repository.jdbc;
 
 import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
+import com.distributed_task_framework.saga.persistence.entities.ShortSagaEntity;
 import com.distributed_task_framework.saga.persistence.repository.ExtendedSagaContextRepository;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
@@ -17,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -30,7 +32,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
     private static final String SAVE_OR_UPDATE = """
         INSERT INTO _____dtf_saga (
             saga_id,
-            user_name,
+            name,
             created_date_utc,
             completed_date_utc,
             expiration_date_utc,
@@ -51,7 +53,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
         ) ON CONFLICT (saga_id) DO UPDATE
             SET
                 saga_id = excluded.saga_id,
-                user_name = excluded.user_name,
+                name = excluded.name,
                 created_date_utc = excluded.created_date_utc,
                 completed_date_utc = excluded.completed_date_utc,
                 expiration_date_utc = excluded.expiration_date_utc,
@@ -69,6 +71,63 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
             parameterSource
         );
         return sagaEntity;
+    }
+
+
+    //language=postgresql
+    private static final String FIND_SHORT = """
+        SELECT
+            saga_id,
+            name,
+            created_date_utc,
+            completed_date_utc,
+            expiration_date_utc,
+            canceled,
+            root_task_id
+        FROM _____dtf_saga
+        WHERE saga_id = :sagaId::uuid
+        """;
+
+    @Override
+    public Optional<ShortSagaEntity> findShortById(UUID sagaId) {
+        return namedParameterJdbcTemplate.query(
+            FIND_SHORT,
+            SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
+            ShortSagaEntity.SHORT_SAGA_ROW_MAPPER
+        ).stream().findAny();
+    }
+
+
+    //language=postgresql
+    private static final String IS_COMPLETED = """
+        SELECT TRUE
+        FROM _____dtf_saga
+        WHERE completed_date_utc IS NOT NULL AND saga_id = :sagaId::uuid
+        """;
+
+    @Override
+    public Optional<Boolean> isCompleted(UUID sagaId) {
+        return Optional.ofNullable(namedParameterJdbcTemplate.queryForObject(
+            IS_COMPLETED,
+            SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
+            Boolean.class
+        ));
+    }
+
+
+    private static final String IS_CANCELED = """
+        SELECT TRUE
+        FROM _____dtf_saga
+        WHERE canceled IS TRUE AND saga_id = :sagaId::uuid
+        """;
+
+    @Override
+    public Optional<Boolean> isCanceled(UUID sagaId) {
+        return Optional.ofNullable(namedParameterJdbcTemplate.queryForObject(
+            IS_CANCELED,
+            SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
+            Boolean.class
+        ));
     }
 
 
@@ -130,7 +189,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
     private MapSqlParameterSource toSqlParameterSource(SagaEntity sagaEntity) {
         var mapSqlParameterSource = new MapSqlParameterSource();
         mapSqlParameterSource.addValue(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaEntity.getSagaId()), Types.VARCHAR);
-        mapSqlParameterSource.addValue(SagaEntity.Fields.userName, JdbcTools.asNullableString(sagaEntity.getUserName()), Types.VARCHAR);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.name, JdbcTools.asNullableString(sagaEntity.getName()), Types.VARCHAR);
         mapSqlParameterSource.addValue(SagaEntity.Fields.createdDateUtc, sagaEntity.getCreatedDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(SagaEntity.Fields.completedDateUtc, sagaEntity.getCompletedDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(SagaEntity.Fields.expirationDateUtc, sagaEntity.getExpirationDateUtc(), Types.TIMESTAMP);

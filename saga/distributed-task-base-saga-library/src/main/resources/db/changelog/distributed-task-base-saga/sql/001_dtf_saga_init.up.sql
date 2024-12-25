@@ -1,7 +1,7 @@
 CREATE TABLE "_____dtf_saga"
 (
     "saga_id"               UUID                        NOT NULL,
-    "user_name"             VARCHAR(255),
+    "name"             VARCHAR(255),
     "created_date_utc"      TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     "completed_date_utc"    TIMESTAMP WITHOUT TIME ZONE,
     "expiration_date_utc"   TIMESTAMP WITHOUT TIME ZONE NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE "_____dtf_saga"
 CREATE TABLE "_____dtf_saga_dls"
 (
     "saga_id"               UUID                        NOT NULL,
-    "user_name"             VARCHAR(255),
+    "name"             VARCHAR(255),
     "created_date_utc"      TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     "expiration_date_utc"   TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     "root_task_id"          BYTEA                       NOT NULL,

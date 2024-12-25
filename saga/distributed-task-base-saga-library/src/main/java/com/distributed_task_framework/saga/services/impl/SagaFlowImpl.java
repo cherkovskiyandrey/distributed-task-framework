@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskId;
+import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.services.SagaFlow;
@@ -29,13 +30,18 @@ public class SagaFlowImpl<T> implements SagaFlow<T> {
     }
 
     @Override
-    public void waitCompletion(Duration duration) throws TimeoutException, InterruptedException {
+    public void waitCompletion(Duration duration) throws SagaNotFoundException, InterruptedException, TimeoutException {
         TaskId taskId = sagaManager.get(sagaId).getRootTaskId();
         distributedTaskService.waitCompletionAllWorkflow(taskId, duration);
     }
 
     @Override
-    public Optional<T> get() throws TimeoutException, SagaExecutionException, InterruptedException {
+    public Optional<T> get() throws
+        SagaNotFoundException,
+        SagaExecutionException,
+        InterruptedException,
+        TimeoutException,
+        SagaCancellationException {
         if (sagaManager.isCompleted(sagaId)) {
             return sagaManager.getSagaResult(sagaId, resultType);
         }
@@ -44,7 +50,11 @@ public class SagaFlowImpl<T> implements SagaFlow<T> {
     }
 
     @Override
-    public Optional<T> get(Duration duration) throws TimeoutException, SagaExecutionException, InterruptedException {
+    public Optional<T> get(Duration duration) throws SagaNotFoundException,
+        SagaExecutionException,
+        InterruptedException,
+        TimeoutException,
+        SagaCancellationException {
         if (sagaManager.isCompleted(sagaId)) {
             return sagaManager.getSagaResult(sagaId, resultType);
         }
@@ -53,8 +63,13 @@ public class SagaFlowImpl<T> implements SagaFlow<T> {
     }
 
     @Override
-    public boolean isCompleted() {
+    public boolean isCompleted() throws SagaNotFoundException {
         return sagaManager.isCompleted(sagaId);
+    }
+
+    @Override
+    public boolean isCanceled() throws SagaNotFoundException {
+        return sagaManager.isCanceled(sagaId);
     }
 
     @Override
