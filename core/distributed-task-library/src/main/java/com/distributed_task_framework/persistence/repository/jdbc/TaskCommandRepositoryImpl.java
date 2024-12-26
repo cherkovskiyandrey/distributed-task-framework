@@ -51,7 +51,8 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
             last_assigned_date_utc = null,
             execution_date_utc = :executionDateUtc,
             virtual_queue = :virtualQueue::_____dtf_virtual_queue_type,
-            failures = :failures
+            failures = :failures,
+            local_state = :localState
         WHERE
         (
             _____dtf_tasks.id = :id::uuid
@@ -154,7 +155,8 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
             TaskEntity.Fields.executionDateUtc, taskEntity.getExecutionDateUtc(), Types.TIMESTAMP,
             TaskEntity.Fields.virtualQueue, JdbcTools.asString(taskEntity.getVirtualQueue()), Types.VARCHAR,
             TaskEntity.Fields.failures, taskEntity.getFailures(), Types.INTEGER,
-            TaskEntity.Fields.version, taskEntity.getVersion(), Types.INTEGER
+            TaskEntity.Fields.version, taskEntity.getVersion(), Types.INTEGER,
+            TaskEntity.Fields.localState, taskEntity.getLocalState(), Types.BINARY
         );
     }
 

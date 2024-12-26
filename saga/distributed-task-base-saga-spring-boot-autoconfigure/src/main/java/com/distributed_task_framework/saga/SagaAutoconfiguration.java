@@ -11,14 +11,14 @@ import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
 import com.distributed_task_framework.saga.services.SagaContextDiscovery;
-import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaEntryPoint;
+import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaProcessor;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.services.SagaTaskFactory;
 import com.distributed_task_framework.saga.services.impl.SagaContextDiscoveryImpl;
-import com.distributed_task_framework.saga.services.impl.SagaManagerImpl;
 import com.distributed_task_framework.saga.services.impl.SagaHelper;
+import com.distributed_task_framework.saga.services.impl.SagaManagerImpl;
 import com.distributed_task_framework.saga.services.impl.SagaProcessorImpl;
 import com.distributed_task_framework.saga.services.impl.SagaRegisterImpl;
 import com.distributed_task_framework.saga.services.impl.SagaTaskFactoryImpl;
@@ -173,13 +173,11 @@ public class SagaAutoconfiguration {
                                            DistributedTaskService distributedTaskService,
                                            TaskSerializer taskSerializer,
                                            SagaManager sagaManager,
-                                           SagaContextRepository sagaContextRepository,
                                            SagaHelper sagaHelper) {
         return new SagaTaskFactoryImpl(
             sagaRegister,
             distributedTaskService,
             sagaManager,
-            sagaContextRepository,
             taskSerializer,
             sagaHelper
         );

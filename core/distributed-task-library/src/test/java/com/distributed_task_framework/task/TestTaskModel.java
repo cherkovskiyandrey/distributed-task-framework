@@ -6,11 +6,15 @@ import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.settings.TaskSettings;
 import jakarta.annotation.Nullable;
-import lombok.Builder;
-import lombok.Value;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
 
-@Value
-@Builder
+
+@SuperBuilder(toBuilder = true)
+@Getter
+@FieldDefaults(level = AccessLevel.PROTECTED, makeFinal = true)
 public class TestTaskModel<T> {
     TaskDef<T> taskDef;
     Task<T> mockedTask;

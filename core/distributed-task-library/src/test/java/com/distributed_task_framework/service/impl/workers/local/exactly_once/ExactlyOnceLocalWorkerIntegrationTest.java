@@ -2,7 +2,7 @@ package com.distributed_task_framework.service.impl.workers.local.exactly_once;
 
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.persistence.repository.entity.TestBusinessObjectEntity;
-import com.distributed_task_framework.service.impl.workers.local.AbstractLocalWorkerIntegrationTests;
+import com.distributed_task_framework.service.impl.workers.local.AbstractLocalWorkerIntegrationTest;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import lombok.AccessLevel;
@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-class ExactlyOnceLocalWorkerIntegrationTest extends AbstractLocalWorkerIntegrationTests {
+class ExactlyOnceLocalWorkerIntegrationTest extends AbstractLocalWorkerIntegrationTest {
     @Autowired
     @Qualifier("localExactlyOnceWorker")
     TaskWorker taskWorker;

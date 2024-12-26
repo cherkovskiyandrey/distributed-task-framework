@@ -17,7 +17,7 @@ public class TaskWorkerGenerator {
             }
 
             @Override
-            public <U> void execute(TaskEntity taskEntity, RegisteredTask<U> registeredTask) {
+            public <R, U> void execute(TaskEntity taskEntity, RegisteredTask<R> registeredTask) {
                 executor.accept(taskEntity, (RegisteredTask<T>) registeredTask);
             }
         };

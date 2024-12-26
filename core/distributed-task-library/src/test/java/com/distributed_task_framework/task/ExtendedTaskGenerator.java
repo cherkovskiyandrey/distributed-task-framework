@@ -4,8 +4,10 @@ import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.RegisteredTask;
+import com.distributed_task_framework.model.StateHolder;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
+import com.distributed_task_framework.model.TypeDef;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
@@ -79,29 +81,63 @@ public class ExtendedTaskGenerator {
     public <T> TestTaskModel<T> generateJoinByNameAndSave(Class<T> inputType, String taskName) {
         return generate(TestTaskModelSpec.builder(inputType)
             .withSaveInstance()
-            .taskEntityCustomizer(TestTaskModelSpec.JOIN_TASK)
+            .taskEntityCustomizer(AbstractTaskModelSpec.JOIN_TASK)
             .privateTask(taskName)
             .build()
         );
     }
 
-    public <T> TestTaskModel<T> generate(TestTaskModelSpec<T> testTaskModelSpec) {
-        TaskDef<T> taskDef = createTaskDef(testTaskModelSpec);
-        TaskSettings taskSettings = createTaskSettings(testTaskModelSpec);
+    public <T> TestTaskModel<T> generate(TestTaskModelSpec<T> taskModelSpec) {
+        var baseTestTaskModel = generateBase(taskModelSpec);
 
-        TaskEntity taskEntity = createTaskEntity(taskDef, testTaskModelSpec);
+        Task<T> mockedTask = createMockedTask(baseTestTaskModel.getTaskDef(), taskModelSpec);
+        RegisteredTask<T> registeredTask = registryMockedTask(
+            baseTestTaskModel.getTaskDef(),
+            baseTestTaskModel.getTaskSettings(),
+            mockedTask
+        );
+
+        return baseTestTaskModel.toBuilder()
+            .mockedTask(mockedTask)
+            .registeredTask(registeredTask)
+            .build();
+    }
+
+    public <T, U> TestStatefulTaskModel<T, U> generate(TestStatefulTaskModelSpec<T, U> taskModelSpec) {
+        var stateDef = createTypeDef(taskModelSpec);
+        var baseTestTaskModel = generateBase(taskModelSpec);
+
+
+        Task<T> mockedTask = createMockedTask(baseTestTaskModel.getTaskDef(), stateDef, taskModelSpec);
+        RegisteredTask<T> registeredTask = registryMockedTask(
+            baseTestTaskModel.getTaskDef(),
+            baseTestTaskModel.getTaskSettings(),
+            mockedTask
+        );
+
+        return TestStatefulTaskModel.<T, U>buildStateful()
+            .taskDef(baseTestTaskModel.getTaskDef())
+            .stateDef(stateDef)
+            .taskSettings(baseTestTaskModel.getTaskSettings())
+            .taskEntity(baseTestTaskModel.getTaskEntity())
+            .taskId(baseTestTaskModel.getTaskId())
+            .mockedTask(mockedTask)
+            .registeredTask(registeredTask)
+            .build();
+    }
+
+    private <T> TestTaskModel<T> generateBase(AbstractTaskModelSpec<T> abstractTaskModelSpec) {
+        TaskDef<T> taskDef = createTaskDef(abstractTaskModelSpec);
+        TaskSettings taskSettings = createTaskSettings(abstractTaskModelSpec);
+
+        TaskEntity taskEntity = createTaskEntity(taskDef, abstractTaskModelSpec);
         TaskId taskId = createTaskId(taskEntity);
-
-        Task<T> mockedTask = createMockedTask(taskDef, testTaskModelSpec);
-        RegisteredTask<T> registeredTask = registryMockedTask(taskDef, taskSettings, mockedTask);
 
         return TestTaskModel.<T>builder()
             .taskDef(taskDef)
-            .mockedTask(mockedTask)
             .taskSettings(taskSettings)
             .taskEntity(taskEntity)
             .taskId(taskId)
-            .registeredTask(registeredTask)
             .build();
     }
 
@@ -136,45 +172,85 @@ public class ExtendedTaskGenerator {
         return testTaskModelSpec.getFailureAction() != null ? testTaskModelSpec.getFailureAction() : ctx -> false;
     }
 
-    private <T> TaskDef<T> createTaskDef(TestTaskModelSpec<T> baseTaskDef) {
+    private <T, U> Task<T> createMockedTask(TaskDef<T> taskDef,
+                                            TypeDef<U> stateDef,
+                                            TestStatefulTaskModelSpec<T, U> taskModelSpec) {
+        return Mockito.spy(TaskGenerator.defineTask(
+                taskDef,
+                stateDef,
+                createAction(taskModelSpec),
+                createFailedAction(taskModelSpec)
+            )
+        );
+    }
+
+    private <T, U> TaskGenerator.BiFunction<FailedExecutionContext<T>, StateHolder<U>, Boolean> createFailedAction(TestStatefulTaskModelSpec<T, U> taskModelSpec) {
+        return taskModelSpec.getFailureAction() != null ? taskModelSpec.getFailureAction() : (ctx, holder) -> false;
+    }
+
+    private <T, U> TaskGenerator.BiConsumer<ExecutionContext<T>, StateHolder<U>> createAction(TestStatefulTaskModelSpec<T, U> taskModelSpec) {
+        return taskModelSpec.getAction() != null ? taskModelSpec.getAction() : (ctx, holder) -> {
+        };
+    }
+
+    private <T> TaskDef<T> createTaskDef(AbstractTaskModelSpec<T> baseTaskDef) {
         return baseTaskDef.getTaskDef() != null ?
             baseTaskDef.getTaskDef() :
             TaskDef.privateTaskDef("test-" + RandomStringUtils.random(10), baseTaskDef.getInputType());
     }
 
-    private <T> TaskSettings createTaskSettings(TestTaskModelSpec<T> testTaskModelSpec) {
-        TaskSettings taskSettings = testTaskModelSpec.isRecurrent() ?
+
+    private <U, T> TypeDef<U> createTypeDef(TestStatefulTaskModelSpec<T, U> taskModelSpec) {
+        return taskModelSpec.getStateDef() != null ?
+            taskModelSpec.getStateDef() :
+            TypeDef.of(taskModelSpec.getStateType());
+    }
+
+    private <T> TaskSettings createTaskSettings(AbstractTaskModelSpec<T> abstractTaskModelSpec) {
+        TaskSettings taskSettings = abstractTaskModelSpec.isRecurrent() ?
             defaultTaskSettings.toBuilder().cron("*/50 * * * * *").build() :
             defaultTaskSettings.toBuilder().build();
 
-        return testTaskModelSpec.getTaskSettingsCustomizer() != null ?
-            testTaskModelSpec.getTaskSettingsCustomizer().apply(taskSettings) :
+        return abstractTaskModelSpec.getTaskSettingsCustomizer() != null ?
+            abstractTaskModelSpec.getTaskSettingsCustomizer().apply(taskSettings) :
             taskSettings;
     }
 
     @SneakyThrows
     @Nullable
-    private <T> TaskEntity createTaskEntity(TaskDef<T> taskDef, TestTaskModelSpec<T> testTaskModelSpec) {
-        if (!testTaskModelSpec.isSaveInstance()) {
+    private <T> TaskEntity createTaskEntity(TaskDef<T> taskDef, AbstractTaskModelSpec<T> abstractTaskModelSpec) {
+        if (!abstractTaskModelSpec.isSaveInstance()) {
             return null;
         }
 
         TaskEntity taskEntity = TaskEntity.builder()
             .taskName(taskDef.getTaskName())
             .id(UUID.randomUUID())
-            .workflowId(testTaskModelSpec.getWorkflowId() != null ? testTaskModelSpec.getWorkflowId() : UUID.randomUUID())
+            .workflowId(abstractTaskModelSpec.getWorkflowId() != null ? abstractTaskModelSpec.getWorkflowId() : UUID.randomUUID())
             .virtualQueue(VirtualQueue.NEW)
             .workflowCreatedDateUtc(LocalDateTime.now(clock))
             .createdDateUtc(LocalDateTime.now(clock))
             .executionDateUtc(LocalDateTime.now(clock))
             .messageBytes(taskSerializer.writeValue("hello message"))
+            .localState(serializeLocalStateIfExists(abstractTaskModelSpec))
             .failures(0)
             .notToPlan(false)
             .build();
 
-        taskEntity = testTaskModelSpec.getTaskEntityCustomizer() != null ?
-            testTaskModelSpec.getTaskEntityCustomizer().apply(taskEntity) :
+        taskEntity = abstractTaskModelSpec.getTaskEntityCustomizer() != null ?
+            abstractTaskModelSpec.getTaskEntityCustomizer().apply(taskEntity) :
             taskEntity;
         return taskRepository.saveOrUpdate(taskEntity);
+    }
+
+    @Nullable
+    @SneakyThrows
+    private <T> byte[] serializeLocalStateIfExists(AbstractTaskModelSpec<T> abstractTaskModelSpec) {
+        if (abstractTaskModelSpec instanceof TestStatefulTaskModelSpec<?, ?> statefulTaskModelSpec) {
+            if (statefulTaskModelSpec.getLocalState() != null) {
+                return taskSerializer.writeValue(statefulTaskModelSpec.getLocalState());
+            }
+        }
+        return null;
     }
 }

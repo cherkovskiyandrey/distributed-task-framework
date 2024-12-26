@@ -3,35 +3,38 @@ package com.distributed_task_framework.task;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.settings.TaskSettings;
 import jakarta.annotation.Nullable;
-import lombok.Value;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
 
-import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 
-@Value
-public class TestTaskModelSpec<T> {
-    public static final Function<TaskEntity, TaskEntity> JOIN_TASK = taskEntity -> taskEntity.toBuilder().notToPlan(true).build();
 
-    Class<T> inputType;
-    @Nullable
-    TaskDef<T> taskDef;
-    @Nullable
-    Function<TaskSettings, TaskSettings> taskSettingsCustomizer;
+@Getter
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+public class TestTaskModelSpec<T> extends AbstractTaskModelSpec<T> {
     @Nullable
     TaskGenerator.Consumer<ExecutionContext<T>> action;
     @Nullable
     TaskGenerator.Function<FailedExecutionContext<T>, Boolean> failureAction;
-    @Nullable
-    Function<TaskEntity, TaskEntity> taskEntityCustomizer;
-    @Nullable
-    UUID workflowId;
-    boolean saveInstance;
-    boolean recurrent;
+
+    public TestTaskModelSpec(Class<T> inputType,
+                             @Nullable TaskDef<T> taskDef,
+                             @Nullable Function<TaskSettings, TaskSettings> taskSettingsCustomizer,
+                             @Nullable Function<TaskEntity, TaskEntity> taskEntityCustomizer,
+                             @Nullable UUID workflowId,
+                             boolean saveInstance,
+                             boolean recurrent,
+                             @Nullable TaskGenerator.Consumer<ExecutionContext<T>> action,
+                             @Nullable TaskGenerator.Function<FailedExecutionContext<T>, Boolean> failureAction) {
+        super(inputType, taskDef, taskSettingsCustomizer, taskEntityCustomizer, workflowId, saveInstance, recurrent);
+        this.action = action;
+        this.failureAction = failureAction;
+    }
 
     public static <T> Builder<T> builder(Class<T> inputType) {
         return new Builder<>(inputType);
@@ -41,39 +44,20 @@ public class TestTaskModelSpec<T> {
         return new Builder<>(taskDef);
     }
 
-    public static class Builder<T> {
-        private final Class<T> inputType;
-        TaskDef<T> taskDef;
-        Function<TaskSettings, TaskSettings> taskSettingsCustomizer;
+    public static class Builder<T> extends AbstractBuilder<T, Builder<T>> {
         TaskGenerator.Consumer<ExecutionContext<T>> action;
         TaskGenerator.Function<FailedExecutionContext<T>, Boolean> failureAction;
-        Function<TaskEntity, TaskEntity> taskEntityCustomizer;
-        UUID workflowId;
-        boolean saveInstance;
-        boolean recurrent;
 
-        private Builder(Class<T> inputType) {
-            this.inputType = inputType;
+        protected Builder(Class<T> inputType) {
+            super(inputType);
         }
 
-        @SuppressWarnings("unchecked")
-        private Builder(TaskDef<T> taskDef) {
-            this.inputType = (Class<T>) taskDef.getInputMessageType().getRawClass();
-            this.taskDef = taskDef;
+        protected Builder(TaskDef<T> taskDef) {
+            super(taskDef);
         }
 
-        public Builder<T> privateTask(String taskName) {
-            this.taskDef = TaskDef.privateTaskDef(taskName, inputType);
-            return this;
-        }
-
-        public Builder<T> taskSetting(Function<TaskSettings, TaskSettings> taskSettingsCustomizer) {
-            this.taskSettingsCustomizer = taskSettingsCustomizer;
-            return this;
-        }
-
-        public Builder<T> recurrent() {
-            this.recurrent = true;
+        @Override
+        protected Builder<T> root() {
             return this;
         }
 
@@ -87,33 +71,17 @@ public class TestTaskModelSpec<T> {
             return this;
         }
 
-        public Builder<T> taskEntityCustomizer(Function<TaskEntity, TaskEntity> taskEntityCustomizer) {
-            this.taskEntityCustomizer = taskEntityCustomizer;
-            return this;
-        }
-
-        public Builder<T> withSaveInstance() {
-            this.saveInstance = true;
-            return this;
-        }
-
-        public Builder<T> withSameWorkflowAs(TaskId taskId) {
-            Objects.requireNonNull(taskId);
-            this.workflowId = taskId.getWorkflowId();
-            return this;
-        }
-
         public TestTaskModelSpec<T> build() {
             return new TestTaskModelSpec<>(
                 inputType,
                 taskDef,
                 taskSettingsCustomizer,
-                action,
-                failureAction,
                 taskEntityCustomizer,
                 workflowId,
                 saveInstance,
-                recurrent
+                recurrent,
+                action,
+                failureAction
             );
         }
     }

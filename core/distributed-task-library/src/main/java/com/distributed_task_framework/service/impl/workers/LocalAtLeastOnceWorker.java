@@ -377,7 +377,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
         var taskSettings = registeredTask.getTaskSettings();
         Task<T> task = registeredTask.getTask();
-        boolean isStatefulTask = task instanceof StatefulTask<T, U>;
+        boolean isStatefulTask = task instanceof StatefulTask;
         Optional<StatefulTask<T, U>> statefulTaskOpt = isStatefulTask ?
             Optional.of((StatefulTask<T, U>) task) :
             Optional.empty();

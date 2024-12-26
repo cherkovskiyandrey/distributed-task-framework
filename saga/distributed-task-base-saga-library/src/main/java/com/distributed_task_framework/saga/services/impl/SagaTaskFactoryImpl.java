@@ -4,7 +4,6 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.models.SagaPipeline;
-import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
 import com.distributed_task_framework.saga.services.SagaManager;
 import com.distributed_task_framework.saga.services.SagaRegister;
 import com.distributed_task_framework.saga.services.SagaTaskFactory;
@@ -24,7 +23,6 @@ public class SagaTaskFactoryImpl implements SagaTaskFactory {
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
     SagaManager sagaManager;
-    SagaContextRepository sagaContextRepository;
     TaskSerializer taskSerializer;
     SagaHelper sagaHelper;
 
@@ -37,7 +35,6 @@ public class SagaTaskFactoryImpl implements SagaTaskFactory {
             sagaRegister,
             distributedTaskService,
             sagaManager,
-            sagaContextRepository,
             taskSerializer,
             sagaHelper,
             taskDef,

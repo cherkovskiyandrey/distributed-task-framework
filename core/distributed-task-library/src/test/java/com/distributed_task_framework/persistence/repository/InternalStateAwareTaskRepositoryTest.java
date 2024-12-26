@@ -230,7 +230,7 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
         );
         extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
-                .taskEntityCustomizer(TestTaskModelCustomizerUtils.canceled())
+            .taskEntityCustomizer(TestTaskModelCustomizerUtils.canceled())
             .build()
         );
 

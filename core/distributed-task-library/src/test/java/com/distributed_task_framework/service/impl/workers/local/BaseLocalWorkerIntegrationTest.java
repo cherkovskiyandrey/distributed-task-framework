@@ -29,6 +29,7 @@ import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -276,5 +277,20 @@ public abstract class BaseLocalWorkerIntegrationTest extends BaseSpringIntegrati
             .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "execution time")
             .matches(te -> foreignWorkerId.equals(te.getAssignedWorker()), "foreign assigned worker")
         ;
+    }
+
+    protected <T> void verifyTaskState(TaskId taskId, Class<T> clazz, T data) {
+        assertThat(taskRepository.find(taskId.getId()))
+            .isPresent()
+            .get()
+            .extracting(TaskEntity::getLocalState)
+            .extracting(stateAsByteArray -> {
+                try {
+                    return stateAsByteArray == null ? null : taskSerializer.readValue(stateAsByteArray, clazz);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            })
+            .isEqualTo(data);
     }
 }

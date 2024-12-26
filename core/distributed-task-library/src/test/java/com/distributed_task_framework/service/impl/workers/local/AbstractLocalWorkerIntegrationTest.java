@@ -15,18 +15,14 @@ import com.distributed_task_framework.task.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModelCustomizerUtils;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Singular;
 import lombok.SneakyThrows;
 import lombok.Value;
-import lombok.experimental.FieldDefaults;
 import lombok.extern.jackson.Jacksonized;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,10 +41,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Disabled
-@FieldDefaults(level = AccessLevel.PROTECTED)
-public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorkerIntegrationTest {
-    @Autowired
-    ObjectMapper objectMapper;
+public abstract class AbstractLocalWorkerIntegrationTest extends BaseLocalWorkerIntegrationTest {
 
     @SuppressWarnings("unchecked")
     @SneakyThrows

@@ -3,8 +3,6 @@ package com.distributed_task_framework.persistence.repository;
 import com.distributed_task_framework.comparator.RoundingLocalDateTimeComparator;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.exception.UnknownTaskException;
-import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.task.TestTaskModel;
@@ -44,6 +42,7 @@ class TaskCommandRepositoryTest extends BaseRepositoryTest {
             .failures(2)
             .assignedWorker(null)
             .lastAssignedDateUtc(null)
+            .localState(new byte[]{1, 2, 3, 4, 5})
             .build();
 
         //do
