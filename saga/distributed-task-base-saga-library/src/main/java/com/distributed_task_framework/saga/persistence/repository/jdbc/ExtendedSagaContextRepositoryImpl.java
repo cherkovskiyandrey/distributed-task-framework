@@ -6,9 +6,9 @@ import com.distributed_task_framework.saga.persistence.repository.ExtendedSagaCo
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -21,12 +21,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+
 @Slf4j
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRepository {
     NamedParameterJdbcTemplate namedParameterJdbcTemplate;
     Clock clock;
+
+    public ExtendedSagaContextRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcTemplate namedParameterJdbcTemplate,
+                                             Clock clock) {
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+        this.clock = clock;
+    }
 
     //language=postgresql
     private static final String SAVE_OR_UPDATE = """

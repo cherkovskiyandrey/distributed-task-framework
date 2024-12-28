@@ -4,7 +4,7 @@ import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.annotations.SagaRevertMethod;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.services.SagaFlow;
-import com.distributed_task_framework.saga.services.SagaProcessor;
+import com.distributed_task_framework.saga.services.SagaFactory;
 import com.distributed_task_framework.saga.test_service.models.RemoteOneDto;
 import com.distributed_task_framework.saga.test_service.models.RemoteTwoDto;
 import com.distributed_task_framework.saga.test_service.models.SagaRevertableDto;
@@ -49,7 +49,7 @@ public class TestSagaServiceImpl implements TestSagaService {
 
     AuditRepository auditRepository;
     TestDataRepository testDataRepository;
-    SagaProcessor sagaProcessor;
+    SagaFactory sagaFactory;
     RemoteServiceOne remoteServiceOne;
     RemoteServiceTwo remoteServiceTwo;
 
@@ -116,18 +116,18 @@ public class TestSagaServiceImpl implements TestSagaService {
 
     @Override
     public void cancel(UUID sagaId, boolean gracefully) {
-        sagaProcessor.getFlow(sagaId, Audit.class).cancel(gracefully);
+        sagaFactory.getFlow(sagaId, Audit.class).cancel(gracefully);
     }
 
     @SneakyThrows
     @Override
     public Optional<Audit> sagaCallPollResult(UUID trackId) {
-        SagaFlow<Audit> sagaProcessorFlow = sagaProcessor.getFlow(trackId, Audit.class);
+        SagaFlow<Audit> sagaProcessorFlow = sagaFactory.getFlow(trackId, Audit.class);
         return sagaProcessorFlow.isCompleted() ? sagaProcessorFlow.get() : Optional.empty();
     }
 
     private SagaFlow<Audit> sagaCallBase(TestDataDto testDataDto) {
-        return sagaProcessor
+        return sagaFactory
                 .createWithAffinity(
                         "test",
                         TEST_DATA_MANAGEMENT,

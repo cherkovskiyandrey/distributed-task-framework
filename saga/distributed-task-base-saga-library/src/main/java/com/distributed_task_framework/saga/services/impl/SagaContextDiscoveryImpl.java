@@ -2,7 +2,7 @@ package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
 import com.distributed_task_framework.saga.exceptions.SagaMethodNotFoundException;
-import com.distributed_task_framework.saga.services.SagaContextDiscovery;
+import com.distributed_task_framework.saga.services.internal.SagaContextDiscovery;
 import com.google.common.collect.Maps;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;

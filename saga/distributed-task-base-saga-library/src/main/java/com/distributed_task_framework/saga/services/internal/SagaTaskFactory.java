@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.services;
+package com.distributed_task_framework.saga.services.internal;
 
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.annotations.SagaMethod;

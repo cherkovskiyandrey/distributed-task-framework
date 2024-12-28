@@ -6,7 +6,7 @@ import java.util.UUID;
 /**
  * Entry point to build saga.
  */
-public interface SagaProcessor {
+public interface SagaFactory {
 
     /**
      * Factory method to create new saga.
@@ -15,7 +15,7 @@ public interface SagaProcessor {
      * @param name arbitrary name to mark saga. Can be not unique.
      * @return
      */
-    SagaEntryPoint create(String name);
+    SagaFlowEntryPoint create(String name);
 
     /**
      * Factory method to create new saga.
@@ -26,7 +26,7 @@ public interface SagaProcessor {
      * @param affinity
      * @return
      */
-    SagaEntryPoint createWithAffinity(String name, String affinityGroup, String affinity);
+    SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity);
 
 
     /**

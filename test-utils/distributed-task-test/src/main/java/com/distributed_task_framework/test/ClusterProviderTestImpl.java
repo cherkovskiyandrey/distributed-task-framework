@@ -41,6 +41,7 @@ public class ClusterProviderTestImpl implements ClusterProvider {
     }
 
     private void reinit() {
+        log.info("reinit()");
         nodeStateRepository.deleteAll();
         nodeStateRepository.save(
             NodeStateEntity.builder()

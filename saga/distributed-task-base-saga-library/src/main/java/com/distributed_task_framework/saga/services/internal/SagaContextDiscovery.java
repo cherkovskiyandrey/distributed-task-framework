@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.services;
+package com.distributed_task_framework.saga.services.internal;
 
 import java.lang.annotation.Annotation;
 

@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.services;
+package com.distributed_task_framework.saga.services.internal;
 
 import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;

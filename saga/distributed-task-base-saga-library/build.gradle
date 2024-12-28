@@ -30,6 +30,10 @@ dependencies {
     runtimeOnly libs.postgresql
 
     // For integration tests
+    testImplementation testFixtures(project(':commons-test'))
+    testImplementation project(':distributed-task-test-spring-boot-starter')
+
+    testImplementation libs.caffeine
     testImplementation libs.liquibase
     testImplementation libs.spring.boot.starter
     testImplementation libs.postgresql

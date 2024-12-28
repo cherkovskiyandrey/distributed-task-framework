@@ -5,7 +5,7 @@ import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.services.SagaFlow;
-import com.distributed_task_framework.saga.services.SagaManager;
+import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.service.DistributedTaskService;
 import lombok.Builder;
 import lombok.Value;

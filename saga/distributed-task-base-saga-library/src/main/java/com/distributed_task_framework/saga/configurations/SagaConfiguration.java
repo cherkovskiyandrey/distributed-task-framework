@@ -2,7 +2,7 @@ package com.distributed_task_framework.saga.configurations;
 
 import com.distributed_task_framework.autoconfigure.DistributedTaskProperties;
 import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.saga.services.SagaManager;
+import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import lombok.AccessLevel;

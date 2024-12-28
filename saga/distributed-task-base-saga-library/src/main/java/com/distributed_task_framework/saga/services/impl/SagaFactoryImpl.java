@@ -1,11 +1,11 @@
 package com.distributed_task_framework.saga.services.impl;
 
-import com.distributed_task_framework.saga.services.SagaEntryPoint;
+import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaFlowWithoutResult;
-import com.distributed_task_framework.saga.services.SagaManager;
-import com.distributed_task_framework.saga.services.SagaProcessor;
-import com.distributed_task_framework.saga.services.SagaRegister;
+import com.distributed_task_framework.saga.services.internal.SagaManager;
+import com.distributed_task_framework.saga.services.SagaFactory;
+import com.distributed_task_framework.saga.services.internal.SagaRegister;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.utils.StringUtils;
 import lombok.AccessLevel;
@@ -30,7 +30,7 @@ import java.util.UUID;
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class SagaProcessorImpl implements SagaProcessor {
+public class SagaFactoryImpl implements SagaFactory {
     PlatformTransactionManager transactionManager;
     SagaRegister sagaRegister;
     DistributedTaskService distributedTaskService;
@@ -38,9 +38,9 @@ public class SagaProcessorImpl implements SagaProcessor {
     SagaHelper sagaHelper;
 
     @Override
-    public SagaEntryPoint create(String name) {
+    public SagaFlowEntryPoint create(String name) {
         StringUtils.requireNotBlank(name, "name");
-        return SagaEntryPointImpl.builder()
+        return SagaFlowEntryPointImpl.builder()
             .name(name)
             .transactionManager(transactionManager)
             .sagaRegister(sagaRegister)
@@ -51,11 +51,11 @@ public class SagaProcessorImpl implements SagaProcessor {
     }
 
     @Override
-    public SagaEntryPoint createWithAffinity(String name, String affinityGroup, String affinity) {
+    public SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity) {
         StringUtils.requireNotBlank(name, "name");
         StringUtils.requireNotBlank(affinityGroup, "affinityGroup");
         StringUtils.requireNotBlank(affinity, "affinity");
-        return SagaEntryPointImpl.builder()
+        return SagaFlowEntryPointImpl.builder()
             .name(name)
             .affinityGroup(affinityGroup)
             .affinity(affinity)

@@ -38,7 +38,8 @@ import static org.assertj.core.api.Assertions.assertThat;
     properties = {
         "distributed-task.enabled=true",
         "distributed-task.common.app-name=test"
-    })
+    }
+)
 @EnableAutoConfiguration
 @ContextConfiguration(
     classes = {AdditionalTestConfiguration.class, TestDistributedTaskAutoconfiguration.class},

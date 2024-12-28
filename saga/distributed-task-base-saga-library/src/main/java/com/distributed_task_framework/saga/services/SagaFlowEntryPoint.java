@@ -3,7 +3,7 @@ package com.distributed_task_framework.saga.services;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public interface SagaEntryPoint {
+public interface SagaFlowEntryPoint {
 
     /**
      * Entry point to build saga transaction.

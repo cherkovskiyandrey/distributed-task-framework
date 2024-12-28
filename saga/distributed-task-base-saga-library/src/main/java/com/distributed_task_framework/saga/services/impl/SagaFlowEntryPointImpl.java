@@ -5,11 +5,11 @@ import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.models.SagaOperation;
 import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
-import com.distributed_task_framework.saga.services.SagaEntryPoint;
+import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
-import com.distributed_task_framework.saga.services.SagaManager;
-import com.distributed_task_framework.saga.services.SagaRegister;
+import com.distributed_task_framework.saga.services.internal.SagaManager;
+import com.distributed_task_framework.saga.services.internal.SagaRegister;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -27,7 +27,7 @@ import java.util.function.Function;
 @Slf4j
 @Value
 @Builder(toBuilder = true)
-public class SagaEntryPointImpl implements SagaEntryPoint {
+public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
     String name;
     @Nullable
     String affinityGroup;

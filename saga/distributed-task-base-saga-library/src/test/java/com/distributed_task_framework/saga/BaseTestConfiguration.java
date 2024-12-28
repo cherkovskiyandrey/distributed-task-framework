@@ -1,7 +1,6 @@
 package com.distributed_task_framework.saga;
 
-
-import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
+import com.distributed_task_framework.TestClock;
 import com.distributed_task_framework.autoconfigure.DistributedTaskProperties;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
@@ -11,7 +10,6 @@ import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
 import com.distributed_task_framework.saga.services.internal.SagaContextDiscovery;
-import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.SagaFactory;
 import com.distributed_task_framework.saga.services.internal.SagaRegister;
@@ -27,10 +25,6 @@ import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.AutoConfigureAfter;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -40,6 +34,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -50,12 +45,9 @@ import java.util.concurrent.TimeUnit;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
+
 @Configuration
-@ConditionalOnClass(SagaFlowEntryPoint.class)
-@ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "true")
-@AutoConfigureAfter(
-    DistributedTaskAutoconfigure.class
-)
+@EnableJdbcAuditing
 @EnableJdbcRepositories(
     basePackageClasses = SagaContextRepository.class,
     transactionManagerRef = DTF_TX_MANAGER,
@@ -66,32 +58,28 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 @EnableConfigurationProperties(value = SagaConfiguration.class)
 @ComponentScan(basePackageClasses = ContextMapper.class)
 @EnableCaching
-public class SagaAutoconfiguration {
+public class BaseTestConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean
-    public Clock sagaInternalClock() {
-        return Clock.systemUTC();
+    public TestClock sagaInternalClock() {
+        return new TestClock();
     }
+
 
     //it is important to return exactly SagaContextDiscoveryImpl type in order to allow spring to detect
     // @Aspect annotation on bean
     @Bean
-    @ConditionalOnMissingBean
     public SagaContextDiscoveryImpl sagaAspect() {
         return new SagaContextDiscoveryImpl();
     }
 
     @Bean
-    @ConditionalOnMissingBean
     @Qualifier("commonSagaCaffeineConfig")
-    public Caffeine<Object, Object> commonSagaCaffeineConfig(SagaConfiguration sagaConfiguration) {
-        return Caffeine.newBuilder()
-            .expireAfterWrite(sagaConfiguration.getCommons().getCacheExpiration().toMillis(), TimeUnit.MILLISECONDS);
+    public Caffeine<Object, Object> commonSagaCaffeineConfig() {
+        return Caffeine.newBuilder().expireAfterWrite(0, TimeUnit.MILLISECONDS);
     }
 
     @Bean
-    @ConditionalOnMissingBean
     @Qualifier("commonSagaCacheManager")
     public CacheManager commonSagaCacheManager(@Qualifier("commonSagaCaffeineConfig") Caffeine<Object, Object> caffeine) {
         CaffeineCacheManager caffeineCacheManager = new CaffeineCacheManager();
@@ -100,7 +88,6 @@ public class SagaAutoconfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
     public SagaManager sagaContextService(DistributedTaskService distributedTaskService,
                                           SagaContextRepository sagaContextRepository,
                                           DlsSagaContextRepository dlsSagaContextRepository,
@@ -124,7 +111,6 @@ public class SagaAutoconfiguration {
     //it is important to return exactly SagaRegisterImpl type in order to allow spring to detect
     //BeanPostProcessor interface and invoke its method
     @Bean
-    @ConditionalOnMissingBean
     public SagaRegisterImpl sagaRegister(DistributedTaskService distributedTaskService,
                                          TaskRegistryService taskRegistryService,
                                          SagaContextDiscovery sagaContextDiscovery,
@@ -148,13 +134,11 @@ public class SagaAutoconfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
     public SagaHelper sagaHelper(TaskSerializer taskSerializer) {
         return new SagaHelper(taskSerializer);
     }
 
     @Bean
-    @ConditionalOnMissingBean
     public SagaFactory sagaProcessor(@Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                      SagaRegister sagaRegister,
                                      DistributedTaskService distributedTaskService,
@@ -170,7 +154,6 @@ public class SagaAutoconfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
     public SagaTaskFactory sagaTaskFactory(@Lazy SagaRegister sagaRegister,
                                            DistributedTaskService distributedTaskService,
                                            TaskSerializer taskSerializer,
