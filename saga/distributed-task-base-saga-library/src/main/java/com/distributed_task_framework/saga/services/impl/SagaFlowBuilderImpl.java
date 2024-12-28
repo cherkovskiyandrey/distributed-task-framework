@@ -5,16 +5,18 @@ import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.saga.models.CreateSagaRequest;
 import com.distributed_task_framework.saga.models.SagaAction;
-import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.models.SagaOperation;
-import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
+import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
-import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
+import com.distributed_task_framework.saga.services.SagaBiFunction;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
+import com.distributed_task_framework.saga.services.SagaRevertibleBiConsumer;
+import com.distributed_task_framework.saga.services.SagaRevertibleThreeConsumer;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaRegister;
+import com.distributed_task_framework.saga.utils.LambdaHelper;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -29,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -55,8 +56,10 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
 
     @SneakyThrows
     @Override
-    public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation,
-                                                                RevertibleThreeConsumer<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> revertOperation) {
+    public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(SagaBiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation,
+                                                                SagaRevertibleThreeConsumer<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> revertOperation) {
+        LambdaHelper.printName(operation);
+        LambdaHelper.printName(revertOperation);
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
         TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
         TaskDef<SagaPipeline> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
@@ -85,7 +88,8 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     }
 
     @Override
-    public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation) {
+    public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(SagaBiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation) {
+        LambdaHelper.printName(operation);
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
         TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
 
@@ -108,7 +112,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
 
     @Override
     public <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(Function<PARENT_OUTPUT, OUTPUT> operation,
-                                                                RevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation) {
+                                                                SagaRevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation) {
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
         TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
         TaskDef<SagaPipeline> revertSagaMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
@@ -165,7 +169,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
 
     @Override
     public SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation,
-                                                               RevertibleBiConsumer<PARENT_OUTPUT, ROOT_INPUT> revertOperation) {
+                                                               SagaRevertibleBiConsumer<PARENT_OUTPUT, ROOT_INPUT> revertOperation) {
         throw new UnsupportedOperationException();
     }
 

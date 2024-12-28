@@ -42,7 +42,7 @@ public interface SagaFlowBuilderWithoutInput<ROOT_INPUT> {
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
             Function<ROOT_INPUT, OUTPUT> operation,
-            RevertibleBiConsumer<ROOT_INPUT, OUTPUT> revertOperation
+            SagaRevertibleBiConsumer<ROOT_INPUT, OUTPUT> revertOperation
     );
 
     /**

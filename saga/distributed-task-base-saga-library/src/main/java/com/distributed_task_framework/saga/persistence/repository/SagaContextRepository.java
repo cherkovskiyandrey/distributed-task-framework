@@ -14,7 +14,7 @@ public interface SagaContextRepository extends CrudRepository<SagaEntity, UUID>,
 
     //language=postgresql
     @Query("""
-        SELECT * FROM _____dtf_saga WHERE saga_id = :saga::uuid
+        SELECT * FROM _____dtf_saga WHERE saga_id = :sagaId::uuid
         """)
     @Lock(LockMode.PESSIMISTIC_WRITE)
     Optional<SagaEntity> findByIdIfExists(@Param("sagaId") UUID sagaId);

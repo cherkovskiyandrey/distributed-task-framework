@@ -16,9 +16,9 @@ public interface SagaFlowEntryPoint {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(
-            Function<INPUT, OUTPUT> operation,
-            RevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
-            INPUT input
+        SagaFunction<INPUT, OUTPUT> operation,
+        SagaRevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
+        INPUT input
     );
 
 
@@ -32,8 +32,8 @@ public interface SagaFlowEntryPoint {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(
-            Function<INPUT, OUTPUT> operation,
-            INPUT input
+        Function<INPUT, OUTPUT> operation,
+        INPUT input
     );
 
     /**
@@ -46,9 +46,9 @@ public interface SagaFlowEntryPoint {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(
-            Consumer<INPUT> operation,
-            RevertibleConsumer<INPUT> revertOperation,
-            INPUT input
+        Consumer<INPUT> operation,
+        RevertibleConsumer<INPUT> revertOperation,
+        INPUT input
     );
 
     /**
@@ -60,7 +60,7 @@ public interface SagaFlowEntryPoint {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(
-            Consumer<INPUT> operation,
-            INPUT input
+        Consumer<INPUT> operation,
+        INPUT input
     );
 }

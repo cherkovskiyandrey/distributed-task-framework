@@ -37,7 +37,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             last_pipeline_context
         ) VALUES (
             :sagaId::uuid,
-            :userName,
+            :name,
             :createdDateUtc,
             :expirationDateUtc,
             :rootTaskId,

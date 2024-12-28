@@ -1,7 +1,6 @@
 package com.distributed_task_framework.saga.services;
 
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -18,8 +17,8 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
-            BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation,
-            RevertibleThreeConsumer<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> revertOperation
+        SagaBiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation,
+        SagaRevertibleThreeConsumer<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> revertOperation
     );
 
     /**
@@ -32,7 +31,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
-            BiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation
+        SagaBiFunction<PARENT_OUTPUT, ROOT_INPUT, OUTPUT> operation
     );
 
     /**
@@ -44,8 +43,8 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
-            Function<PARENT_OUTPUT, OUTPUT> operation,
-            RevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation
+        Function<PARENT_OUTPUT, OUTPUT> operation,
+        SagaRevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation
     );
 
     /**
@@ -56,7 +55,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
-            Function<PARENT_OUTPUT, OUTPUT> operation
+        Function<PARENT_OUTPUT, OUTPUT> operation
     );
 
     /**
@@ -69,8 +68,8 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-            BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation,
-            RevertibleBiConsumer<PARENT_OUTPUT, ROOT_INPUT> revertOperation
+        BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation,
+        SagaRevertibleBiConsumer<PARENT_OUTPUT, ROOT_INPUT> revertOperation
     );
 
     /**
@@ -82,7 +81,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-            BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation
+        BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation
     );
 
     /**
@@ -93,8 +92,8 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-            Consumer<PARENT_OUTPUT> operation,
-            RevertibleConsumer<PARENT_OUTPUT> revertOperation
+        Consumer<PARENT_OUTPUT> operation,
+        RevertibleConsumer<PARENT_OUTPUT> revertOperation
     );
 
     /**
@@ -104,7 +103,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-            Consumer<PARENT_OUTPUT> operation
+        Consumer<PARENT_OUTPUT> operation
     );
 
     SagaFlow<PARENT_OUTPUT> start();

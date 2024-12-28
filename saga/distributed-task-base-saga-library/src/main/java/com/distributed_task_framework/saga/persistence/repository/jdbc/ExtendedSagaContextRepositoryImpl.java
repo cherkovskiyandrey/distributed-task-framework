@@ -9,7 +9,6 @@ import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -49,7 +48,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
             last_pipeline_context
         ) VALUES (
             :sagaId::uuid,
-            :userName,
+            :name,
             :createdDateUtc,
             :completedDateUtc,
             :expirationDateUtc,
@@ -107,34 +106,39 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
 
     //language=postgresql
     private static final String IS_COMPLETED = """
-        SELECT TRUE
+        SELECT saga_id, completed_date_utc
         FROM _____dtf_saga
-        WHERE completed_date_utc IS NOT NULL AND saga_id = :sagaId::uuid
+        WHERE saga_id = :sagaId::uuid
         """;
 
     @Override
     public Optional<Boolean> isCompleted(UUID sagaId) {
-        return Optional.ofNullable(namedParameterJdbcTemplate.queryForObject(
-            IS_COMPLETED,
-            SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
-            Boolean.class
-        ));
+        return namedParameterJdbcTemplate.query(
+                IS_COMPLETED,
+                SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
+                ShortSagaEntity.SHORT_SAGA_ROW_MAPPER
+            ).stream()
+            .map(shortSagaEntity -> shortSagaEntity.getCompletedDateUtc() != null)
+            .findAny();
     }
 
 
+    //language=postgresql
     private static final String IS_CANCELED = """
-        SELECT TRUE
+        SELECT saga_id, canceled
         FROM _____dtf_saga
-        WHERE canceled IS TRUE AND saga_id = :sagaId::uuid
+        WHERE saga_id = :sagaId::uuid
         """;
 
     @Override
     public Optional<Boolean> isCanceled(UUID sagaId) {
-        return Optional.ofNullable(namedParameterJdbcTemplate.queryForObject(
-            IS_CANCELED,
-            SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
-            Boolean.class
-        ));
+        return namedParameterJdbcTemplate.query(
+                IS_CANCELED,
+                SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
+                ShortSagaEntity.SHORT_SAGA_ROW_MAPPER
+            ).stream()
+            .map(ShortSagaEntity::isCanceled)
+            .findAny();
     }
 
 
@@ -147,8 +151,6 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
             AND expiration_date_utc <= :expirationDateUtc
         """;
 
-    private final static BeanPropertyRowMapper<SagaEntity> SAGA_CONTEXT_ENTITY_MAPPER = new BeanPropertyRowMapper<>(SagaEntity.class);
-
     @Override
     public List<SagaEntity> findExpired() {
         var mapSqlParameterSource = new MapSqlParameterSource();
@@ -156,7 +158,7 @@ public class ExtendedSagaContextRepositoryImpl implements ExtendedSagaContextRep
         return namedParameterJdbcTemplate.query(
             FIND_EXPIRED,
             mapSqlParameterSource,
-            SAGA_CONTEXT_ENTITY_MAPPER
+            SagaEntity.SAGA_CONTEXT_ENTITY_MAPPER
         );
     }
 

@@ -13,8 +13,8 @@ import com.distributed_task_framework.saga.exceptions.SagaTaskNotFoundException;
 import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMapper;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.models.SagaOperation;
-import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
-import com.distributed_task_framework.saga.services.RevertibleThreeConsumer;
+import com.distributed_task_framework.saga.services.SagaRevertibleBiConsumer;
+import com.distributed_task_framework.saga.services.SagaRevertibleThreeConsumer;
 import com.distributed_task_framework.saga.services.internal.SagaContextDiscovery;
 import com.distributed_task_framework.saga.services.internal.SagaRegister;
 import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
@@ -79,7 +79,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
 
     @Override
     public <PARENT_INPUT, OUTPUT> SagaOperation resolveRevert(
-        RevertibleBiConsumer<PARENT_INPUT, OUTPUT> revertOperation) {
+        SagaRevertibleBiConsumer<PARENT_INPUT, OUTPUT> revertOperation) {
         SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
             () -> revertOperation.apply(null, null, null),
             SagaRevertMethod.class
@@ -89,7 +89,7 @@ public class SagaRegisterImpl implements SagaRegister, BeanPostProcessor {
 
     @Override
     public <INPUT, PARENT_INPUT, OUTPUT> SagaOperation resolveRevert(
-        RevertibleThreeConsumer<PARENT_INPUT, INPUT, OUTPUT> revertOperation) {
+        SagaRevertibleThreeConsumer<PARENT_INPUT, INPUT, OUTPUT> revertOperation) {
         SagaRevertMethod sagaRevertMethod = sagaMethodByRunnable(
             () -> revertOperation.apply(null, null, null, null),
             SagaRevertMethod.class

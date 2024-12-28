@@ -3,13 +3,15 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.models.SagaOperation;
-import com.distributed_task_framework.saga.services.RevertibleBiConsumer;
+import com.distributed_task_framework.saga.services.SagaFunction;
+import com.distributed_task_framework.saga.services.SagaRevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.RevertibleConsumer;
 import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaRegister;
+import com.distributed_task_framework.saga.utils.LambdaHelper;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -41,10 +43,12 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
 
     @SneakyThrows
     @Override
-    public <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(Function<INPUT, OUTPUT> operation,
-                                                                        RevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
+    public <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(SagaFunction<INPUT, OUTPUT> operation,
+                                                                        SagaRevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
                                                                         INPUT input) {
         Objects.requireNonNull(input);
+        LambdaHelper.printName(operation);
+        LambdaHelper.printName(revertOperation);
         SagaOperation sagaOperation = sagaRegister.resolve(operation);
         TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
         TaskDef<SagaPipeline> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
