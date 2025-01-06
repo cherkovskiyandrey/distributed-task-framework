@@ -1,7 +1,10 @@
 package com.distributed_task_framework.saga.services;
 
+import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
+import com.distributed_task_framework.saga.functions.SagaFunction;
+import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
+
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 public interface SagaFlowEntryPoint {
 
@@ -32,7 +35,7 @@ public interface SagaFlowEntryPoint {
      * @return {@link SagaFlowBuilder}
      */
     <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(
-        Function<INPUT, OUTPUT> operation,
+        SagaFunction<INPUT, OUTPUT> operation,
         INPUT input
     );
 
@@ -47,7 +50,7 @@ public interface SagaFlowEntryPoint {
      */
     <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(
         Consumer<INPUT> operation,
-        RevertibleConsumer<INPUT> revertOperation,
+        SagaRevertibleConsumer<INPUT> revertOperation,
         INPUT input
     );
 

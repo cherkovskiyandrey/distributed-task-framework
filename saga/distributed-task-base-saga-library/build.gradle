@@ -16,21 +16,15 @@ repositories {
 apply plugin: libs.plugins.property.documenter.get().pluginId
 
 dependencies {
-    implementation project(':distributed-task-spring-boot-starter')
+    implementation project(':distributed-task-library')
 
-    implementation libs.spring.boot.starter
-    implementation libs.spring.boot.starter.validation
     implementation libs.spring.boot.starter.actuator
-    implementation libs.spring.boot.starter.aop
-    implementation libs.liquibase
+    implementation libs.spring.data.jdbc
     implementation libs.apache.commons.io
 
-    annotationProcessor libs.spring.boot.configuration.processor
-
-    runtimeOnly libs.postgresql
-
-    // For integration tests
+    // For integration tests (we use spring here)
     testImplementation testFixtures(project(':commons-test'))
+    testImplementation project(':distributed-task-spring-boot-starter')
     testImplementation project(':distributed-task-test-spring-boot-starter')
 
     testImplementation libs.caffeine
@@ -46,6 +40,7 @@ dependencies {
     testImplementation libs.org.awaitility
 }
 
+//todo: move to
 tasks.register('generateAdoc') {
     dependsOn generatePropertyDocument {
         documentName = "DTF base saga Spring configuration properties"
@@ -58,5 +53,3 @@ tasks.register('generateAdoc') {
         }
     }
 }
-
-compileJava.inputs.files(processResources)

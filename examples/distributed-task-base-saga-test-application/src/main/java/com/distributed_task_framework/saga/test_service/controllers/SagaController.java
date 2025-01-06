@@ -1,7 +1,10 @@
 package com.distributed_task_framework.saga.test_service.controllers;
 
+import com.distributed_task_framework.saga.test_service.models.RemoteOneKotlinDto;
 import com.distributed_task_framework.saga.test_service.models.TestDataDto;
+import com.distributed_task_framework.saga.test_service.models.TestDataKotlinDto;
 import com.distributed_task_framework.saga.test_service.persistence.entities.Audit;
+import com.distributed_task_framework.saga.test_service.services.TestKotlinService;
 import com.distributed_task_framework.saga.test_service.services.TestSagaService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +25,13 @@ import java.util.UUID;
 public class SagaController {
     @Autowired
     private TestSagaService testSagaService;
+    @Autowired
+    private TestKotlinService testKotlinService;
+
+    @PostMapping("/sync/with-result-kotlin")
+    public RemoteOneKotlinDto runSagaKotlin(@RequestBody(required = false) TestDataKotlinDto testDataDto) {
+        return testKotlinService.run(testDataDto);
+    }
 
     @Operation(summary = "Run async dtf saga without trackId")
     @PostMapping("/async/without-track-id")

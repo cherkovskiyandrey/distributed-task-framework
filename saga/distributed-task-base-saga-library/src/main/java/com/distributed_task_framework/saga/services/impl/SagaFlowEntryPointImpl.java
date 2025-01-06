@@ -1,17 +1,17 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.saga.models.SagaOperand;
 import com.distributed_task_framework.saga.models.SagaPipeline;
-import com.distributed_task_framework.saga.models.SagaOperation;
-import com.distributed_task_framework.saga.services.SagaFunction;
-import com.distributed_task_framework.saga.services.SagaRevertibleBiConsumer;
-import com.distributed_task_framework.saga.services.RevertibleConsumer;
-import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
+import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
+import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
+import com.distributed_task_framework.saga.functions.SagaFunction;
+import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
-import com.distributed_task_framework.saga.services.internal.SagaRegister;
-import com.distributed_task_framework.saga.utils.LambdaHelper;
+import com.distributed_task_framework.saga.services.internal.SagaResolver;
+import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -24,19 +24,19 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 @Slf4j
 @Value
 @Builder(toBuilder = true)
 public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
     String name;
+    SagaSettings sagaSettings;
     @Nullable
     String affinityGroup;
     @Nullable
     String affinity;
     PlatformTransactionManager transactionManager;
-    SagaRegister sagaRegister;
+    SagaResolver sagaResolver;
     DistributedTaskService distributedTaskService;
     SagaManager sagaManager;
     SagaHelper sagaHelper;
@@ -47,11 +47,9 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
                                                                         SagaRevertibleBiConsumer<INPUT, OUTPUT> revertOperation,
                                                                         INPUT input) {
         Objects.requireNonNull(input);
-        LambdaHelper.printName(operation);
-        LambdaHelper.printName(revertOperation);
-        SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
-        TaskDef<SagaPipeline> sagaRevertMethodTaskDef = sagaRegister.resolveRevert(revertOperation).getTaskDef();
+        SagaOperand sagaOperand = sagaResolver.resolveAsOperand(operation);
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperand.getTaskDef();
+        TaskDef<SagaPipeline> sagaRevertMethodTaskDef = sagaResolver.resolveAsOperand(revertOperation).getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
         var revertOperationSagaSchemaArguments = SagaSchemaArguments.of(
@@ -69,14 +67,15 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
             input
         );
 
-        return wrapToSagaFlowBuilder(sagaPipeline, sagaOperation.getMethod().getReturnType());
+        return wrapToSagaFlowBuilder(sagaPipeline, sagaOperand.getMethod().getReturnType());
     }
 
     @Override
-    public <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(Function<INPUT, OUTPUT> operation, INPUT input) {
+    public <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> registerToRun(SagaFunction<INPUT, OUTPUT> operation,
+                                                                        INPUT input) {
         Objects.requireNonNull(input);
-        SagaOperation sagaOperation = sagaRegister.resolve(operation);
-        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperation.getTaskDef();
+        SagaOperand sagaOperand = sagaResolver.resolveAsOperand(operation);
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperand.getTaskDef();
 
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
 
@@ -89,20 +88,21 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
             input
         );
 
-        return wrapToSagaFlowBuilder(sagaPipeline, sagaOperation.getMethod().getReturnType());
+        return wrapToSagaFlowBuilder(sagaPipeline, sagaOperand.getMethod().getReturnType());
     }
 
     private <INPUT, OUTPUT> SagaFlowBuilder<INPUT, OUTPUT> wrapToSagaFlowBuilder(SagaPipeline sagaPipeline,
                                                                                  @Nullable Class<?> methodOutputType) {
         return SagaFlowBuilderImpl.<INPUT, OUTPUT>builder()
             .name(name)
+            .sagaSettings(sagaSettings)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
             .transactionManager(transactionManager)
             .sagaManager(sagaManager)
             .distributedTaskService(distributedTaskService)
+            .sagaResolver(sagaResolver)
             .sagaHelper(sagaHelper)
-            .sagaRegister(sagaRegister)
             .sagaParentPipeline(sagaPipeline)
             .methodOutputType(methodOutputType)
             .build();
@@ -110,7 +110,7 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
 
     @Override
     public <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(Consumer<INPUT> operation,
-                                                                        RevertibleConsumer<INPUT> revertOperation,
+                                                                        SagaRevertibleConsumer<INPUT> revertOperation,
                                                                         INPUT input) {
         Objects.requireNonNull(input);
         throw new UnsupportedOperationException();

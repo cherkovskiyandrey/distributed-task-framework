@@ -1,8 +1,9 @@
 package com.distributed_task_framework.saga;
 
 import com.distributed_task_framework.Postgresql16Initializer;
-import com.distributed_task_framework.saga.services.SagaFactory;
+import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
+import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -14,6 +15,8 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
+
+import java.util.Set;
 
 @Disabled
 @ActiveProfiles("test")
@@ -31,14 +34,16 @@ import org.springframework.test.context.ContextConfiguration;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @FieldDefaults(level = AccessLevel.PROTECTED)
 public abstract class BaseSpringIntegrationTest {
+    protected final Set<String> registeredSagas = Sets.newHashSet();
     @Autowired
     DistributedTaskTestUtil distributedTaskTestUtil;
     @Autowired
-    SagaFactory sagaFactory;
+    DistributionSagaService distributionSagaService;
 
     @SneakyThrows
     @BeforeEach
     public void init() {
         distributedTaskTestUtil.reinitAndWait();
+        registeredSagas.forEach(distributionSagaService::unregisterSagaMethod);
     }
 }

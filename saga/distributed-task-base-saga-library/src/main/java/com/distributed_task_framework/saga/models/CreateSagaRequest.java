@@ -12,5 +12,5 @@ public class CreateSagaRequest {
     UUID sagaId;
     String name;
     TaskId rootTaskId;
-    SagaPipeline lastPipelineContext;
+    SagaPipeline sagaPipeline;
 }

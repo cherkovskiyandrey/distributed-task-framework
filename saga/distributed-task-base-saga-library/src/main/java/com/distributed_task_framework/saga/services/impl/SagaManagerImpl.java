@@ -1,6 +1,5 @@
 package com.distributed_task_framework.saga.services.impl;
 
-import com.distributed_task_framework.saga.configurations.SagaConfiguration;
 import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
@@ -10,8 +9,10 @@ import com.distributed_task_framework.saga.models.Saga;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
-import com.distributed_task_framework.saga.persistence.repository.SagaContextRepository;
+import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
+import com.distributed_task_framework.saga.settings.SagaCommonSettings;
+import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.fasterxml.jackson.databind.JavaType;
@@ -44,31 +45,31 @@ import java.util.function.Supplier;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaManagerImpl implements SagaManager {
     DistributedTaskService distributedTaskService;
-    SagaContextRepository sagaContextRepository;
+    SagaRepository sagaRepository;
     DlsSagaContextRepository dlsSagaContextRepository;
     SagaHelper sagaHelper;
     ContextMapper contextMapper;
     PlatformTransactionManager transactionManager;
+    SagaCommonSettings sagaCommonSettings;
     Clock clock;
-    SagaConfiguration sagaConfiguration;
     ScheduledExecutorService scheduledExecutorService;
 
     public SagaManagerImpl(DistributedTaskService distributedTaskService,
-                           SagaContextRepository sagaContextRepository,
+                           SagaRepository sagaRepository,
                            DlsSagaContextRepository dlsSagaContextRepository,
                            SagaHelper sagaHelper,
                            ContextMapper contextMapper,
                            PlatformTransactionManager transactionManager,
-                           Clock clock,
-                           SagaConfiguration sagaConfiguration) {
+                           SagaCommonSettings sagaCommonSettings,
+                           Clock clock) {
         this.distributedTaskService = distributedTaskService;
-        this.sagaContextRepository = sagaContextRepository;
+        this.sagaRepository = sagaRepository;
         this.dlsSagaContextRepository = dlsSagaContextRepository;
         this.sagaHelper = sagaHelper;
         this.clock = clock;
         this.contextMapper = contextMapper;
         this.transactionManager = transactionManager;
-        this.sagaConfiguration = sagaConfiguration;
+        this.sagaCommonSettings = sagaCommonSettings;
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
             .setDaemon(false)
             .setNameFormat("saga-result")
@@ -84,8 +85,8 @@ public class SagaManagerImpl implements SagaManager {
     public void init() {
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::handleDeprecatedSagas),
-            sagaConfiguration.getContext().getDeprecatedSagaScanInitialDelay().toMillis(),
-            sagaConfiguration.getContext().getDeprecatedSagaScanFixedDelay().toMillis(),
+            sagaCommonSettings.getDeprecatedSagaScanInitialDelay().toMillis(),
+            sagaCommonSettings.getDeprecatedSagaScanFixedDelay().toMillis(),
             TimeUnit.MILLISECONDS
         );
     }
@@ -106,9 +107,7 @@ public class SagaManagerImpl implements SagaManager {
     }
 
     private void handleCompletedSagas() {
-        SagaConfiguration.Context context = sagaConfiguration.getContext();
-
-        var removedCompletedSagaContexts = sagaContextRepository.removeCompleted(context.getCompletedTimeout());
+        var removedCompletedSagaContexts = sagaRepository.removeCompleted();
         if (!removedCompletedSagaContexts.isEmpty()) {
             log.info("handleCompletedSagas(): removedCompletedSagaContexts=[{}]", removedCompletedSagaContexts);
         }
@@ -118,7 +117,7 @@ public class SagaManagerImpl implements SagaManager {
         var transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         transactionTemplate.executeWithoutResult(status -> {
-            var expiredSagaContextEntities = sagaContextRepository.findExpired();
+            var expiredSagaContextEntities = sagaRepository.findExpired();
             if (expiredSagaContextEntities.isEmpty()) {
                 return;
             }
@@ -149,7 +148,7 @@ public class SagaManagerImpl implements SagaManager {
                 .toList();
 
             distributedTaskService.cancelAllWorkflowsByTaskId(sagaRootTasksIds);
-            sagaContextRepository.removeAll(sagaToShutdownIds);
+            sagaRepository.removeAll(sagaToShutdownIds);
 
             if (moveToDls) {
                 var dlsSagaContextEntities = sagaContextEntities.stream()
@@ -163,17 +162,16 @@ public class SagaManagerImpl implements SagaManager {
     }
 
     @Override
-    public void create(CreateSagaRequest sagaContext) {
-        var expirationTimeout = Optional.ofNullable(sagaConfiguration.getSagaPropertiesGroup().get(sagaContext.getName()))
-            .map(SagaConfiguration.SagaProperties::getExpirationTimeout)
-            .orElse(sagaConfiguration.getContext().getExpirationTimeout());
+    public void create(CreateSagaRequest createSagaRequest, SagaSettings sagaSettings) {
+        log.info("create(): createSagaRequest=[{}], sagaSettings=[{}]", createSagaRequest, sagaSettings);
         var now = LocalDateTime.now(clock);
-        var expiredDateUtc = now.plus(expirationTimeout);
-        SagaEntity sagaEntity = contextMapper.toEntity(sagaContext).toBuilder()
+        var expiredDateUtc = now.plus(sagaSettings.getExpirationTimeout());
+        SagaEntity sagaEntity = contextMapper.toEntity(createSagaRequest).toBuilder()
             .createdDateUtc(now)
             .expirationDateUtc(expiredDateUtc)
+            .availableAfterCompletionTimeoutSec(sagaSettings.getAvailableAfterCompletionTimeout().toSeconds())
             .build();
-        sagaContextRepository.saveOrUpdate(sagaEntity);
+        sagaRepository.saveOrUpdate(sagaEntity);
     }
 
     @Override
@@ -186,7 +184,7 @@ public class SagaManagerImpl implements SagaManager {
         SagaNotFoundException,
         SagaExecutionException,
         SagaCancellationException {
-        var sagaResultEntity = sagaContextRepository.findById(sagaId)
+        var sagaResultEntity = sagaRepository.findById(sagaId)
             .orElseThrow(sagaNotFoundException(sagaId));
 
         if (sagaResultEntity.isCanceled()) {
@@ -209,7 +207,7 @@ public class SagaManagerImpl implements SagaManager {
 
     @Override
     public Optional<Saga> getIfExists(UUID sagaId) {
-        return sagaContextRepository.findShortById(sagaId)
+        return sagaRepository.findShortById(sagaId)
             .map(contextMapper::toModel);
     }
 
@@ -217,22 +215,23 @@ public class SagaManagerImpl implements SagaManager {
     @Cacheable(cacheNames = "commonSagaCacheManager", key = "#root.args[0]")
     @Override
     public boolean isCompleted(UUID sagaId) throws SagaNotFoundException {
-        return sagaContextRepository.isCompleted(sagaId)
+        return sagaRepository.isCompleted(sagaId)
             .orElseThrow(sagaNotFoundException(sagaId));
     }
 
     @Override
     public boolean isCanceled(UUID sagaId) {
-        return sagaContextRepository.isCanceled(sagaId)
+        return sagaRepository.isCanceled(sagaId)
             .orElseThrow(sagaNotFoundException(sagaId));
     }
 
     @Override
-    public void trackIfExists(SagaPipeline context) {
+    public void trackIfExists(SagaPipeline sagaPipeline) {
+        log.info("trackIfExists(): sagaId=[{}], sagaPipeline=[{}]", sagaPipeline.getSagaId(), sagaPipeline);
         updateUnderLock(
-            context.getSagaId(),
+            sagaPipeline.getSagaId(),
             sagaContextEntity -> sagaContextEntity.toBuilder()
-                .lastPipelineContext(contextMapper.sagaEmbeddedPipelineContextToByteArray(context))
+                .lastPipelineContext(contextMapper.sagaEmbeddedPipelineContextToByteArray(sagaPipeline))
                 .build(),
             false
         );
@@ -240,6 +239,7 @@ public class SagaManagerImpl implements SagaManager {
 
     @Override
     public void completeIfExists(UUID sagaId) {
+        log.info("completeIfExists(): sagaId=[{}]", sagaId);
         updateUnderLock(
             sagaId,
             sagaContextEntity -> sagaContextEntity.toBuilder()
@@ -251,6 +251,7 @@ public class SagaManagerImpl implements SagaManager {
 
     @Override
     public void setOkResultIfExists(UUID sagaId, byte[] serializedValue) {
+        log.info("setOkResultIfExists(): sagaId=[{}]", sagaId);
         updateUnderLock(
             sagaId,
             sagaContextEntity -> sagaContextEntity.toBuilder()
@@ -262,6 +263,7 @@ public class SagaManagerImpl implements SagaManager {
 
     @Override
     public void setFailResultIfExists(UUID sagaId, byte[] serializedException, JavaType exceptionType) {
+        log.info("setFailResultIfExists(): sagaId=[{}], exceptionType=[{}]", sagaId, exceptionType);
         updateUnderLock(
             sagaId,
             sagaContextEntity -> sagaContextEntity.toBuilder()
@@ -287,7 +289,7 @@ public class SagaManagerImpl implements SagaManager {
     @Override
     public void forceShutdown(UUID sagaId) {
         log.info("forceShutdown(): shutdown sagaId=[{}]", sagaId);
-        sagaContextRepository.findById(sagaId)
+        sagaRepository.findById(sagaId)
             .ifPresentOrElse(
                 //don't move shutdown sagas to DLS because it is explicit action
                 sagaEntity -> forceShutdown(List.of(sagaEntity), false),
@@ -305,10 +307,10 @@ public class SagaManagerImpl implements SagaManager {
         var transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         transactionTemplate.executeWithoutResult(status -> {
-                sagaContextRepository.findByIdIfExists(sagaId)
+                sagaRepository.findByIdIfExists(sagaId)
                     .map(updateAction)
                     .ifPresentOrElse(
-                        sagaContextRepository::save,
+                        sagaRepository::save,
                         () -> {
                             if (strictMode) {
                                 throw sagaNotFoundException(sagaId).get();

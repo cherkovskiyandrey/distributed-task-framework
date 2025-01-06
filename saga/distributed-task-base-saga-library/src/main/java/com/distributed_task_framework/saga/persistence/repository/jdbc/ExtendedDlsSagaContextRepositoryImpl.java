@@ -32,6 +32,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             saga_id,
             name,
             created_date_utc,
+            available_after_completion_timeout_sec,
             expiration_date_utc,
             root_task_id,
             last_pipeline_context
@@ -40,6 +41,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             :name,
             :createdDateUtc,
             :expirationDateUtc,
+            :availableAfterCompletionTimeoutSec,
             :rootTaskId,
             :lastPipelineContext
         ) ON CONFLICT (saga_id) DO UPDATE
@@ -47,6 +49,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
                 saga_id = excluded.saga_id,
                 name = excluded.name,
                 created_date_utc = excluded.created_date_utc,
+                available_after_completion_timeout_sec = excluded.available_after_completion_timeout_sec,
                 expiration_date_utc = excluded.expiration_date_utc,
                 root_task_id = excluded.root_task_id,
                 last_pipeline_context = excluded.last_pipeline_context
@@ -69,6 +72,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.sagaId, JdbcTools.asNullableString(dlsSagaEntity.getSagaId()), Types.VARCHAR);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.name, JdbcTools.asNullableString(dlsSagaEntity.getName()), Types.VARCHAR);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.createdDateUtc, dlsSagaEntity.getCreatedDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.availableAfterCompletionTimeoutSec, dlsSagaEntity.getAvailableAfterCompletionTimeoutSec(), Types.BIGINT);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.expirationDateUtc, dlsSagaEntity.getExpirationDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.rootTaskId, dlsSagaEntity.getRootTaskId(), Types.BINARY);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.lastPipelineContext, dlsSagaEntity.getLastPipelineContext(), Types.BINARY);

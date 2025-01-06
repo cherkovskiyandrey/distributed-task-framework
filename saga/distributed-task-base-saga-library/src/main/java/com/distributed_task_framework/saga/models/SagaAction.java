@@ -24,6 +24,7 @@ public class SagaAction {
     String sagaRevertMethodTaskName;
     @Nullable
     String exceptionType;
+    @ToString.Exclude
     @Nullable
     byte[] serializedException;
     @Nullable

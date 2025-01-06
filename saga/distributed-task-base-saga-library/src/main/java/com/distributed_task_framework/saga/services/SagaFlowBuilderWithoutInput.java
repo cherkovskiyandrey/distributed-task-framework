@@ -1,5 +1,8 @@
 package com.distributed_task_framework.saga.services;
 
+import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
+import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
+
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -16,7 +19,7 @@ public interface SagaFlowBuilderWithoutInput<ROOT_INPUT> {
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
             Consumer<ROOT_INPUT> operation,
-            RevertibleConsumer<ROOT_INPUT> revertOperation
+            SagaRevertibleConsumer<ROOT_INPUT> revertOperation
     );
 
     /**

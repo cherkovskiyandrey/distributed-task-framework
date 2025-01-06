@@ -5,12 +5,12 @@ import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.StateHolder;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TypeDef;
-import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
 import com.distributed_task_framework.saga.models.SagaAction;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
-import com.distributed_task_framework.saga.services.internal.SagaRegister;
+import com.distributed_task_framework.saga.services.internal.SagaResolver;
+import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
 import com.distributed_task_framework.saga.utils.ArgumentProviderBuilder;
 import com.distributed_task_framework.saga.utils.SagaArguments;
@@ -29,7 +29,6 @@ import org.springframework.util.ReflectionUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -38,7 +37,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedException> {
-    SagaRegister sagaRegister;
+    SagaResolver sagaResolver;
     DistributedTaskService distributedTaskService;
     SagaManager sagaManager;
     TaskSerializer taskSerializer;
@@ -46,7 +45,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
     TaskDef<SagaPipeline> taskDef;
     Method method;
     Object bean;
-    SagaMethod sagaMethodAnnotation;
+    SagaMethodSettings sagaMethodSettings;
 
     @Override
     public TaskDef<SagaPipeline> getDef() {
@@ -102,13 +101,11 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
         }
 
         Object result = switch (argTotal) {
-            case 1 -> ReflectionUtils.invokeMethod(
-                method,
+            case 1 -> method.invoke(
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0])
             );
-            case 2 -> ReflectionUtils.invokeMethod(
-                method,
+            case 2 -> method.invoke(
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1])
@@ -147,7 +144,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
         sagaPipeline.moveToNext();
         var nextSagaContext = sagaPipeline.getCurrentAction();
         distributedTaskService.schedule(
-            sagaRegister.resolveByTaskName(nextSagaContext.getSagaMethodTaskName()),
+            sagaResolver.resolveByTaskName(nextSagaContext.getSagaMethodTaskName()),
             executionContext.withNewMessage(sagaPipeline)
         );
         sagaManager.trackIfExists(sagaPipeline);
@@ -179,7 +176,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
                                        StateHolder<SerializedException> stateHolder) throws Exception {
         SagaPipeline sagaPipeline = failedExecutionContext.getInputMessageOrThrow();
         Throwable exception = failedExecutionContext.getError();
-        boolean isNoRetryException = Arrays.stream(sagaMethodAnnotation.noRetryFor())
+        boolean isNoRetryException = sagaMethodSettings.getNoRetryFor().stream()
             .map(thrCls -> ExceptionUtils.throwableOfType(exception, thrCls))
             .anyMatch(Objects::nonNull);
 
@@ -230,7 +227,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
             sagaPipeline.moveToNext();
             var currentSagaAction = sagaPipeline.getCurrentAction();
             distributedTaskService.schedule(
-                sagaRegister.resolveByTaskName(currentSagaAction.getSagaRevertMethodTaskName()),
+                sagaResolver.resolveByTaskName(currentSagaAction.getSagaRevertMethodTaskName()),
                 executionContext.withNewMessage(sagaPipeline)
             );
             sagaManager.trackIfExists(sagaPipeline);

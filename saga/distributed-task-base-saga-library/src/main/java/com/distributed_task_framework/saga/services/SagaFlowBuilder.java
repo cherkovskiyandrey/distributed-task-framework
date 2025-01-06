@@ -1,8 +1,13 @@
 package com.distributed_task_framework.saga.services;
 
+import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
+import com.distributed_task_framework.saga.functions.SagaBiFunction;
+import com.distributed_task_framework.saga.functions.SagaFunction;
+import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
+import com.distributed_task_framework.saga.functions.SagaRevertibleThreeConsumer;
+
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
 
@@ -11,8 +16,6 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      *
      * @param operation       saga operation
      * @param revertOperation saga revert operation
-     * @param input           input argument which will be serializable and passed into operation
-     * @param <INPUT>         input type of operation
      * @param <OUTPUT>        output type of operation
      * @return {@link SagaFlowBuilder}
      */
@@ -25,8 +28,6 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * Allow to set next operation in current saga.
      *
      * @param operation saga operation
-     * @param input     input argument which will be serializable and passed into operation
-     * @param <INPUT>   input type of operation
      * @param <OUTPUT>  output type of operation
      * @return {@link SagaFlowBuilder}
      */
@@ -43,7 +44,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
-        Function<PARENT_OUTPUT, OUTPUT> operation,
+        SagaFunction<PARENT_OUTPUT, OUTPUT> operation,
         SagaRevertibleBiConsumer<PARENT_OUTPUT, OUTPUT> revertOperation
     );
 
@@ -55,7 +56,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
-        Function<PARENT_OUTPUT, OUTPUT> operation
+        SagaFunction<PARENT_OUTPUT, OUTPUT> operation
     );
 
     /**
@@ -63,8 +64,6 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      *
      * @param operation       saga operation
      * @param revertOperation saga revert operation
-     * @param input           input argument which will be serializable and passed into operation
-     * @param <INPUT>         input type of operation
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
@@ -76,8 +75,6 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * Allow to set next operation in current saga.
      *
      * @param operation saga operation
-     * @param input     input argument which will be serializable and passed into operation
-     * @param <INPUT>   input type of operation
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
@@ -93,7 +90,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
         Consumer<PARENT_OUTPUT> operation,
-        RevertibleConsumer<PARENT_OUTPUT> revertOperation
+        SagaRevertibleConsumer<PARENT_OUTPUT> revertOperation
     );
 
     /**

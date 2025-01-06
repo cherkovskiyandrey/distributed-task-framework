@@ -1,3 +1,6 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+}
 dependencies {
     implementation project(":distributed-task-base-saga-spring-boot-starter")
     
@@ -12,4 +15,18 @@ dependencies {
     implementation libs.jackson.datatype.jsr310
 
     runtimeOnly libs.postgresql
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+}
+repositories {
+    mavenCentral()
+}
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }

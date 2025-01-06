@@ -10,11 +10,11 @@ import com.distributed_task_framework.saga.persistence.entities.ShortSagaEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Mapper(
-    componentModel = "spring",
     unmappedTargetPolicy = ReportingPolicy.IGNORE
 )
 public abstract class ContextMapper {
@@ -25,6 +25,7 @@ public abstract class ContextMapper {
 
     public abstract Saga toModel(ShortSagaEntity sagaEntity);
 
+    @Mapping(target = "lastPipelineContext", source = "sagaPipeline")
     public abstract SagaEntity toEntity(CreateSagaRequest sagaContext);
 
     public abstract DlsSagaEntity mapToDls(SagaEntity sagaEntity);

@@ -7,7 +7,7 @@ import com.distributed_task_framework.saga.exceptions.SagaInternalException;
 import com.distributed_task_framework.saga.models.SagaAction;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
-import com.distributed_task_framework.saga.services.internal.SagaRegister;
+import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
 import com.distributed_task_framework.saga.utils.ArgumentProviderBuilder;
 import com.distributed_task_framework.saga.utils.SagaArguments;
@@ -28,7 +28,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class SagaRevertTask implements Task<SagaPipeline> {
-    SagaRegister sagaRegister;
+    SagaResolver sagaResolver;
     DistributedTaskService distributedTaskService;
     SagaManager sagaManager;
     SagaHelper sagaHelper;
@@ -84,21 +84,18 @@ public class SagaRevertTask implements Task<SagaPipeline> {
         }
 
         switch (argTotal) {
-            case 2 -> ReflectionUtils.invokeMethod(
-                method,
+            case 2 -> method.invoke(
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                 argumentProvider.getById(1)
             );
-            case 3 -> ReflectionUtils.invokeMethod(
-                method,
+            case 3 -> method.invoke(
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1]),
                 argumentProvider.getById(2)
             );
-            case 4 -> ReflectionUtils.invokeMethod(
-                method,
+            case 4 -> method.invoke(
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1]),
@@ -144,7 +141,7 @@ public class SagaRevertTask implements Task<SagaPipeline> {
         sagaPipeline.moveToNext();
         var currentSagaContext = sagaPipeline.getCurrentAction();
         distributedTaskService.schedule(
-            sagaRegister.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
+            sagaResolver.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
             executionContext.withNewMessage(sagaPipeline)
         );
         sagaManager.trackIfExists(sagaPipeline);

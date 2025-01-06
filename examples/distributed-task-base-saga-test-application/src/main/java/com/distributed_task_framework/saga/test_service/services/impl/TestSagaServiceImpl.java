@@ -4,7 +4,7 @@ import com.distributed_task_framework.saga.annotations.SagaMethod;
 import com.distributed_task_framework.saga.annotations.SagaRevertMethod;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.services.SagaFlow;
-import com.distributed_task_framework.saga.services.SagaFactory;
+import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.test_service.models.RemoteOneDto;
 import com.distributed_task_framework.saga.test_service.models.RemoteTwoDto;
 import com.distributed_task_framework.saga.test_service.models.SagaRevertableDto;
@@ -18,7 +18,6 @@ import com.distributed_task_framework.saga.test_service.services.RemoteServiceTw
 import com.distributed_task_framework.saga.test_service.services.TestSagaService;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
@@ -42,16 +41,30 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TestSagaServiceImpl implements TestSagaService {
     private static final String TEST_DATA_MANAGEMENT = "TEST_DATA_MANAGEMENT";
 
     AuditRepository auditRepository;
     TestDataRepository testDataRepository;
-    SagaFactory sagaFactory;
+    DistributionSagaService distributionSagaService;
     RemoteServiceOne remoteServiceOne;
     RemoteServiceTwo remoteServiceTwo;
+
+    public TestSagaServiceImpl(AuditRepository auditRepository, TestDataRepository testDataRepository, DistributionSagaService distributionSagaService, RemoteServiceOne remoteServiceOne, RemoteServiceTwo remoteServiceTwo) {
+        Objects.requireNonNull(auditRepository);
+        Objects.requireNonNull(testDataRepository);
+        Objects.requireNonNull(distributionSagaService);
+        Objects.requireNonNull(remoteServiceOne);
+        Objects.requireNonNull(remoteServiceTwo);
+
+        this.auditRepository = auditRepository;
+        this.testDataRepository = testDataRepository;
+        this.distributionSagaService = distributionSagaService;
+        this.remoteServiceOne = remoteServiceOne;
+        this.remoteServiceTwo = remoteServiceTwo;
+    }
 
     @Lazy
     @NonFinal
@@ -116,18 +129,18 @@ public class TestSagaServiceImpl implements TestSagaService {
 
     @Override
     public void cancel(UUID sagaId, boolean gracefully) {
-        sagaFactory.getFlow(sagaId, Audit.class).cancel(gracefully);
+        distributionSagaService.getFlow(sagaId, Audit.class).cancel(gracefully);
     }
 
     @SneakyThrows
     @Override
     public Optional<Audit> sagaCallPollResult(UUID trackId) {
-        SagaFlow<Audit> sagaProcessorFlow = sagaFactory.getFlow(trackId, Audit.class);
+        SagaFlow<Audit> sagaProcessorFlow = distributionSagaService.getFlow(trackId, Audit.class);
         return sagaProcessorFlow.isCompleted() ? sagaProcessorFlow.get() : Optional.empty();
     }
 
     private SagaFlow<Audit> sagaCallBase(TestDataDto testDataDto) {
-        return sagaFactory
+        return distributionSagaService
                 .createWithAffinity(
                         "test",
                         TEST_DATA_MANAGEMENT,

@@ -8,6 +8,7 @@ dependencies {
     api libs.spring.boot.starter.validation
     api libs.spring.boot.starter.actuator
     implementation libs.caffeine
+    implementation libs.liquibase
 
     annotationProcessor libs.spring.boot.configuration.processor
 

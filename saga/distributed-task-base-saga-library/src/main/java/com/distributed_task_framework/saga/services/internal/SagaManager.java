@@ -6,6 +6,7 @@ import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.models.CreateSagaRequest;
 import com.distributed_task_framework.saga.models.Saga;
 import com.distributed_task_framework.saga.models.SagaPipeline;
+import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.fasterxml.jackson.databind.JavaType;
 
 import java.util.Optional;
@@ -16,9 +17,10 @@ public interface SagaManager {
     /**
      * Create new saga.
      *
-     * @param sagaContext
+     * @param createSagaRequest
+     * @param sagaSettings
      */
-    void create(CreateSagaRequest sagaContext);
+    void create(CreateSagaRequest createSagaRequest, SagaSettings sagaSettings);
 
     /**
      * Return saga object.
@@ -73,9 +75,9 @@ public interface SagaManager {
      * Track saga if exists: save current context.
      * Don't throw exception if saga doesn't exist.
      *
-     * @param context
+     * @param sagaPipeline
      */
-    void trackIfExists(SagaPipeline context);
+    void trackIfExists(SagaPipeline sagaPipeline);
 
     /**
      * Save successful result if saga exists, otherwise - do nothing.
