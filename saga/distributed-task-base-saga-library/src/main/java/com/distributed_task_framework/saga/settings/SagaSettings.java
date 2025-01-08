@@ -18,8 +18,8 @@ public class SagaSettings {
     Duration availableAfterCompletionTimeout = Duration.ofMinutes(1);
 
     /**
-     * Default timeout for any saga.
-     * After timeout is expired, the whole saga will be canceled.
+     * Default timeout for saga.
+     * After timeout expired, the whole saga will be canceled.
      */
     @Builder.Default
     Duration expirationTimeout = Duration.ofHours(1);

@@ -1,7 +1,7 @@
 package com.distributed_task_framework.saga.mappers;
 
 import com.distributed_task_framework.saga.DistributedSagaProperties;
-import com.distributed_task_framework.saga.settings.SagaMethodSettings;
+import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;
 import org.mapstruct.NullValuePropertyMappingStrategy;
@@ -10,9 +10,7 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
     componentModel = MappingConstants.ComponentModel.SPRING,
     nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
 )
-public interface SagaMethodPropertiesMapper {
+public interface SagaCommonPropertiesMapper {
 
-    DistributedSagaProperties.SagaMethodProperties map(SagaMethodSettings sagaMethodSettings);
-
-    SagaMethodSettings map(DistributedSagaProperties.SagaMethodProperties sagaMethodProperties);
+    SagaCommonSettings map(DistributedSagaProperties.Common common);
 }

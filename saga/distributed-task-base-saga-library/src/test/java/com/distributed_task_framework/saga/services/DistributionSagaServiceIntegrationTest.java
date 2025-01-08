@@ -27,13 +27,14 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
         var testSaga = new TestSaga(10);
 
         distributionSagaService.registerSagaSettings(sagaName, SagaSettings.DEFAULT);
+        registeredSagas.add(sagaName);
         distributionSagaService.registerSagaMethod(
             sagaMethodName,
             testSaga::sum,
             testSaga,
             SagaMethodSettings.DEFAULT
         );
-        registeredSagas.add(sagaMethodName);
+        registeredSagaMethods.add(sagaMethodName);
 
         //do
         var resultOpt = distributionSagaService.create(sagaName)

@@ -53,9 +53,6 @@ public class SagaResolverImpl implements SagaResolver {
         sagaMethodToMethodName.remove(MethodSagaMethodFactory.of(sagaOperand.getMethod()));
     }
 
-    //todo:
-    //1. check methodSignature for cglib beans
-    //2. check whether cache effective
     @Override
     public <T extends Serializable> SagaOperand resolveAsOperand(T operation) {
         var readLock = readWriteLock.readLock();

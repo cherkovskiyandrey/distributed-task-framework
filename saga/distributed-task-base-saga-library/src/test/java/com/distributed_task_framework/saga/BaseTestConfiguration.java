@@ -1,7 +1,7 @@
 package com.distributed_task_framework.saga;
 
 import com.distributed_task_framework.TestClock;
-import com.distributed_task_framework.saga.mappers.ContextMapper;
+import com.distributed_task_framework.saga.mappers.SagaMapper;
 import com.distributed_task_framework.saga.mappers.SettingsMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
@@ -82,8 +82,8 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public ContextMapper contextMapper() {
-        return Mappers.getMapper(ContextMapper.class);
+    public SagaMapper contextMapper() {
+        return Mappers.getMapper(SagaMapper.class);
     }
 
     @Bean
@@ -101,7 +101,7 @@ public class BaseTestConfiguration {
                                           SagaRepository sagaRepository,
                                           DlsSagaContextRepository dlsSagaContextRepository,
                                           SagaHelper sagaHelper,
-                                          ContextMapper contextMapper,
+                                          SagaMapper sagaMapper,
                                           @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                           Clock clock,
                                           SagaCommonSettings sagaCommonSettings) {
@@ -110,7 +110,7 @@ public class BaseTestConfiguration {
             sagaRepository,
             dlsSagaContextRepository,
             sagaHelper,
-            contextMapper,
+            sagaMapper,
             transactionManager,
             sagaCommonSettings,
             clock

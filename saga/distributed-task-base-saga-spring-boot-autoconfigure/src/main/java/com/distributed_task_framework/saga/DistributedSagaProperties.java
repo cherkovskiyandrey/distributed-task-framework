@@ -14,6 +14,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,17 +24,9 @@ import java.util.UUID;
 @AllArgsConstructor(access = AccessLevel.PUBLIC)
 @NoArgsConstructor
 @ConfigurationProperties(prefix = "distributed-task.saga")
-public class SagaConfiguration {
-
-    @Builder.Default
-    Common commons = Common.builder().build();
-
-    @Builder.Default
-    Context context = Context.builder().build();
-
-    @Builder.Default
-    Map<String, SagaProperties> sagaPropertiesGroup = Map.of();
-
+public class DistributedSagaProperties {
+    Common common;
+    SagaPropertiesGroup sagaPropertiesGroup;
     SagaMethodPropertiesGroup sagaMethodPropertiesGroup;
 
     @Validated
@@ -47,39 +40,17 @@ public class SagaConfiguration {
          * Cache expiration for internal purpose.
          * Mostly to cover cases when user invoke method like {@link SagaManager#isCompleted(UUID)}
          */
-        @Builder.Default
-        Duration cacheExpiration = Duration.ofSeconds(1);
-    }
+        Duration cacheExpiration;
 
-    @Validated
-    @Data
-    @Builder(toBuilder = true)
-    @AllArgsConstructor(access = AccessLevel.PUBLIC)
-    @NoArgsConstructor
-    public static class Context {
         /**
          * Initial delay to start scan deprecation sagas: completed and expired.
          */
-        @Builder.Default
-        Duration deprecatedSagaScanInitialDelay = Duration.ofSeconds(10);
+        Duration deprecatedSagaScanInitialDelay;
+
         /**
          * Fixed delay to scan deprecation sagas: completed and expired.
          */
-        @Builder.Default
-        Duration deprecatedSagaScanFixedDelay = Duration.ofSeconds(10);
-        /**
-         * Time between completion of saga and removing of its result from db.
-         * In other words: time interval during saga result is available.
-         */
-        @Builder.Default
-        Duration completedTimeout = Duration.ofMinutes(1);
-        /**
-         * Default timeout for any saga.
-         * After timout is expired, the whole saga will be canceled.
-         * Can be customized in {@link SagaConfiguration.SagaProperties#expirationTimeout}
-         */
-        @Builder.Default
-        Duration expirationTimeout = Duration.ofHours(1);
+        Duration deprecatedSagaScanFixedDelay;
     }
 
     @Validated
@@ -122,6 +93,24 @@ public class SagaConfiguration {
          * {@link InterruptedException} will be risen in {@link Task#execute(ExecutionContext)}
          */
         Duration timeout;
+
+        /**
+         * List of exceptions saga retry logic not used for.
+         * Usually unrecoverable exception where retry doesn't matter.
+         */
+        @Builder.Default
+        List<Class<? extends Throwable>> noRetryFor = List.of();
+    }
+
+    @Validated
+    @Data
+    @Builder(toBuilder = true)
+    @AllArgsConstructor(access = AccessLevel.PUBLIC)
+    @NoArgsConstructor
+    public static class SagaPropertiesGroup {
+        SagaProperties defaultSagaProperties;
+        @Builder.Default
+        Map<String, SagaProperties> sagaPropertiesGroup = Map.of();
     }
 
     @Validated
@@ -130,8 +119,16 @@ public class SagaConfiguration {
     @AllArgsConstructor(access = AccessLevel.PUBLIC)
     @NoArgsConstructor
     public static class SagaProperties {
+
         /**
-         * The whole saga expiration timeout.
+         * Time between completion of saga and removing of its result from db.
+         * In other words: time interval during saga result is available.
+         */
+        Duration availableAfterCompletionTimeout;
+
+        /**
+         * Default timeout for saga.
+         * After timeout expired, the whole saga will be canceled.
          */
         Duration expirationTimeout;
     }

@@ -60,16 +60,21 @@ distributed-task:
       timeout: PT10S
 
   saga:
-    commons:
+    enabled: true
+    common:
       cache-expiration: PT30S
     context:
       completed-timeout: PT30S
       expiration-timeout: PT30M
     # Whole saga configuration by name
     saga-properties-group:
-      # Saga name
-      test:
-        expiration-timeout: PT3M
+      default-saga-properties:
+        available-after-completion-timeout: PT1M
+        expiration-timeout: PT10M
+      saga-properties-group:
+        # Saga name
+        test:
+          expiration-timeout: PT3M
     # Configuration for saga methods
     saga-method-properties-group:
       # Default configuration for all methods, override default configuration for tasks from task-properties-group#default-properties

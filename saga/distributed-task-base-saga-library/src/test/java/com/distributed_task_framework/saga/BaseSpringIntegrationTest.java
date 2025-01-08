@@ -35,6 +35,7 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PROTECTED)
 public abstract class BaseSpringIntegrationTest {
     protected final Set<String> registeredSagas = Sets.newHashSet();
+    protected final Set<String> registeredSagaMethods = Sets.newHashSet();
     @Autowired
     DistributedTaskTestUtil distributedTaskTestUtil;
     @Autowired
@@ -44,6 +45,7 @@ public abstract class BaseSpringIntegrationTest {
     @BeforeEach
     public void init() {
         distributedTaskTestUtil.reinitAndWait();
-        registeredSagas.forEach(distributionSagaService::unregisterSagaMethod);
+        registeredSagaMethods.forEach(distributionSagaService::unregisterSagaMethod);
+        registeredSagas.forEach(distributionSagaService::unregisterSagaSettings);
     }
 }

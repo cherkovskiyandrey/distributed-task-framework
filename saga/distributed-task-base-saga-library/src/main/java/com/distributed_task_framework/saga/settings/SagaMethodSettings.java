@@ -49,5 +49,6 @@ public class SagaMethodSettings {
      * List of exceptions saga retry logic not used for.
      * Usually unrecoverable exception where retry doesn't matter.
      */
+    @Builder.Default
     List<Class<? extends Throwable>> noRetryFor = List.of();
 }

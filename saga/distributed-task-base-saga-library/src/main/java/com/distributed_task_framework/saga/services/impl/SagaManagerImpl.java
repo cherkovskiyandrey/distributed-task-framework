@@ -3,7 +3,7 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
-import com.distributed_task_framework.saga.mappers.ContextMapper;
+import com.distributed_task_framework.saga.mappers.SagaMapper;
 import com.distributed_task_framework.saga.models.CreateSagaRequest;
 import com.distributed_task_framework.saga.models.Saga;
 import com.distributed_task_framework.saga.models.SagaPipeline;
@@ -48,7 +48,7 @@ public class SagaManagerImpl implements SagaManager {
     SagaRepository sagaRepository;
     DlsSagaContextRepository dlsSagaContextRepository;
     SagaHelper sagaHelper;
-    ContextMapper contextMapper;
+    SagaMapper sagaMapper;
     PlatformTransactionManager transactionManager;
     SagaCommonSettings sagaCommonSettings;
     Clock clock;
@@ -58,7 +58,7 @@ public class SagaManagerImpl implements SagaManager {
                            SagaRepository sagaRepository,
                            DlsSagaContextRepository dlsSagaContextRepository,
                            SagaHelper sagaHelper,
-                           ContextMapper contextMapper,
+                           SagaMapper sagaMapper,
                            PlatformTransactionManager transactionManager,
                            SagaCommonSettings sagaCommonSettings,
                            Clock clock) {
@@ -67,7 +67,7 @@ public class SagaManagerImpl implements SagaManager {
         this.dlsSagaContextRepository = dlsSagaContextRepository;
         this.sagaHelper = sagaHelper;
         this.clock = clock;
-        this.contextMapper = contextMapper;
+        this.sagaMapper = sagaMapper;
         this.transactionManager = transactionManager;
         this.sagaCommonSettings = sagaCommonSettings;
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
@@ -138,7 +138,7 @@ public class SagaManagerImpl implements SagaManager {
                 return;
             }
             var sagaToShutdownList = sagaContextEntities.stream()
-                .map(contextMapper::toModel)
+                .map(sagaMapper::toModel)
                 .toList();
             var sagaToShutdownIds = sagaToShutdownList.stream()
                 .map(Saga::getSagaId)
@@ -152,7 +152,7 @@ public class SagaManagerImpl implements SagaManager {
 
             if (moveToDls) {
                 var dlsSagaContextEntities = sagaContextEntities.stream()
-                    .map(contextMapper::mapToDls)
+                    .map(sagaMapper::mapToDls)
                     .toList();
                 dlsSagaContextRepository.saveOrUpdateAll(dlsSagaContextEntities);
             }
@@ -166,7 +166,7 @@ public class SagaManagerImpl implements SagaManager {
         log.info("create(): createSagaRequest=[{}], sagaSettings=[{}]", createSagaRequest, sagaSettings);
         var now = LocalDateTime.now(clock);
         var expiredDateUtc = now.plus(sagaSettings.getExpirationTimeout());
-        SagaEntity sagaEntity = contextMapper.toEntity(createSagaRequest).toBuilder()
+        SagaEntity sagaEntity = sagaMapper.toEntity(createSagaRequest).toBuilder()
             .createdDateUtc(now)
             .expirationDateUtc(expiredDateUtc)
             .availableAfterCompletionTimeoutSec(sagaSettings.getAvailableAfterCompletionTimeout().toSeconds())
@@ -208,7 +208,7 @@ public class SagaManagerImpl implements SagaManager {
     @Override
     public Optional<Saga> getIfExists(UUID sagaId) {
         return sagaRepository.findShortById(sagaId)
-            .map(contextMapper::toModel);
+            .map(sagaMapper::toModel);
     }
 
     //because of exposed to client
@@ -231,7 +231,7 @@ public class SagaManagerImpl implements SagaManager {
         updateUnderLock(
             sagaPipeline.getSagaId(),
             sagaContextEntity -> sagaContextEntity.toBuilder()
-                .lastPipelineContext(contextMapper.sagaEmbeddedPipelineContextToByteArray(sagaPipeline))
+                .lastPipelineContext(sagaMapper.sagaEmbeddedPipelineContextToByteArray(sagaPipeline))
                 .build(),
             false
         );
@@ -307,7 +307,7 @@ public class SagaManagerImpl implements SagaManager {
         var transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         transactionTemplate.executeWithoutResult(status -> {
-                sagaRepository.findByIdIfExists(sagaId)
+                sagaRepository.findByIdIfExistsForUpdate(sagaId)
                     .map(updateAction)
                     .ifPresentOrElse(
                         sagaRepository::save,

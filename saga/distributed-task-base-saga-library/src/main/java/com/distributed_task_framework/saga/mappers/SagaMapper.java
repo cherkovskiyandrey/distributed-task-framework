@@ -17,7 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Mapper(
     unmappedTargetPolicy = ReportingPolicy.IGNORE
 )
-public abstract class ContextMapper {
+public abstract class SagaMapper {
     @Autowired
     protected ObjectMapper objectMapper;
 

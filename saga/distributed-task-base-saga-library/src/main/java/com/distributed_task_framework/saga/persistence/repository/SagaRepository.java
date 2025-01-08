@@ -17,5 +17,5 @@ public interface SagaRepository extends CrudRepository<SagaEntity, UUID>, Extend
         SELECT * FROM _____dtf_saga WHERE saga_id = :sagaId::uuid
         """)
     @Lock(LockMode.PESSIMISTIC_WRITE)
-    Optional<SagaEntity> findByIdIfExists(@Param("sagaId") UUID sagaId);
+    Optional<SagaEntity> findByIdIfExistsForUpdate(@Param("sagaId") UUID sagaId);
 }
