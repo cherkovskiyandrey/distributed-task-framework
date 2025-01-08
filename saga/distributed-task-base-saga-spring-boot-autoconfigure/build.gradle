@@ -1,0 +1,18 @@
+dependencies {
+    api project(':distributed-task-base-saga-library')
+    api project(':distributed-task-spring-boot-starter')
+
+    api libs.spring.boot
+    api libs.spring.boot.autoconfigure
+    api libs.spring.data.jdbc
+    api libs.spring.boot.starter.validation
+    api libs.spring.boot.starter.actuator
+    implementation libs.caffeine
+    implementation libs.liquibase
+
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+}

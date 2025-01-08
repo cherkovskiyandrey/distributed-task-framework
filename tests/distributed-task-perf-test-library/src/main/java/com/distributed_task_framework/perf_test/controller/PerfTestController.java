@@ -1,6 +1,7 @@
 package com.distributed_task_framework.perf_test.controller;
 
 import com.distributed_task_framework.perf_test.model.PerfTestRunResult;
+import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.distributed_task_framework.perf_test.service.PerfTestService;
-import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
 
 import jakarta.validation.Valid;
 

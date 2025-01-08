@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-init.yaml
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-002-fix_vq_cdu_index.yaml
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-003-feature-wait-task.yaml
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-004-feature-statefull-task.yaml

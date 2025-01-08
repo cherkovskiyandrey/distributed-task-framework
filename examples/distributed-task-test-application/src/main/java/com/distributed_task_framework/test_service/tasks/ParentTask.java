@@ -1,19 +1,19 @@
 package com.distributed_task_framework.test_service.tasks;
 
+import com.distributed_task_framework.autoconfigure.annotation.TaskExecutionGuarantees;
+import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.model.TaskId;
+import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.test_service.tasks.dto.JoinTaskLevelOne;
+import com.distributed_task_framework.test_service.tasks.dto.SimpleMessageDto;
 import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import com.distributed_task_framework.autoconfigure.annotation.TaskExecutionGuarantees;
-import com.distributed_task_framework.model.ExecutionContext;
-import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.model.TaskId;
-import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.settings.TaskSettings;
-import com.distributed_task_framework.test_service.tasks.dto.SimpleMessageDto;
 
 import java.util.List;
 
