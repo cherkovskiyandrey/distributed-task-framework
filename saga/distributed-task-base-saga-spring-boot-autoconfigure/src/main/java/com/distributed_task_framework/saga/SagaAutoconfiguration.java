@@ -105,11 +105,12 @@ public class SagaAutoconfiguration {
     public SagaCommonSettings sagaCommonSettings(SagaCommonPropertiesMapper sagaCommonPropertiesMapper,
                                                  SagaCommonPropertiesMerger sagaCommonPropertiesMerger,
                                                  DistributedSagaProperties distributedSagaProperties) {
-        var sagaCommonConfSettings = sagaCommonPropertiesMapper.map(distributedSagaProperties.getCommon());
-        return sagaCommonPropertiesMerger.merge(
-            SagaCommonSettings.DEFAULT.toBuilder().build(),
-            sagaCommonConfSettings
+        var sagaCommonConfProperties = sagaCommonPropertiesMapper.map(SagaCommonSettings.DEFAULT.toBuilder().build());
+        var sagsCommonProperties = sagaCommonPropertiesMerger.merge(
+                sagaCommonConfProperties,
+                distributedSagaProperties.getCommon()
         );
+        return sagaCommonPropertiesMapper.map(sagsCommonProperties);
     }
 
     @Bean

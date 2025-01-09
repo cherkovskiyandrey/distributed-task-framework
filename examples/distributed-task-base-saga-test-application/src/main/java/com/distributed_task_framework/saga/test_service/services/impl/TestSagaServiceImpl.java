@@ -41,7 +41,6 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 
 @Slf4j
 @Component
-//@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TestSagaServiceImpl implements TestSagaService {
     private static final String TEST_DATA_MANAGEMENT = "TEST_DATA_MANAGEMENT";
@@ -52,7 +51,11 @@ public class TestSagaServiceImpl implements TestSagaService {
     RemoteServiceOne remoteServiceOne;
     RemoteServiceTwo remoteServiceTwo;
 
-    public TestSagaServiceImpl(AuditRepository auditRepository, TestDataRepository testDataRepository, DistributionSagaService distributionSagaService, RemoteServiceOne remoteServiceOne, RemoteServiceTwo remoteServiceTwo) {
+    public TestSagaServiceImpl(AuditRepository auditRepository,
+                               TestDataRepository testDataRepository,
+                               DistributionSagaService distributionSagaService,
+                               RemoteServiceOne remoteServiceOne,
+                               RemoteServiceTwo remoteServiceTwo) {
         Objects.requireNonNull(auditRepository);
         Objects.requireNonNull(testDataRepository);
         Objects.requireNonNull(distributionSagaService);
@@ -65,11 +68,6 @@ public class TestSagaServiceImpl implements TestSagaService {
         this.remoteServiceOne = remoteServiceOne;
         this.remoteServiceTwo = remoteServiceTwo;
     }
-
-    @Lazy
-    @NonFinal
-    @Autowired
-    TestSagaServiceImpl testSagaService;
 
     //naive and straightforward approach
     @Transactional(transactionManager = DTF_TX_MANAGER)
@@ -147,19 +145,19 @@ public class TestSagaServiceImpl implements TestSagaService {
                         "" + testDataDto.getId()
                 )
                 .registerToRun(
-                        testSagaService::createLocal,
-                        testSagaService::deleteLocal,
+                        this::createLocal,
+                        this::deleteLocal,
                         testDataDto
                 )
                 .thenRun(
-                        testSagaService::createOnRemoteServiceOne,
-                        testSagaService::deleteOnRemoteServiceOne
+                        this::createOnRemoteServiceOne,
+                        this::deleteOnRemoteServiceOne
                 )
                 .thenRun(
-                        testSagaService::createOnRemoteServiceTwo,
-                        testSagaService::deleteOnRemoteServiceTwo
+                        this::createOnRemoteServiceTwo,
+                        this::deleteOnRemoteServiceTwo
                 )
-                .thenRun(testSagaService::saveAudit)
+                .thenRun(this::saveAudit)
                 .start();
     }
 

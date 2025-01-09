@@ -3,7 +3,8 @@ plugins {
 }
 dependencies {
     implementation project(":distributed-task-base-saga-spring-boot-starter")
-    
+
+    implementation libs.spring.boot.starter.aop //todo: why is it really need?
     implementation libs.spring.boot.starter
     implementation libs.spring.boot.starter.web
     implementation libs.spring.boot.starter.validation

@@ -13,4 +13,6 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 public interface SagaCommonPropertiesMapper {
 
     SagaCommonSettings map(DistributedSagaProperties.Common common);
+
+    DistributedSagaProperties.Common map(SagaCommonSettings sagaCommonSettings);
 }

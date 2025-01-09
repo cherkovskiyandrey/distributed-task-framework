@@ -11,7 +11,7 @@ import org.mapstruct.ReportingPolicy;
 )
 public interface SettingsMapper {
 
-    @Mapping(target = "dltEnabled", defaultValue = "false") //dlt doesn't make sense for saga, because saga is interactive
-    @Mapping(target = "cron", defaultValue = "null") //cron doesn't make sense for saga
+    @Mapping(target = "dltEnabled", constant = "false") //dlt doesn't make sense for saga, because saga is interactive
+    @Mapping(target = "cron", expression = "java(null)") //cron doesn't make sense for saga
     TaskSettings map(SagaMethodSettings settings);
 }

@@ -5,6 +5,7 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
+import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -99,7 +100,7 @@ public class DistributedSagaProperties {
          * Usually unrecoverable exception where retry doesn't matter.
          */
         @Builder.Default
-        List<Class<? extends Throwable>> noRetryFor = List.of();
+        List<Class<? extends Throwable>> noRetryFor = Lists.newArrayList();
     }
 
     @Validated
