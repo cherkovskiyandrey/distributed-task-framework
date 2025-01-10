@@ -26,8 +26,19 @@ import java.util.UUID;
 @NoArgsConstructor
 @ConfigurationProperties(prefix = "distributed-task.saga")
 public class DistributedSagaProperties {
+    /**
+     * Common properties for library.
+     */
     Common common;
+
+    /**
+     * Properties for any saga and for particular one.
+     */
     SagaPropertiesGroup sagaPropertiesGroup;
+
+    /**
+     * Properties for any saga method and for particular one.
+     */
     SagaMethodPropertiesGroup sagaMethodPropertiesGroup;
 
     @Validated
@@ -109,7 +120,15 @@ public class DistributedSagaProperties {
     @AllArgsConstructor(access = AccessLevel.PUBLIC)
     @NoArgsConstructor
     public static class SagaPropertiesGroup {
+        /**
+         * Default properties for any saga.
+         */
         SagaProperties defaultSagaProperties;
+
+        /**
+         * Custom properties for particular saga by name.
+         * Overrides default one.
+         */
         @Builder.Default
         Map<String, SagaProperties> sagaPropertiesGroup = Map.of();
     }

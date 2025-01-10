@@ -75,7 +75,7 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
                 var revertTaskName = SagaNamingUtils.taskNameFor(method);
                 var sagaMethodSettings = buildSagaMethodSettings(method);
 
-                distributionSagaService.registerSagaMethod(
+                distributionSagaService.registerSagaRevertMethod(
                     revertTaskName,
                     method,
                     bean,

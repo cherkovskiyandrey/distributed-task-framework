@@ -1,10 +1,10 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm'
+    alias(libs.plugins.kotlin)
 }
+
 dependencies {
     implementation project(":distributed-task-base-saga-spring-boot-starter")
 
-    implementation libs.spring.boot.starter.aop //todo: why is it really need?
     implementation libs.spring.boot.starter
     implementation libs.spring.boot.starter.web
     implementation libs.spring.boot.starter.validation
@@ -16,18 +16,4 @@ dependencies {
     implementation libs.jackson.datatype.jsr310
 
     runtimeOnly libs.postgresql
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
-}
-repositories {
-    mavenCentral()
-}
-compileKotlin {
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-}
-compileTestKotlin {
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 }

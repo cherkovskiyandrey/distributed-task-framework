@@ -27,8 +27,6 @@ public class DlsSagaEntity {
     UUID sagaId;
     String name;
     LocalDateTime createdDateUtc;
-    @Nullable
-    LocalDateTime completedDateUtc;
     long availableAfterCompletionTimeoutSec;
     LocalDateTime expirationDateUtc;
     @ToString.Exclude

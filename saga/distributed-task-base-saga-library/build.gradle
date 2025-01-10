@@ -1,20 +1,3 @@
-buildscript {
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
-    dependencies {
-        classpath libs.spring.configuration.property.documenter.gradle.plugin
-    }
-}
-
-repositories {
-    mavenLocal()
-    mavenCentral()
-}
-
-apply plugin: libs.plugins.property.documenter.get().pluginId
-
 dependencies {
     implementation project(':distributed-task-library')
 
@@ -38,18 +21,4 @@ dependencies {
     testImplementation libs.testcontainers.postgresql
     testImplementation libs.testcontainers.junit.jupiter
     testImplementation libs.org.awaitility
-}
-
-//todo: move to
-tasks.register('generateAdoc') {
-    dependsOn generatePropertyDocument {
-        documentName = "DTF base saga Spring configuration properties"
-        documentDescription = "This is a document about the configuration properties in saga library module"
-        type = "MARKDOWN"
-        metadataInput = file("build/classes/java/main/META-INF/spring-configuration-metadata.json")
-        outputFile = file("config-prop.md")
-        markdownCustomization {
-            unknownGroupLocalization = "distributed-task"
-        }
-    }
 }

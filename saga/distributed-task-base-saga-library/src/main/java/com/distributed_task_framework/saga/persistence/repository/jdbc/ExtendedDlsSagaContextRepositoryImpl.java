@@ -40,8 +40,8 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             :sagaId::uuid,
             :name,
             :createdDateUtc,
+            :availableAfterCompletionTimeoutSec,          
             :expirationDateUtc,
-            :availableAfterCompletionTimeoutSec,
             :rootTaskId,
             :lastPipelineContext
         ) ON CONFLICT (saga_id) DO UPDATE

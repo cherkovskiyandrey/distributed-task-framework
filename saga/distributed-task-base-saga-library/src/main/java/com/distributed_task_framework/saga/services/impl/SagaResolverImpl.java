@@ -24,9 +24,11 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.WeakHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -55,10 +57,26 @@ public class SagaResolverImpl implements SagaResolver {
 
     @Override
     public <T extends Serializable> SagaOperand resolveAsOperand(T operation) {
+        return asKey(operation)
+            .map(
+                cacheKey -> {
+                    var operand = resolveAsOperandUseCache(cacheKey, () -> resolveAsOperandBase(operation));
+                    log.info("resolveAsOperand(): use cache => operation=[{}] => operand=[{}]", operation, operand);
+                    return operand;
+                }
+            )
+            .orElseGet(() -> {
+                var operand = resolveAsOperandBase(operation);
+                log.info("resolveAsOperand(): operation=[{}] => operand=[{}]", operation, operand);
+                return operand;
+            });
+    }
+
+    private SagaOperand resolveAsOperandUseCache(String cacheKey, Supplier<SagaOperand> operationSupplier) {
         var readLock = readWriteLock.readLock();
         readLock.lock();
         try {
-            var operand = cache.get(operation);
+            var operand = cache.get(cacheKey);
             if (operand != null) {
                 return operand;
             }
@@ -69,26 +87,29 @@ public class SagaResolverImpl implements SagaResolver {
         var writeLock = readWriteLock.writeLock();
         writeLock.lock();
         try {
-            var operand = cache.get(operation);
+            var operand = cache.get(cacheKey);
             if (operand != null) {
                 return operand;
             }
-
-            var sagaMethod = lookupSagaMethod(operation);
-            var name = sagaMethodToMethodName.get(sagaMethod);
-            if (name == null) {
-                throw new SagaMethodNotFoundException(sagaMethod.toString());
-            }
-            operand = methodNameToSagaOperand.get(name);
-            if (operand == null) {
-                throw new SagaMethodNotFoundException(name);
-            }
-            cache.put(operation, operand);
-            log.info("resolveAsOperand(): operation=[{}] => operand=[{}]", operation, operand);
+            operand = operationSupplier.get();
+            cache.put(cacheKey, operand);
             return operand;
         } finally {
             writeLock.unlock();
         }
+    }
+
+    private SagaOperand resolveAsOperandBase(Serializable operation) {
+        var sagaMethod = lookupSagaMethod(operation);
+        var name = sagaMethodToMethodName.get(sagaMethod);
+        if (name == null) {
+            throw new SagaMethodNotFoundException(sagaMethod.toString());
+        }
+        var operand = methodNameToSagaOperand.get(name);
+        if (operand == null) {
+            throw new SagaMethodNotFoundException(name);
+        }
+        return operand;
     }
 
     @Override
@@ -120,6 +141,13 @@ public class SagaResolverImpl implements SagaResolver {
         } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
             throw new SagaMethodResolvingException(e);
         }
+    }
+
+    private Optional<String> asKey(Object operation) {
+        var operationAsString = operation.toString();
+        return operationAsString.contains("$Lambda$") ?
+            Optional.of(operationAsString.substring(0, operationAsString.indexOf("/"))) :
+            Optional.empty();
     }
 
     @Override

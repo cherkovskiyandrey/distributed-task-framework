@@ -1,6 +1,7 @@
 [versions]
 org-ajoberstar-grgit = "5.3.0"
 spring-boot = "3.3.5"
+kotlin = "1.9.22"
 org-projectlombok-lombok = "1.18.34"
 org-mapstruct = "1.6.2"
 org-lombok-mapstruct-binding = "0.2.0"
@@ -36,7 +37,6 @@ spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-s
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache" }
 spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
-spring-boot-starter-aop = { module = "org.springframework.boot:spring-boot-starter-aop" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc-openapi-starter-webmvc-ui" }
 
 # Spring
@@ -92,3 +92,4 @@ instancio-junit = { module = "org.instancio:instancio-junit", version.ref = "ins
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 org-ajoberstar-grgit = { id = "org.ajoberstar.grgit", version.ref = "org-ajoberstar-grgit" }
 property-documenter = { id = "org.rodnansol.spring-configuration-property-documenter" }
+kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
