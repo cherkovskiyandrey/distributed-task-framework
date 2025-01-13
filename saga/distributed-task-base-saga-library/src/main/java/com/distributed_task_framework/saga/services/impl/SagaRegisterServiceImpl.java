@@ -2,11 +2,10 @@ package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.exceptions.SagaMethodDuplicateException;
-import com.distributed_task_framework.saga.exceptions.SagaMethodNotFoundException;
+import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.mappers.SettingsMapper;
 import com.distributed_task_framework.saga.models.SagaOperand;
 import com.distributed_task_framework.saga.models.SagaPipeline;
-import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.services.SagaRegisterService;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
@@ -31,7 +30,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaRegisterServiceImpl implements SagaRegisterService {
-    private final Set<String> registeredSagaElements = Sets.newConcurrentHashSet();
+    private final Map<String, Method> registeredSagaMethodNames = Maps.newConcurrentMap();
+    private final Set<Method> registeredSagaMethods = Sets.newConcurrentHashSet();
     private final Map<String, SagaSettings> registeredSagaSettings = Maps.newConcurrentMap();
     private final AtomicReference<SagaSettings> defaultSagaSettings = new AtomicReference<>(SagaSettings.DEFAULT);
 
@@ -72,10 +72,8 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
             object,
             sagaMethodSettings
         );
-        if (!registeredSagaElements.add(name)) {
-            throw new SagaMethodDuplicateException(name);
-        }
 
+        internalRegisterMethod(name, method);
         var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
         SagaTask sagaTask = sagaTaskFactory.sagaTask(
             taskDef,
@@ -104,10 +102,15 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
 
     @Override
     public void registerSagaRevertMethod(String name, Method method, Object object, SagaMethodSettings sagaMethodSettings) {
-        if (!registeredSagaElements.add(name)) {
-            throw new SagaMethodDuplicateException(name);
-        }
+        log.info(
+            "registerSagaRevertMethod(): name=[{}], method=[{}], object=[{}], SagaMethodSettings=[{}]",
+            name,
+            method,
+            object,
+            sagaMethodSettings
+        );
 
+        internalRegisterMethod(name, method);
         var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
         SagaRevertTask sagaRevertTask = sagaTaskFactory.sagaRevertTask(
             taskDef,
@@ -131,13 +134,27 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
     public void unregisterSagaMethod(String name) {
         log.info("unregisterSagaMethod(): name=[{}]", name);
 
-        if (!registeredSagaElements.remove(name)) {
-            throw new SagaMethodNotFoundException(name);
-        }
-
+        internalUnregisterMethod(name);
         var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
         sagaResolver.unregisterOperand(name);
         distributedTaskService.unregisterTask(taskDef);
+    }
+
+    private void internalRegisterMethod(String name, Method method) {
+        if (registeredSagaMethodNames.putIfAbsent(name, method) != null) {
+            throw new SagaMethodDuplicateException(name);
+        }
+        if (!registeredSagaMethods.add(method)) {
+            registeredSagaMethodNames.remove(name);
+            throw new SagaMethodDuplicateException(method);
+        }
+    }
+
+    private void internalUnregisterMethod(String name) {
+        var method = registeredSagaMethodNames.remove(name);
+        if (method != null) {
+            registeredSagaMethods.remove(method);
+        }
     }
 
     private Method makeAccessible(Method method) {

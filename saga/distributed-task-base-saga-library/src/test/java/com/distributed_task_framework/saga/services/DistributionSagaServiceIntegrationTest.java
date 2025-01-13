@@ -1,10 +1,7 @@
 package com.distributed_task_framework.saga.services;
 
 import com.distributed_task_framework.saga.BaseSpringIntegrationTest;
-import com.distributed_task_framework.saga.settings.SagaMethodSettings;
-import com.distributed_task_framework.saga.settings.SagaSettings;
 import lombok.SneakyThrows;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -14,31 +11,18 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
     @SneakyThrows
     @Test
-    void shouldExecuteSimpleSaga() {
+    void shouldExecuteWhenOneSimpleMethodSaga() {
         //when
-        String sagaName = RandomStringUtils.random(10);
-        String sagaMethodName = RandomStringUtils.random(10);
-
         record TestSaga(int delta) {
             private int sum(int i) {
                 return i + delta;
             }
         }
-        var testSaga = new TestSaga(10);
-
-        distributionSagaService.registerSagaSettings(sagaName, SagaSettings.DEFAULT);
-        registeredSagas.add(sagaName);
-        distributionSagaService.registerSagaMethod(
-            sagaMethodName,
-            testSaga::sum,
-            testSaga,
-            SagaMethodSettings.DEFAULT
-        );
-        registeredSagaMethods.add(sagaMethodName);
+        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSaga(10));
 
         //do
-        var resultOpt = distributionSagaService.create(sagaName)
-            .registerToRun(testSaga::sum, 10)
+        var resultOpt = distributionSagaService.create(testSagaModel.getName())
+            .registerToRun(testSagaModel.getBean()::sum, 10)
             .start()
             .get();
 
@@ -49,5 +33,9 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
             .isEqualTo(20);
     }
 
-    //todo: check inherited methods
+    @SneakyThrows
+    @Test
+    void shouldExecuteWhenSequenceOfMethod() {
+        //todo
+    }
 }

@@ -34,7 +34,7 @@ public interface SagaResolver {
     <T extends Serializable> SagaOperand resolveAsOperand(T operation);
 
     /**
-     * Resolve
+     * Resolve operation to corresponding Method
      *
      * @param methodRef
      * @param anchorObject

@@ -44,6 +44,7 @@ public class TestTaskModelSpec<T> extends AbstractTaskModelSpec<T> {
         return new Builder<>(taskDef);
     }
 
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class Builder<T> extends AbstractBuilder<T, Builder<T>> {
         TaskGenerator.Consumer<ExecutionContext<T>> action;
         TaskGenerator.Function<FailedExecutionContext<T>, Boolean> failureAction;
