@@ -1,8 +1,8 @@
 package com.distributed_task_framework.saga.services;
 
-import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
+import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
 
 import java.util.function.Consumer;
 

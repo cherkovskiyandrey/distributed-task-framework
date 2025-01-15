@@ -13,6 +13,7 @@ import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
 import com.distributed_task_framework.saga.utils.ArgumentProviderBuilder;
+import com.distributed_task_framework.saga.utils.ReflectionHelper;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -25,7 +26,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.util.ReflectionUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -101,11 +101,13 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
         }
 
         Object result = switch (argTotal) {
-            case 1 -> method.invoke(
+            case 1 -> ReflectionHelper.invokeMethod(
+                method,
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0])
             );
-            case 2 -> method.invoke(
+            case 2 -> ReflectionHelper.invokeMethod(
+                method,
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1])

@@ -10,6 +10,7 @@ import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
 import com.distributed_task_framework.saga.utils.ArgumentProviderBuilder;
+import com.distributed_task_framework.saga.utils.ReflectionHelper;
 import com.distributed_task_framework.saga.utils.SagaArguments;
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -19,7 +20,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Method;
 import java.util.Optional;
@@ -84,18 +84,21 @@ public class SagaRevertTask implements Task<SagaPipeline> {
         }
 
         switch (argTotal) {
-            case 2 -> method.invoke(
+            case 2 -> ReflectionHelper.invokeMethod(
+                method,
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                 argumentProvider.getById(1)
             );
-            case 3 -> method.invoke(
+            case 3 -> ReflectionHelper.invokeMethod(
+                method,
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1]),
                 argumentProvider.getById(2)
             );
-            case 4 -> method.invoke(
+            case 4 -> ReflectionHelper.invokeMethod(
+                method,
                 bean,
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(0), method.getParameters()[0]),
                 sagaHelper.toMethodArgTypedObject(argumentProvider.getById(1), method.getParameters()[1]),

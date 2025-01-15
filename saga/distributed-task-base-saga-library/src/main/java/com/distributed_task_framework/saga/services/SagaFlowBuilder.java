@@ -103,5 +103,10 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
         Consumer<PARENT_OUTPUT> operation
     );
 
+    /**
+     * Start configured saga to execute.
+     *
+     * @return
+     */
     SagaFlow<PARENT_OUTPUT> start();
 }

@@ -1,14 +1,14 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.saga.functions.SagaFunction;
+import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
+import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
 import com.distributed_task_framework.saga.models.SagaOperand;
 import com.distributed_task_framework.saga.models.SagaPipeline;
-import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
 import com.distributed_task_framework.saga.services.SagaFlowBuilder;
 import com.distributed_task_framework.saga.services.SagaFlowBuilderWithoutInput;
 import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
-import com.distributed_task_framework.saga.functions.SagaFunction;
-import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.settings.SagaSettings;

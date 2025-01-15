@@ -24,7 +24,12 @@ import org.springframework.test.context.ContextConfiguration;
 @SpringBootTest(
     properties = {
         "distributed-task.enabled=true",
-        "distributed-task.common.app-name=saga-test"
+        "distributed-task.common.app-name=saga-test",
+        "distributed-task.common.planner.watchdog-initial-delay-ms=100",
+        "distributed-task.common.planner.watchdog-fixed-delay-ms=100",
+        "distributed-task.common.planner.polling-delay.0=100",
+        "distributed-task.common.registry.update-initial-delay-ms=100",
+        "distributed-task.common.registry.update-fixed-delay-ms=100",
     }
 )
 @EnableAutoConfiguration

@@ -30,7 +30,9 @@ public class TestSagaGenerator {
 
     public void reset() {
         registeredSagaMethods.forEach(distributionSagaService::unregisterSagaMethod);
+        registeredSagaMethods.clear();
         registeredSagas.forEach(distributionSagaService::unregisterSagaSettings);
+        registeredSagas.clear();
     }
 
     public <T> TestSagaModel<T> generateDefaultFor(T bean) {
@@ -78,7 +80,7 @@ public class TestSagaGenerator {
             if (IGNORE_METHOD_NAMES.contains(method.getName())) {
                 continue;
             }
-            var name = RandomStringUtils.random(10);
+            var name = RandomStringUtils.randomAlphabetic(30);
             boolean isRevert = method.getAnnotation(Revert.class) != null;
             if (isRevert) {
                 distributionSagaService.registerSagaRevertMethod(
@@ -95,6 +97,7 @@ public class TestSagaGenerator {
                     generateSagaMethodSettings(null, testSagaModelSpec)
                 );
             }
+            registeredSagaMethods.add(name);
         }
     }
 
@@ -102,7 +105,7 @@ public class TestSagaGenerator {
                                                                                   TestSagaModelSpec<T> testSagaModelSpec) {
         Set<Method> alreadyRegisteredMethods = Sets.newHashSet();
         for (var methodRef : operationToSettings.entrySet()) {
-            var name = RandomStringUtils.random(10);
+            var name = RandomStringUtils.randomAlphabetic(30);
             var method = sagaResolver.resolveAsMethod(methodRef.getKey(), testSagaModelSpec.getBean());
             boolean isRevert = method.getAnnotation(Revert.class) != null;
             if (isRevert) {
@@ -141,6 +144,6 @@ public class TestSagaGenerator {
 
     private <T> String generateName(TestSagaModelSpec<T> testSagaModelSpec) {
         return Optional.ofNullable(testSagaModelSpec.getName())
-            .orElse(RandomStringUtils.random(10));
+            .orElse(RandomStringUtils.randomAlphabetic(30));
     }
 }

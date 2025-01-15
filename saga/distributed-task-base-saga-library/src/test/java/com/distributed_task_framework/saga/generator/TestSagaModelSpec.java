@@ -46,8 +46,8 @@ public class TestSagaModelSpec<T> {
         Boolean registerAllMethods;
         @Nullable
         SagaMethodSettings methodSettings;
-        private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods = Maps.newHashMap();
         private final Map<SagaBiFunction<?, ?, ?>, SagaMethodSettings> biFunctionMethods = Maps.newHashMap();
+        private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods = Maps.newHashMap();
         private final Map<SagaBiConsumer<?, ?>, SagaMethodSettings> sagaBiConsumerMethods = Maps.newHashMap();
 
         private TestSagaModelSpecBuilder(T bean) {

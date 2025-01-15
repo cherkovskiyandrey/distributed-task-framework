@@ -77,7 +77,7 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
         var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
         SagaTask sagaTask = sagaTaskFactory.sagaTask(
             taskDef,
-            makeAccessible(method),
+            makeAccessible(method, object),
             object,
             sagaMethodSettings
         );
@@ -114,7 +114,7 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
         var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
         SagaRevertTask sagaRevertTask = sagaTaskFactory.sagaRevertTask(
             taskDef,
-            method,
+            makeAccessible(method, object),
             object
         );
         TaskSettings taskSettings = settingsMapper.map(sagaMethodSettings);
@@ -135,8 +135,9 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
         log.info("unregisterSagaMethod(): name=[{}]", name);
 
         internalUnregisterMethod(name);
-        var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
         sagaResolver.unregisterOperand(name);
+
+        var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
         distributedTaskService.unregisterTask(taskDef);
     }
 
@@ -157,8 +158,9 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
         }
     }
 
-    private Method makeAccessible(Method method) {
-        if ((method.getModifiers() & Modifier.PUBLIC) == 0) {
+    private Method makeAccessible(Method method, Object object) {
+        if ((object.getClass().getModifiers() & Modifier.PUBLIC) == 0
+            || (method.getModifiers() & Modifier.PUBLIC) == 0) {
             method.setAccessible(true);
         }
         return method;
