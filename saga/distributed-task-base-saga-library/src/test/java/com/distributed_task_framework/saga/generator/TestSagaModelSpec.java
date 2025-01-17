@@ -2,6 +2,7 @@ package com.distributed_task_framework.saga.generator;
 
 import com.distributed_task_framework.saga.functions.SagaBiConsumer;
 import com.distributed_task_framework.saga.functions.SagaBiFunction;
+import com.distributed_task_framework.saga.functions.SagaConsumer;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
@@ -29,6 +30,7 @@ public class TestSagaModelSpec<T> {
     SagaMethodSettings methodSettings;
     private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods;
     private final Map<SagaBiFunction<?, ?, ?>, SagaMethodSettings> biFunctionMethods;
+    private final Map<SagaConsumer<?>, SagaMethodSettings> consumerMethods;
     private final Map<SagaBiConsumer<?, ?>, SagaMethodSettings> sagaBiConsumerMethods;
 
     public static <T> TestSagaModelSpecBuilder<T> builder(T bean) {
@@ -48,6 +50,7 @@ public class TestSagaModelSpec<T> {
         SagaMethodSettings methodSettings;
         private final Map<SagaBiFunction<?, ?, ?>, SagaMethodSettings> biFunctionMethods = Maps.newHashMap();
         private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods = Maps.newHashMap();
+        private final Map<SagaConsumer<?>, SagaMethodSettings> consumerMethods = Maps.newHashMap();
         private final Map<SagaBiConsumer<?, ?>, SagaMethodSettings> sagaBiConsumerMethods = Maps.newHashMap();
 
         private TestSagaModelSpecBuilder(T bean) {
@@ -76,6 +79,11 @@ public class TestSagaModelSpec<T> {
 
         public <U, V> TestSagaModelSpecBuilder<T> withMethod(SagaFunction<U, V> method, SagaMethodSettings sagaMethodSettings) {
             functionMethods.put(method, sagaMethodSettings);
+            return this;
+        }
+
+        public <U> TestSagaModelSpecBuilder<T> withMethod(SagaConsumer<U> method, SagaMethodSettings sagaMethodSettings) {
+            consumerMethods.put(method, sagaMethodSettings);
             return this;
         }
 
@@ -113,6 +121,7 @@ public class TestSagaModelSpec<T> {
                 methodSettings,
                 functionMethods,
                 biFunctionMethods,
+                consumerMethods,
                 sagaBiConsumerMethods
             );
         }

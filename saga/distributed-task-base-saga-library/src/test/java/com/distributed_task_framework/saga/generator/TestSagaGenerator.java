@@ -62,6 +62,7 @@ public class TestSagaGenerator {
 
         alreadyRegisteredMethods.addAll(registerSagaMethodBase(testSagaModelSpec.getFunctionMethods(), testSagaModelSpec));
         alreadyRegisteredMethods.addAll(registerSagaMethodBase(testSagaModelSpec.getBiFunctionMethods(), testSagaModelSpec));
+        alreadyRegisteredMethods.addAll(registerSagaMethodBase(testSagaModelSpec.getConsumerMethods(), testSagaModelSpec));
         alreadyRegisteredMethods.addAll(registerSagaMethodBase(testSagaModelSpec.getSagaBiConsumerMethods(), testSagaModelSpec));
 
         registerAllMethodsIfRequired(testSagaModelSpec, alreadyRegisteredMethods);

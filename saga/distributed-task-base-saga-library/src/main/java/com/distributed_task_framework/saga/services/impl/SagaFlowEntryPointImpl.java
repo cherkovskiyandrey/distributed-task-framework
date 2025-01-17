@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
+import com.distributed_task_framework.saga.functions.SagaConsumer;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
 import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
@@ -109,16 +110,62 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
     }
 
     @Override
-    public <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(Consumer<INPUT> operation,
+    public <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(SagaConsumer<INPUT> operation,
                                                                         SagaRevertibleConsumer<INPUT> revertOperation,
                                                                         INPUT input) {
-        Objects.requireNonNull(input);
-        throw new UnsupportedOperationException();
+        SagaOperand sagaOperand = sagaResolver.resolveAsOperand(operation);
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperand.getTaskDef();
+        TaskDef<SagaPipeline> sagaRevertMethodTaskDef = sagaResolver.resolveAsOperand(revertOperation).getTaskDef();
+
+        var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
+        var revertOperationSagaSchemaArguments = SagaSchemaArguments.of(
+            SagaArguments.ROOT_INPUT,
+            SagaArguments.THROWABLE
+        );
+
+        SagaPipeline sagaPipeline = sagaHelper.buildContextFor(
+            null,
+            sagaMethodTaskDef,
+            operationSagaSchemaArguments,
+            sagaRevertMethodTaskDef,
+            revertOperationSagaSchemaArguments,
+            input
+        );
+
+        return wrapToSagaFlowBuilder(sagaPipeline);
     }
 
     @Override
-    public <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(Consumer<INPUT> operation, INPUT input) {
+    public <INPUT> SagaFlowBuilderWithoutInput<INPUT> registerToConsume(SagaConsumer<INPUT> operation, INPUT input) {
         Objects.requireNonNull(input);
-        throw new UnsupportedOperationException();
+        SagaOperand sagaOperand = sagaResolver.resolveAsOperand(operation);
+        TaskDef<SagaPipeline> sagaMethodTaskDef = sagaOperand.getTaskDef();
+
+        var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
+
+        SagaPipeline sagaPipeline = sagaHelper.buildContextFor(
+            null,
+            sagaMethodTaskDef,
+            operationSagaSchemaArguments,
+            null,
+            null,
+            input
+        );
+        return wrapToSagaFlowBuilder(sagaPipeline);
+    }
+
+    private <INPUT> SagaFlowBuilderWithoutInput<INPUT> wrapToSagaFlowBuilder(SagaPipeline sagaPipeline) {
+        return SagaFlowBuilderWithoutInputImpl.<INPUT>builder()
+            .name(name)
+            .sagaSettings(sagaSettings)
+            .affinityGroup(affinityGroup)
+            .affinity(affinity)
+            .transactionManager(transactionManager)
+            .sagaManager(sagaManager)
+            .distributedTaskService(distributedTaskService)
+            .sagaResolver(sagaResolver)
+            .sagaHelper(sagaHelper)
+            .sagaParentPipeline(sagaPipeline)
+            .build();
     }
 }

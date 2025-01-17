@@ -1,13 +1,12 @@
 package com.distributed_task_framework.saga.services;
 
-import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
+import com.distributed_task_framework.saga.functions.SagaBiConsumer;
 import com.distributed_task_framework.saga.functions.SagaBiFunction;
+import com.distributed_task_framework.saga.functions.SagaConsumer;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
+import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
 import com.distributed_task_framework.saga.functions.SagaRevertibleThreeConsumer;
-
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
 
@@ -67,7 +66,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-        BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation,
+        SagaBiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation,
         SagaRevertibleBiConsumer<PARENT_OUTPUT, ROOT_INPUT> revertOperation
     );
 
@@ -78,7 +77,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-        BiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation
+        SagaBiConsumer<PARENT_OUTPUT, ROOT_INPUT> operation
     );
 
     /**
@@ -89,7 +88,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-        Consumer<PARENT_OUTPUT> operation,
+        SagaConsumer<PARENT_OUTPUT> operation,
         SagaRevertibleConsumer<PARENT_OUTPUT> revertOperation
     );
 
@@ -100,7 +99,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-        Consumer<PARENT_OUTPUT> operation
+        SagaConsumer<PARENT_OUTPUT> operation
     );
 
     /**

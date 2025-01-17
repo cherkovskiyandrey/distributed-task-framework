@@ -1,10 +1,9 @@
 package com.distributed_task_framework.saga.services;
 
-import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
+import com.distributed_task_framework.saga.functions.SagaConsumer;
+import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
-
-import java.util.function.Consumer;
-import java.util.function.Function;
+import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
 
 public interface SagaFlowBuilderWithoutInput<ROOT_INPUT> {
 
@@ -13,25 +12,21 @@ public interface SagaFlowBuilderWithoutInput<ROOT_INPUT> {
      *
      * @param operation       saga operation
      * @param revertOperation saga revert operation
-     * @param input           input argument which will be serializable and passed into operation
-     * @param <INPUT>         input type of operation
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-            Consumer<ROOT_INPUT> operation,
-            SagaRevertibleConsumer<ROOT_INPUT> revertOperation
+        SagaConsumer<ROOT_INPUT> operation,
+        SagaRevertibleConsumer<ROOT_INPUT> revertOperation
     );
 
     /**
      * Allow to set next operation in current saga.
      *
      * @param operation saga operation
-     * @param input     input argument which will be serializable and passed into operation
-     * @param <INPUT>   input type of operation
      * @return {@link SagaFlowBuilder}
      */
     SagaFlowBuilderWithoutInput<ROOT_INPUT> thenConsume(
-            Consumer<ROOT_INPUT> operation
+        SagaConsumer<ROOT_INPUT> operation
     );
 
     /**
@@ -39,28 +34,27 @@ public interface SagaFlowBuilderWithoutInput<ROOT_INPUT> {
      *
      * @param operation       saga operation
      * @param revertOperation saga revert operation
-     * @param input           input argument which will be serializable and passed into operation
-     * @param <INPUT>         input type of operation
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
-            Function<ROOT_INPUT, OUTPUT> operation,
-            SagaRevertibleBiConsumer<ROOT_INPUT, OUTPUT> revertOperation
+        SagaFunction<ROOT_INPUT, OUTPUT> operation,
+        SagaRevertibleBiConsumer<ROOT_INPUT, OUTPUT> revertOperation
     );
 
     /**
      * Allow to set next operation in current saga.
      *
      * @param operation saga operation
-     * @param input     input argument which will be serializable and passed into operation
-     * @param <INPUT>   input type of operation
      * @return {@link SagaFlowBuilder}
      */
     <OUTPUT> SagaFlowBuilder<ROOT_INPUT, OUTPUT> thenRun(
-            Function<ROOT_INPUT, OUTPUT> operation
+        SagaFunction<ROOT_INPUT, OUTPUT> operation
     );
 
+    /**
+     * Start configured saga to execute.
+     *
+     * @return
+     */
     SagaFlowWithoutResult start();
-
-    SagaFlowWithoutResult startWithAffinity(String affinityGroup, String affinity);
 }

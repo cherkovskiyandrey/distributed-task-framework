@@ -1,10 +1,10 @@
 package com.distributed_task_framework.saga.services.impl;
 
+import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
 import com.distributed_task_framework.saga.services.SagaFlowWithoutResult;
-import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.services.SagaRegisterService;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
@@ -24,9 +24,7 @@ import java.util.UUID;
 
 
 /**
- * 0. Проверить и если нужно переписать на новый механизм обнаружения методов без явного вызова лабды (-)
  * 1. Покрыть абсолютно все тестами (-)
- * 2. Дореализовать все остальные методы (-)
  * 3. Написать более честный example используя мок сервис для эмуляции взаимодействия с внешним сервисом (-)
  * 4. Подумать над перф тестом (-)
  * 5. Временно ронять контескт если кол-во тасок больше чем dtf может за раз запланировать (-) ???
@@ -155,7 +153,10 @@ public class DistributionSagaServiceImpl implements DistributionSagaService {
 
     @Override
     public SagaFlowWithoutResult getFlow(UUID trackId) {
-        //todo
-        throw new UnsupportedOperationException();
+        return SagaFlowWithoutResultImpl.builderWithoutResult()
+            .distributedTaskService(distributedTaskService)
+            .sagaManager(sagaManager)
+            .sagaId(trackId)
+            .build();
     }
 }
