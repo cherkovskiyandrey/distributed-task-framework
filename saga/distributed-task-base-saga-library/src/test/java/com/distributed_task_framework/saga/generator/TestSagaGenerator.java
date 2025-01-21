@@ -4,6 +4,9 @@ import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
+import com.distributed_task_framework.settings.Fixed;
+import com.distributed_task_framework.settings.Retry;
+import com.distributed_task_framework.settings.RetryMode;
 import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
@@ -13,6 +16,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 
 import java.io.Serializable;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +42,18 @@ public class TestSagaGenerator {
     public <T> TestSagaModel<T> generateDefaultFor(T bean) {
         return generate(TestSagaModelSpec.builder(bean)
             .withRegisterAllMethods(true)
+            .withMethodSettings(SagaMethodSettings.DEFAULT.toBuilder()
+                .retry(Retry.builder()
+                    .retryMode(RetryMode.FIXED)
+                    .fixed(Fixed.builder()
+                        .delay(Duration.ofMillis(100))
+                        .maxNumber(1)
+                        .build()
+                    )
+                    .build()
+                )
+                .build()
+            )
             .build()
         );
     }
@@ -81,7 +97,7 @@ public class TestSagaGenerator {
             if (IGNORE_METHOD_NAMES.contains(method.getName())) {
                 continue;
             }
-            var name = RandomStringUtils.randomAlphabetic(30);
+            var name = String.join("-", method.getName(), RandomStringUtils.randomAlphabetic(10));
             boolean isRevert = method.getAnnotation(Revert.class) != null;
             if (isRevert) {
                 distributionSagaService.registerSagaRevertMethod(
@@ -106,8 +122,8 @@ public class TestSagaGenerator {
                                                                                   TestSagaModelSpec<T> testSagaModelSpec) {
         Set<Method> alreadyRegisteredMethods = Sets.newHashSet();
         for (var methodRef : operationToSettings.entrySet()) {
-            var name = RandomStringUtils.randomAlphabetic(30);
             var method = sagaResolver.resolveAsMethod(methodRef.getKey(), testSagaModelSpec.getBean());
+            var name = String.join("-", method.getName(), RandomStringUtils.randomAlphabetic(10));
             boolean isRevert = method.getAnnotation(Revert.class) != null;
             if (isRevert) {
                 distributionSagaService.registerSagaRevertMethod(

@@ -32,11 +32,7 @@ public class SagaFlowImpl<T> extends SagaFlowWithoutResultImpl implements SagaFl
         InterruptedException,
         TimeoutException,
         SagaCancellationException {
-        if (sagaManager.isCompleted(sagaId)) {
-            return sagaManager.getSagaResult(sagaId, resultType);
-        }
-        waitCompletion();
-        return sagaManager.getSagaResult(sagaId, resultType);
+        return get(null);
     }
 
     @Override
@@ -48,7 +44,7 @@ public class SagaFlowImpl<T> extends SagaFlowWithoutResultImpl implements SagaFl
         if (sagaManager.isCompleted(sagaId)) {
             return sagaManager.getSagaResult(sagaId, resultType);
         }
-        waitCompletion(duration);
+        waitCompletionWorkflow(duration);
         return sagaManager.getSagaResult(sagaId, resultType);
     }
 }

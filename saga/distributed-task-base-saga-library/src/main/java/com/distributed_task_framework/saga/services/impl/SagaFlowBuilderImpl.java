@@ -183,7 +183,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         );
 
         SagaPipeline sagaPipeline = sagaHelper.buildContextFor(
-            null,
+            sagaParentPipeline,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
             revertSagaMethodTaskDef,
@@ -204,7 +204,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         );
 
         SagaPipeline sagaPipeline = sagaHelper.buildContextFor(
-            null,
+            sagaParentPipeline,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
             null,
@@ -230,7 +230,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         );
 
         SagaPipeline sagaPipeline = sagaHelper.buildContextFor(
-            null,
+            sagaParentPipeline,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
             revertSagaMethodTaskDef,
@@ -249,7 +249,7 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
             SagaArguments.PARENT_OUTPUT
         );
         SagaPipeline sagaPipeline = sagaHelper.buildContextFor(
-            null,
+            sagaParentPipeline,
             sagaMethodTaskDef,
             operationSagaSchemaArguments,
             null,

@@ -1,5 +1,7 @@
 package com.distributed_task_framework.saga.services;
 
+import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
+import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 
 import java.time.Duration;
@@ -11,20 +13,34 @@ public interface SagaFlowWithoutResult {
     /**
      * Wait until saga is completed (including revert flow in case of error or graceful cancellation).
      *
-     * @throws SagaNotFoundException if saga doesn't exist or completed and was removed by timeout
-     * @throws InterruptedException  if any thread has interrupted the current thread
-     * @throws TimeoutException      if default timeout exceed
+     * @throws SagaNotFoundException     if saga doesn't exist or completed and was removed by timeout
+     * @throws SagaExecutionException    if any task (exclude rollback) threw an exception, contains original caused exception
+     * @throws InterruptedException      if any thread has interrupted the current thread
+     * @throws TimeoutException          if default timeout exceed
+     * @throws SagaCancellationException if the computation was cancelled
      */
-    void waitCompletion() throws SagaNotFoundException, InterruptedException, TimeoutException;
+    void waitCompletion() throws
+        SagaNotFoundException,
+        SagaExecutionException,
+        InterruptedException,
+        TimeoutException,
+        SagaCancellationException;
 
     /**
      * Wait until saga is completed (including revert flow in case of error or graceful cancellation) with timeout.
      *
-     * @throws SagaNotFoundException if saga doesn't exist or completed and was removed by timeout
-     * @throws InterruptedException  if any thread has interrupted the current thread
-     * @throws TimeoutException      if timeout exceed
+     * @throws SagaNotFoundException     if saga doesn't exist or completed and was removed by timeout
+     * @throws SagaExecutionException    if any task (exclude rollback) threw an exception, contains original caused exception
+     * @throws InterruptedException      if any thread has interrupted the current thread
+     * @throws TimeoutException          if default timeout exceed
+     * @throws SagaCancellationException if the computation was cancelled
      */
-    void waitCompletion(Duration timeout) throws SagaNotFoundException, InterruptedException, TimeoutException;
+    void waitCompletion(Duration timeout) throws
+        SagaNotFoundException,
+        SagaExecutionException,
+        InterruptedException,
+        TimeoutException,
+        SagaCancellationException;
 
     /**
      * Check whether saga is completed or not (including revert flow in case of error or graceful cancellation).

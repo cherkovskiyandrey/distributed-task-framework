@@ -1,10 +1,13 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskId;
+import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
+import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.services.SagaFlowWithoutResult;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.service.DistributedTaskService;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -27,15 +30,35 @@ public class SagaFlowWithoutResultImpl implements SagaFlowWithoutResult {
     UUID sagaId;
 
     @Override
-    public void waitCompletion() throws SagaNotFoundException, InterruptedException, TimeoutException {
-        TaskId taskId = sagaManager.get(sagaId).getRootTaskId();
-        distributedTaskService.waitCompletionAllWorkflow(taskId);
+    public void waitCompletion() throws SagaNotFoundException,
+        SagaExecutionException,
+        InterruptedException,
+        TimeoutException,
+        SagaCancellationException {
+        waitCompletion(null);
     }
 
     @Override
-    public void waitCompletion(Duration duration) throws SagaNotFoundException, InterruptedException, TimeoutException {
+    public void waitCompletion(Duration duration) throws SagaNotFoundException,
+        SagaExecutionException,
+        InterruptedException,
+        TimeoutException,
+        SagaCancellationException {
+        if (sagaManager.isCompleted(sagaId)) {
+            sagaManager.getSagaResult(sagaId, void.class);
+            return;
+        }
+        waitCompletionWorkflow(duration);
+        sagaManager.getSagaResult(sagaId, void.class);
+    }
+
+    protected void waitCompletionWorkflow(@Nullable Duration duration) throws InterruptedException, TimeoutException {
         TaskId taskId = sagaManager.get(sagaId).getRootTaskId();
-        distributedTaskService.waitCompletionAllWorkflow(taskId, duration);
+        if (duration != null) {
+            distributedTaskService.waitCompletionAllWorkflow(taskId, duration);
+        } else {
+            distributedTaskService.waitCompletionAllWorkflow(taskId);
+        }
     }
 
     @Override

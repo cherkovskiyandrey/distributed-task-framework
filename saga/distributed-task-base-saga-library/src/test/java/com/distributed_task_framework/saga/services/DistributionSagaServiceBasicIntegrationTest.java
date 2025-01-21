@@ -146,6 +146,6 @@ class DistributionSagaServiceBasicIntegrationTest extends BaseSpringIntegrationT
     //todo: sync/async/status/wait
     //todo: cancelation
     //todo: saga expiration
-
+    //todo: serialisation of complex type
 
 }

@@ -137,14 +137,17 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
         );
 
         //do
-        distributionSagaService.create(testSagaModel.getName())
+        assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToConsume(
                 testSagaModel.getBean()::sum,
                 testSagaModel.getBean()::diff,
                 5
             )
             .start()
-            .waitCompletion();
+            .waitCompletion()
+        )
+            .isInstanceOf(SagaExecutionException.class)
+            .hasCauseInstanceOf(TestUserUncheckedException.class);
 
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(100);

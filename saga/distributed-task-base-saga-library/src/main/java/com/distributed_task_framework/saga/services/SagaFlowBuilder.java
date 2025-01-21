@@ -8,6 +8,11 @@ import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
 import com.distributed_task_framework.saga.functions.SagaRevertibleConsumer;
 import com.distributed_task_framework.saga.functions.SagaRevertibleThreeConsumer;
 
+/**
+ *
+ * @param <ROOT_INPUT> root step input
+ * @param <PARENT_OUTPUT> parent step output
+ */
 public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
 
     /**

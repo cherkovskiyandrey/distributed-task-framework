@@ -40,7 +40,8 @@ public interface SagaFlow<T> extends SagaFlowWithoutResult {
      * @throws TimeoutException          if timeout exceed
      * @throws SagaCancellationException if the computation was cancelled
      */
-    Optional<T> get(Duration timeout) throws SagaNotFoundException,
+    Optional<T> get(Duration timeout) throws
+        SagaNotFoundException,
         SagaExecutionException,
         InterruptedException,
         TimeoutException,

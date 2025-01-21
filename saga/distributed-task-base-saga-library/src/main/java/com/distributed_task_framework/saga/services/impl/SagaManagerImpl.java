@@ -193,16 +193,18 @@ public class SagaManagerImpl implements SagaManager {
             );
         }
 
-        boolean isCompleted = sagaResultEntity.getCompletedDateUtc() != null;
-        var sagaResult = sagaResultEntity.getResult();
-        if (!isCompleted || sagaResult == null) {
+        boolean isNotCompleted = sagaResultEntity.getCompletedDateUtc() == null;
+        if (isNotCompleted) {
             return Optional.empty();
         }
 
         if (StringUtils.isNotBlank(sagaResultEntity.getExceptionType())) {
             throw sagaHelper.buildExecutionException(sagaResultEntity.getExceptionType(), sagaResultEntity.getResult());
         }
-        return sagaHelper.buildObject(sagaResult, resultType);
+
+        return sagaResultEntity.getResult() != null ?
+            sagaHelper.buildObject(sagaResultEntity.getResult(), resultType) :
+            Optional.empty();
     }
 
     @Override

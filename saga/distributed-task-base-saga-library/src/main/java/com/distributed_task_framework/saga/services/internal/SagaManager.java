@@ -32,6 +32,9 @@ public interface SagaManager {
     Saga get(UUID sagaId) throws SagaNotFoundException;
 
     /**
+     * Return result of saga.
+     * If saga doesn't assume return value, empty will be returned.
+     *
      * @param sagaId
      * @param resultType
      * @param <T>
