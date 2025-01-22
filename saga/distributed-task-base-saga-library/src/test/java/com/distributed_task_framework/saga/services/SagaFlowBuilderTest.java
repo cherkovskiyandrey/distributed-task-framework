@@ -12,8 +12,6 @@ import lombok.Getter;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.CompletableFuture;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -294,17 +292,99 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         assertThat(testSagaException.getValue()).isEqualTo(10);
     }
 
+    @SneakyThrows
     @Test
-    void testThenConsume1() {
-        //todo
+    void shouldThenConsumeWhenWithRootInput() {
+        @Getter
+        @AllArgsConstructor
+        class TestSaga {
+            int value;
+
+            public int sum(int input) {
+                return value + input;
+            }
+
+            public void multiply(int parentOutput, int rootInput) {
+                value = parentOutput * rootInput;
+            }
+        }
+        var testSaga = new TestSaga(10);
+        var testSagaModel = testSagaGenerator.generateDefaultFor(testSaga);
+
+        //do
+        distributionSagaService.create(testSagaModel.getName())
+            .registerToRun(testSagaModel.getBean()::sum, 10)
+            .thenConsume(testSagaModel.getBean()::multiply)
+            .start()
+            .waitCompletion();
+
+        //verify
+        assertThat(testSaga.getValue()).isEqualTo(200);
     }
 
     @Test
-    void testThenConsume2() {
-        //todo
+    void shouldThenConsumeWhenWithRootInputAndRevert() {
+        @Getter
+        @AllArgsConstructor
+        class TestSaga {
+            private final int initial;
+            private int value;
+
+            public int sum(int input) {
+                value += input;
+                return value;
+            }
+
+            @Revert
+            public void diff(int input, @Nullable Integer output, SagaExecutionException throwable) {
+                assertThat(throwable).isNull();
+                assertThat(output).isNotNull().matches(i -> initial == i - input);
+                value -= input;
+            }
+
+            public void doDivide(int parentOutput, int rootInput) {
+                assertThat(parentOutput).isEqualTo(value);
+                value = parentOutput / rootInput;
+                throw new TestUserUncheckedException();
+            }
+
+            @Revert
+            public void doMultiply(int parentOutput,
+                                   int rootInput,
+                                   SagaExecutionException throwable) {
+                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
+                value *= rootInput;
+                assertThat(value).isEqualTo(parentOutput);
+            }
+        }
+
+        var testSagaException = new TestSaga(10, 10);
+        var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
+            .withRegisterAllMethods(true)
+            .withMethod(testSagaException::doDivide, TestSagaGeneratorUtils.withoutRetry())
+            .build()
+        );
+
+        //do
+        assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
+            .registerToRun(
+                testSagaModel.getBean()::sum,
+                testSagaModel.getBean()::diff,
+                10
+            )
+            .thenConsume(
+                testSagaModel.getBean()::doDivide,
+                testSagaModel.getBean()::doMultiply
+            )
+            .start()
+            .waitCompletion()
+        )
+            .isInstanceOf(SagaExecutionException.class)
+            .hasCauseInstanceOf(TestUserUncheckedException.class);
+
+        //verify
+        assertThat(testSagaException.getValue()).isEqualTo(10);
     }
 
     //todo: 3 level hierarchy
-    //todo: SagaNotFoundException when is too late
-    //todo: TimeoutException when timeout expired
 }

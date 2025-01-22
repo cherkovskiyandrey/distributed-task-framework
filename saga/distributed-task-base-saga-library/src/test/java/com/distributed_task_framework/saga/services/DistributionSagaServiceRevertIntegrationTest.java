@@ -9,18 +9,21 @@ import com.distributed_task_framework.saga.generator.TestSagaModelSpec;
 import jakarta.annotation.Nullable;
 import lombok.Getter;
 import lombok.SneakyThrows;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-//todo: think about actuality of this test
+
 public class DistributionSagaServiceRevertIntegrationTest extends BaseSpringIntegrationTest {
 
     @SneakyThrows
-    @Test
-    void shouldExecuteRevertFromRootWhenException() {
+    @ParameterizedTest
+    @ValueSource(ints = {5, 10, 20, 40, 80})
+    void shouldExecuteRevertFromTheMiddleWhenException(int watermark) {
         //when
-        var testSagaException = new TestSagaException(105, 100);
+        var testSagaException = new TestSagaException(watermark, 0);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
             .withMethod(testSagaException::sum, TestSagaGeneratorUtils.withoutRetry())
@@ -28,32 +31,7 @@ public class DistributionSagaServiceRevertIntegrationTest extends BaseSpringInte
         );
 
         //do
-        distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(
-                testSagaModel.getBean()::sum,
-                testSagaModel.getBean()::diff,
-                5
-            )
-            .start()
-            .waitCompletion();
-
-        //verify
-        assertThat(testSagaException.getValue()).isEqualTo(100);
-    }
-
-    @SneakyThrows
-    @Test
-    void shouldExecuteRevertFromTheMiddleWhenException() {
-        //when
-        var testSagaException = new TestSagaException(40, 0);
-        var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
-            .withMethod(testSagaException::sum, TestSagaGeneratorUtils.withoutRetry())
-            .build()
-        );
-
-        //do
-        distributionSagaService.create(testSagaModel.getName())
+        assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToRun(
                 testSagaModel.getBean()::sum,
                 testSagaModel.getBean()::diff,
@@ -67,7 +45,6 @@ public class DistributionSagaServiceRevertIntegrationTest extends BaseSpringInte
                 testSagaModel.getBean()::sum,
                 testSagaModel.getBean()::diff
             )
-            //revert from here
             .thenRun(
                 testSagaModel.getBean()::sum,
                 testSagaModel.getBean()::diff
@@ -77,7 +54,10 @@ public class DistributionSagaServiceRevertIntegrationTest extends BaseSpringInte
                 testSagaModel.getBean()::diff
             )
             .start()
-            .waitCompletion();
+            .waitCompletion()
+        )
+            .isInstanceOf(SagaExecutionException.class)
+            .hasCauseInstanceOf(TestUserUncheckedException.class);
 
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(0);

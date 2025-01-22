@@ -5,6 +5,12 @@ import org.junit.jupiter.api.Nested;
 //todo
 public class SagaFlowIntegrationTest {
 
+    //todo: SagaNotFoundException when is too late
+    //todo: TimeoutException when timeout expired
+    //todo: sync/async/status/wait
+    //todo: cancelation
+    //todo: saga expiration
+
     @Nested
     public class WaitCompletion {
         //todo
@@ -26,6 +32,8 @@ public class SagaFlowIntegrationTest {
 
         //todo: SagaCancellationException in get() method
     }
+
+
 
 
 }

@@ -8,6 +8,7 @@ import com.distributed_task_framework.test.autoconfigure.service.DistributedTask
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,7 @@ public abstract class BaseSpringIntegrationTest {
     @SneakyThrows
     @BeforeEach
     public void init() {
+        Assertions.setMaxStackTraceElementsDisplayed(100);
         distributedTaskTestUtil.reinitAndWait();
         testSagaGenerator.reset();
     }

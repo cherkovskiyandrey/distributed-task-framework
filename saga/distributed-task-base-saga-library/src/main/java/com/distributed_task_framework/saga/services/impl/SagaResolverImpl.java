@@ -25,10 +25,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.WeakHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Supplier;
+import java.util.concurrent.ConcurrentMap;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -36,9 +33,7 @@ import java.util.function.Supplier;
 public class SagaResolverImpl implements SagaResolver {
     Map<String, SagaOperand> methodNameToSagaOperand = Maps.newConcurrentMap();
     Map<SagaMethod, String> sagaMethodToMethodName = Maps.newConcurrentMap();
-    WeakHashMap<Serializable, SagaOperand> cache = new WeakHashMap<>();
-    ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-
+    ConcurrentMap<String, SagaOperand> lambdaToSagaOperandCache = Maps.newConcurrentMap();
     TaskRegistryService taskRegistryService;
 
     @Override
@@ -53,6 +48,10 @@ public class SagaResolverImpl implements SagaResolver {
         log.info("unregisterOperand(): name=[{}]", name);
         var sagaOperand = methodNameToSagaOperand.remove(name);
         sagaMethodToMethodName.remove(MethodSagaMethodFactory.of(sagaOperand.getMethod()));
+        lambdaToSagaOperandCache.entrySet().stream()
+            .filter(entry -> Objects.equals(entry.getValue(), sagaOperand))
+            .map(Map.Entry::getKey)
+            .forEach(lambdaToSagaOperandCache::remove);
     }
 
     @Override
@@ -60,7 +59,7 @@ public class SagaResolverImpl implements SagaResolver {
         return asKey(operation)
             .map(
                 cacheKey -> {
-                    var operand = resolveAsOperandUseCache(cacheKey, () -> resolveAsOperandBase(operation));
+                    var operand = lambdaToSagaOperandCache.computeIfAbsent(cacheKey, k -> resolveAsOperandBase(operation));
                     log.info("resolveAsOperand(): use cache => operation=[{}] => operand=[{}]", operation, operand);
                     return operand;
                 }
@@ -72,34 +71,8 @@ public class SagaResolverImpl implements SagaResolver {
             });
     }
 
-    private SagaOperand resolveAsOperandUseCache(String cacheKey, Supplier<SagaOperand> operationSupplier) {
-        var readLock = readWriteLock.readLock();
-        readLock.lock();
-        try {
-            var operand = cache.get(cacheKey);
-            if (operand != null) {
-                return operand;
-            }
-        } finally {
-            readLock.unlock();
-        }
-
-        var writeLock = readWriteLock.writeLock();
-        writeLock.lock();
-        try {
-            var operand = cache.get(cacheKey);
-            if (operand != null) {
-                return operand;
-            }
-            operand = operationSupplier.get();
-            cache.put(cacheKey, operand);
-            return operand;
-        } finally {
-            writeLock.unlock();
-        }
-    }
-
     private SagaOperand resolveAsOperandBase(Serializable operation) {
+        log.info("resolveAsOperandBase(): resolving operation=[{}]", operation);
         var sagaMethod = lookupSagaMethod(operation);
         var name = sagaMethodToMethodName.get(sagaMethod);
         if (name == null) {
