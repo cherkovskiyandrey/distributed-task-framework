@@ -13,6 +13,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 
 import java.io.Serializable;
 import java.lang.reflect.Method;
@@ -90,7 +91,7 @@ public class TestSagaGenerator {
             return;
         }
 
-        for (var method : testSagaModelSpec.getBean().getClass().getDeclaredMethods()) {
+        for (var method : testSagaModelSpec.getBean().getClass().getMethods()) {
             if (alreadyRegisteredMethods.contains(method)) {
                 continue;
             }
@@ -98,7 +99,7 @@ public class TestSagaGenerator {
                 continue;
             }
             var name = String.join("-", method.getName(), RandomStringUtils.randomAlphabetic(10));
-            boolean isRevert = method.getAnnotation(Revert.class) != null;
+            boolean isRevert = AnnotatedElementUtils.hasAnnotation(method, Revert.class);
             if (isRevert) {
                 distributionSagaService.registerSagaRevertMethod(
                     name,

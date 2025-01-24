@@ -60,7 +60,6 @@ public class SagaFlowBuilderWithoutInputImpl<ROOT_INPUT> implements SagaFlowBuil
         var operationSagaSchemaArguments = SagaSchemaArguments.of(SagaArguments.ROOT_INPUT);
         var revertOperationSagaSchemaArguments = SagaSchemaArguments.of(
             SagaArguments.ROOT_INPUT,
-            SagaArguments.OUTPUT,
             SagaArguments.THROWABLE
         );
 

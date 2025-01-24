@@ -15,6 +15,10 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+
+//todo: shouldDoThenRunWhenWithRevertInTheMiddle
+//todo: shouldDoThenRunWhenWithRootInputAndRevertInTheMiddle
+//todo: common model like SagaFlowBuilderWithoutInputImplIntegrationTest#TestSagaBase
 class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
     @SneakyThrows
@@ -105,6 +109,8 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(10);
     }
+
+
 
     @SneakyThrows
     @Test
@@ -201,6 +207,8 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(10);
     }
+
+
 
     @SneakyThrows
     @Test
@@ -385,6 +393,4 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(10);
     }
-
-    //todo: 3 level hierarchy
 }

@@ -16,6 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
+//todo: onFailureWithResult test when in the middle of chain fail revert action from last attempt
+//todo: partial revert saga
 public class DistributionSagaServiceRevertIntegrationTest extends BaseSpringIntegrationTest {
 
     @SneakyThrows

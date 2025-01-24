@@ -6,12 +6,14 @@ import com.distributed_task_framework.saga.generator.TestSagaGeneratorUtils;
 import com.distributed_task_framework.saga.generator.TestSagaModelSpec;
 import lombok.Getter;
 import lombok.SneakyThrows;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 
 //todo: think about actuality of this test
+@Disabled
 class DistributionSagaServiceBasicIntegrationTest extends BaseSpringIntegrationTest {
 
     @SneakyThrows

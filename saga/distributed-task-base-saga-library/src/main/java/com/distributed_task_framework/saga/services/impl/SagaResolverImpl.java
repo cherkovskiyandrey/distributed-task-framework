@@ -89,7 +89,7 @@ public class SagaResolverImpl implements SagaResolver {
     public <T extends Serializable> Method resolveAsMethod(T methodRef, Object anchorObject) {
         var sagaMethod = lookupSagaMethod(methodRef);
         for (var cls = anchorObject.getClass(); cls != null; cls = cls.getSuperclass()) {
-            var method = Arrays.stream(anchorObject.getClass().getDeclaredMethods())
+            var method = Arrays.stream(cls.getDeclaredMethods())
                 .filter(m -> Objects.equals(MethodSagaMethodFactory.of(m), sagaMethod))
                 .findFirst()
                 .orElse(null);
