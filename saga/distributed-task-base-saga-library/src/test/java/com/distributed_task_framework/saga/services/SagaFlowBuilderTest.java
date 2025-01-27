@@ -16,29 +16,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
-//todo: shouldDoThenRunWhenWithRevertInTheMiddle
-//todo: shouldDoThenRunWhenWithRootInputAndRevertInTheMiddle
-//todo: common model like SagaFlowBuilderWithoutInputImplIntegrationTest#TestSagaBase
 class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
     @SneakyThrows
     @Test
     void shouldDoThenRun() {
-        record TestSaga(int value) {
-            public int sum(int input) {
-                return value + input;
-            }
-
-            public int doDouble(int parentOutput) {
-                return parentOutput * 2;
-            }
-        }
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSaga(10));
+        //when
+        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
 
         //do
         var resultOpt = distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(testSagaModel.getBean()::sum, 10)
-            .thenRun(testSagaModel.getBean()::doDouble)
+            .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
+            .thenRun(testSagaModel.getBean()::multiplyAsFunction)
             .start()
             .get();
 
@@ -46,59 +35,49 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         assertThat(resultOpt)
             .isPresent()
             .get()
-            .isEqualTo(40);
+            .isEqualTo(400);
     }
 
     @SneakyThrows
     @Test
     void shouldDoThenRunWhenWithRevert() {
-        @Getter
-        @AllArgsConstructor
-        class TestSaga {
-            private final int initial;
-            private int value;
+        //when
+        class TestSaga extends TestSagaBase {
 
-            public int sum(int input) {
-                value += input;
-                return value;
+            public TestSaga(int value) {
+                super(value);
             }
 
-            @Revert
-            public void diff(int input, @Nullable Integer output, SagaExecutionException throwable) {
-                assertThat(output).isNotNull().matches(i -> initial == i - input);
-                value -= input;
-            }
-
-            public int doDouble(int parentOutput) {
-                value = parentOutput * 2;
+            public int multiplyAsFunction(int parentOutput) {
+                value *= parentOutput;
                 throw new TestUserUncheckedException();
             }
 
-            @Revert
-            public void doDivideBy2(int parentOutput, @Nullable Integer output, SagaExecutionException throwable) {
-                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
+            @Override
+            public void divideForFunction(int parentOutput, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
                 assertThat(output).isNull();
-                value /= 2;
+                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
+                super.divideForFunction(parentOutput, output, throwable);
             }
         }
 
-        var testSagaException = new TestSaga(10, 10);
+        var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::doDouble, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::multiplyAsFunction, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
         //do
         assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToRun(
-                testSagaModel.getBean()::sum,
-                testSagaModel.getBean()::diff,
-                5
+                testSagaModel.getBean()::sumAsFunction,
+                testSagaModel.getBean()::diffForFunction,
+                10
             )
             .thenRun(
-                testSagaModel.getBean()::doDouble,
-                testSagaModel.getBean()::doDivideBy2
+                testSagaModel.getBean()::multiplyAsFunction,
+                testSagaModel.getBean()::divideForFunction
             )
             .start()
             .get()
@@ -110,26 +89,63 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         assertThat(testSagaException.getValue()).isEqualTo(10);
     }
 
+    @SneakyThrows
+    @Test
+    void shouldDoThenRunWhenWithRevertInTheMiddle() {
+        //when
+        class TestSaga extends TestSagaBase {
 
+            public TestSaga(int value) {
+                super(value);
+            }
+
+            @Override
+            public void divideForFunction(int parentOutput, Integer output, @Nullable SagaExecutionException throwable) {
+                assertThat(output).isNotNull().isEqualTo(value);
+                assertThat(throwable).isNull();
+                super.divideForFunction(parentOutput, output, throwable);
+            }
+        }
+
+        var testSagaException = new TestSaga(10);
+        var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
+            .withRegisterAllMethods(true)
+            .withMethod(testSagaException::justThrowException, TestSagaGeneratorUtils.withoutRetry())
+            .build()
+        );
+
+        //do
+        assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
+            .registerToRun(
+                testSagaModel.getBean()::sumAsFunction,
+                testSagaModel.getBean()::diffForFunction,
+                10
+            )
+            .thenRun(
+                testSagaModel.getBean()::multiplyAsFunction,
+                testSagaModel.getBean()::divideForFunction
+            )
+            .thenConsume(testSagaModel.getBean()::justThrowException)
+            .start()
+            .waitCompletion()
+        )
+            .isInstanceOf(SagaExecutionException.class)
+            .hasCauseInstanceOf(TestUserUncheckedException.class);
+
+        //verify
+        assertThat(testSagaException.getValue()).isEqualTo(10);
+    }
 
     @SneakyThrows
     @Test
     void shouldDoThenRunWhenWithRootInput() {
-        record TestSaga(int value) {
-            public int sum(int input) {
-                return value + input;
-            }
-
-            public int divide(int parentOutput, int rootInput) {
-                return parentOutput / rootInput;
-            }
-        }
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSaga(10));
+        //when
+        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
 
         //do
         var resultOpt = distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(testSagaModel.getBean()::sum, 10)
-            .thenRun(testSagaModel.getBean()::divide)
+            .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
+            .thenRun(testSagaModel.getBean()::multiplyAsFunctionWithRootInput)
             .start()
             .get();
 
@@ -137,7 +153,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         assertThat(resultOpt)
             .isPresent()
             .get()
-            .isEqualTo(2);
+            .isEqualTo(4000);
     }
 
     @SneakyThrows
@@ -145,58 +161,46 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
     void shouldDoThenRunWhenWithRootInputAndRevert() {
         //when
         @Getter
-        @AllArgsConstructor
-        class TestSaga {
-            private final int initial;
-            private int value;
+        class TestSaga extends TestSagaBase {
 
-            public int sum(int input) {
-                value += input;
-                return value;
+            public TestSaga(int value) {
+                super(value);
             }
 
-            @Revert
-            public void diff(int input, @Nullable Integer output, SagaExecutionException throwable) {
-                assertThat(throwable).isNull();
-                assertThat(output).isNotNull().matches(i -> initial == i - input);
-                value -= input;
-            }
-
-            public int doDivide(int parentOutput, int rootInput) {
-                assertThat(parentOutput).isEqualTo(value);
-                value = parentOutput / rootInput;
+            @Override
+            public int multiplyAsFunctionWithRootInput(int parentOutput, int rootInput) {
+                super.multiplyAsFunctionWithRootInput(parentOutput, rootInput);
                 throw new TestUserUncheckedException();
             }
 
-            @Revert
-            public void doMultiply(int parentOutput,
-                                   int rootInput,
-                                   @Nullable Integer output,
-                                   SagaExecutionException throwable) {
-                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
+            @Override
+            public void divideForFunctionWithRootInput(int parentOutput,
+                                                       int rootInput,
+                                                       @Nullable Integer output,
+                                                       @Nullable SagaExecutionException throwable) {
                 assertThat(output).isNull();
-                value *= rootInput;
-                assertThat(value).isEqualTo(parentOutput);
+                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
+                super.divideForFunctionWithRootInput(parentOutput, rootInput, output, throwable);
             }
         }
 
-        var testSagaException = new TestSaga(10, 10);
+        var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::doDivide, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::multiplyAsFunctionWithRootInput, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
         //do
         assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToRun(
-                testSagaModel.getBean()::sum,
-                testSagaModel.getBean()::diff,
+                testSagaModel.getBean()::sumAsFunction,
+                testSagaModel.getBean()::diffForFunction,
                 10
             )
             .thenRun(
-                testSagaModel.getBean()::doDivide,
-                testSagaModel.getBean()::doMultiply
+                testSagaModel.getBean()::multiplyAsFunctionWithRootInput,
+                testSagaModel.getBean()::divideForFunctionWithRootInput
             )
             .start()
             .get()
@@ -208,87 +212,116 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         assertThat(testSagaException.getValue()).isEqualTo(10);
     }
 
-
-
     @SneakyThrows
     @Test
-    void shouldThenConsume() {
+    void shouldDoThenRunWhenWithRootInputAndRevertInTheMiddle() {
+        //when
         @Getter
-        @AllArgsConstructor
-        class TestSaga {
-            int value;
+        class TestSaga extends TestSagaBase {
 
-            public int sum(int input) {
-                return value + input;
+            public TestSaga(int value) {
+                super(value);
             }
 
-            public void doDouble(int parentOutput) {
-                value = parentOutput * 2;
-            }
-        }
-        var testSaga = new TestSaga(10);
-        var testSagaModel = testSagaGenerator.generateDefaultFor(testSaga);
-
-        //do
-        distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(testSagaModel.getBean()::sum, 10)
-            .thenConsume(testSagaModel.getBean()::doDouble)
-            .start()
-            .waitCompletion();
-
-        //verify
-        assertThat(testSaga.getValue()).isEqualTo(40);
-    }
-
-    @SneakyThrows
-    @Test
-    void shouldThenConsumeWhenWithRevert() {
-        @Getter
-        @AllArgsConstructor
-        class TestSaga {
-            private final int initial;
-            private int value;
-
-            public int sum(int input) {
-                value += input;
-                return value;
-            }
-
-            @Revert
-            public void diff(int input, @Nullable Integer output, SagaExecutionException throwable) {
-                assertThat(output).isNotNull().matches(i -> initial == i - input);
-                value -= input;
-            }
-
-            public void doDouble(int parentOutput) {
-                value = parentOutput * 2;
-                throw new TestUserUncheckedException();
-            }
-
-            @Revert
-            public void doDivideBy2(int parentOutput, SagaExecutionException throwable) {
-                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
-                value /= 2;
+            @Override
+            public void divideForFunctionWithRootInput(int parentOutput,
+                                                       int rootInput,
+                                                       @Nullable Integer output,
+                                                       @Nullable SagaExecutionException throwable) {
+                assertThat(output).isEqualTo(value);
+                assertThat(throwable).isNull();
+                super.divideForFunctionWithRootInput(parentOutput, rootInput, output, throwable);
             }
         }
 
-        var testSagaException = new TestSaga(10, 10);
+        var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::doDouble, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::justThrowException, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
         //do
         assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToRun(
-                testSagaModel.getBean()::sum,
-                testSagaModel.getBean()::diff,
+                testSagaModel.getBean()::sumAsFunction,
+                testSagaModel.getBean()::diffForFunction,
+                10
+            )
+            .thenRun(
+                testSagaModel.getBean()::multiplyAsFunctionWithRootInput,
+                testSagaModel.getBean()::divideForFunctionWithRootInput
+            )
+            .thenConsume(testSagaModel.getBean()::justThrowException)
+            .start()
+            .waitCompletion()
+        )
+            .isInstanceOf(SagaExecutionException.class)
+            .hasCauseInstanceOf(TestUserUncheckedException.class);
+
+        //verify
+        assertThat(testSagaException.getValue()).isEqualTo(10);
+    }
+
+    @SneakyThrows
+    @Test
+    void shouldThenConsume() {
+        //when
+        var testSaga = new TestSagaBase(10);
+        var testSagaModel = testSagaGenerator.generateDefaultFor(testSaga);
+
+        //do
+        distributionSagaService.create(testSagaModel.getName())
+            .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
+            .thenConsume(testSagaModel.getBean()::multiplyAsConsumer)
+            .start()
+            .waitCompletion();
+
+        //verify
+        assertThat(testSaga.getValue()).isEqualTo(400);
+    }
+
+    @SneakyThrows
+    @Test
+    void shouldThenConsumeWhenWithRevert() {
+        //when
+        @Getter
+        class TestSaga extends TestSagaBase {
+
+            public TestSaga(int value) {
+                super(value);
+            }
+
+            @Override
+            public void multiplyAsConsumer(int parentOutput) {
+                super.multiplyAsConsumer(parentOutput);
+                throw new TestUserUncheckedException();
+            }
+
+            @Override
+            public void divideForConsumer(int input, @Nullable SagaExecutionException throwable) {
+                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
+                super.divideForConsumer(input, throwable);
+            }
+        }
+
+        var testSagaException = new TestSaga(10);
+        var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
+            .withRegisterAllMethods(true)
+            .withMethod(testSagaException::multiplyAsConsumer, TestSagaGeneratorUtils.withoutRetry())
+            .build()
+        );
+
+        //do
+        assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
+            .registerToRun(
+                testSagaModel.getBean()::sumAsFunction,
+                testSagaModel.getBean()::diffForFunction,
                 5
             )
             .thenConsume(
-                testSagaModel.getBean()::doDouble,
-                testSagaModel.getBean()::doDivideBy2
+                testSagaModel.getBean()::multiplyAsConsumer,
+                testSagaModel.getBean()::divideForConsumer
             )
             .start()
             .waitCompletion()
@@ -303,86 +336,63 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
     @SneakyThrows
     @Test
     void shouldThenConsumeWhenWithRootInput() {
-        @Getter
-        @AllArgsConstructor
-        class TestSaga {
-            int value;
-
-            public int sum(int input) {
-                return value + input;
-            }
-
-            public void multiply(int parentOutput, int rootInput) {
-                value = parentOutput * rootInput;
-            }
-        }
-        var testSaga = new TestSaga(10);
+        //when
+        var testSaga = new TestSagaBase(10);
         var testSagaModel = testSagaGenerator.generateDefaultFor(testSaga);
 
         //do
         distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(testSagaModel.getBean()::sum, 10)
-            .thenConsume(testSagaModel.getBean()::multiply)
+            .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
+            .thenConsume(testSagaModel.getBean()::multiplyAsConsumerWithRootInput)
             .start()
             .waitCompletion();
 
         //verify
-        assertThat(testSaga.getValue()).isEqualTo(200);
+        assertThat(testSaga.getValue()).isEqualTo(4000);
     }
 
     @Test
     void shouldThenConsumeWhenWithRootInputAndRevert() {
+        //when
         @Getter
-        @AllArgsConstructor
-        class TestSaga {
-            private final int initial;
-            private int value;
+        class TestSaga extends TestSagaBase {
 
-            public int sum(int input) {
-                value += input;
-                return value;
+            public TestSaga(int value) {
+                super(value);
             }
 
-            @Revert
-            public void diff(int input, @Nullable Integer output, SagaExecutionException throwable) {
-                assertThat(throwable).isNull();
-                assertThat(output).isNotNull().matches(i -> initial == i - input);
-                value -= input;
-            }
-
-            public void doDivide(int parentOutput, int rootInput) {
-                assertThat(parentOutput).isEqualTo(value);
-                value = parentOutput / rootInput;
+            @Override
+            public void multiplyAsConsumerWithRootInput(int parentOutput, int input) {
+                super.multiplyAsConsumerWithRootInput(parentOutput, input);
                 throw new TestUserUncheckedException();
             }
 
-            @Revert
-            public void doMultiply(int parentOutput,
-                                   int rootInput,
-                                   SagaExecutionException throwable) {
+            @Override
+            public void divideForConsumerWithRootInput(int parentOutput,
+                                                       int rootInput,
+                                                       SagaExecutionException throwable) {
                 assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
-                value *= rootInput;
-                assertThat(value).isEqualTo(parentOutput);
+                super.divideForConsumerWithRootInput(parentOutput, rootInput, throwable);
             }
         }
 
-        var testSagaException = new TestSaga(10, 10);
+        var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::doDivide, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::multiplyAsConsumerWithRootInput, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
         //do
         assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToRun(
-                testSagaModel.getBean()::sum,
-                testSagaModel.getBean()::diff,
+                testSagaModel.getBean()::sumAsFunction,
+                testSagaModel.getBean()::diffForFunction,
                 10
             )
             .thenConsume(
-                testSagaModel.getBean()::doDivide,
-                testSagaModel.getBean()::doMultiply
+                testSagaModel.getBean()::multiplyAsConsumerWithRootInput,
+                testSagaModel.getBean()::divideForConsumerWithRootInput
             )
             .start()
             .waitCompletion()
@@ -392,5 +402,70 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(10);
+    }
+
+    @Getter
+    @AllArgsConstructor
+    static class TestSagaBase {
+        protected int value;
+
+        public int sumAsFunction(int input) {
+            value += input;
+            return value;
+        }
+
+        @Revert
+        public void diffForFunction(int input, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
+            assertThat(throwable).isNull();
+            assertThat(output).isNotNull().isEqualTo(value);
+            value -= input;
+        }
+
+        public void multiplyAsConsumer(int parentOutput) {
+            value *= parentOutput;
+        }
+
+        @Revert
+        public void divideForConsumer(int parentOutput, @Nullable SagaExecutionException throwable) {
+            value /= parentOutput;
+        }
+
+        public void multiplyAsConsumerWithRootInput(int parentOutput, int input) {
+            value *= input * parentOutput;
+        }
+
+        @Revert
+        public void divideForConsumerWithRootInput(int parentOutput,
+                                                   int rootInput,
+                                                   SagaExecutionException throwable) {
+            value /= parentOutput * rootInput;
+        }
+
+        public int multiplyAsFunction(int parentOutput) {
+            value *= parentOutput;
+            return value;
+        }
+
+        @Revert
+        public void divideForFunction(int parentOutput, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
+            value /= parentOutput;
+        }
+
+        public int multiplyAsFunctionWithRootInput(int parentOutput, int rootInput) {
+            value *= parentOutput * rootInput;
+            return value;
+        }
+
+        @Revert
+        public void divideForFunctionWithRootInput(int parentOutput,
+                                                   int rootInput,
+                                                   @Nullable Integer output,
+                                                   @Nullable SagaExecutionException throwable) {
+            value /= parentOutput * rootInput;
+        }
+
+        public void justThrowException(int input) {
+            throw new TestUserUncheckedException();
+        }
     }
 }
