@@ -32,6 +32,11 @@ public interface SagaManager {
     Saga get(UUID sagaId) throws SagaNotFoundException;
 
     /**
+     * Check existence of saga.
+     */
+    void checkExistence(UUID sagaId) throws SagaNotFoundException;
+
+    /**
      * Return result of saga.
      * If saga doesn't assume return value, empty will be returned.
      *

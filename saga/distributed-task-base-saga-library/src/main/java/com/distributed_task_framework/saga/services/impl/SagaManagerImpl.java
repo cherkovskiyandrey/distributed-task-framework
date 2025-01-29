@@ -180,6 +180,13 @@ public class SagaManagerImpl implements SagaManager {
     }
 
     @Override
+    public void checkExistence(UUID sagaId) throws SagaNotFoundException {
+        if (!sagaRepository.existsById(sagaId)) {
+            throw sagaNotFoundException(sagaId).get();
+        }
+    }
+
+    @Override
     public <T> Optional<T> getSagaResult(UUID sagaId, Class<T> resultType) throws
         SagaNotFoundException,
         SagaExecutionException,

@@ -37,6 +37,14 @@ project(':distributed-task-test').projectDir = new File('test-utils/distributed-
 project(':distributed-task-test-spring-boot-autoconfigure').projectDir = new File('test-utils/distributed-task-test-spring-boot-autoconfigure')
 project(':distributed-task-test-spring-boot-starter').projectDir = new File('test-utils/distributed-task-test-spring-boot-starter')
 
+include ':distributed-task-base-saga-test'
+include ':distributed-task-base-saga-test-spring-boot-autoconfigure'
+include ':distributed-task-base-saga-test-spring-boot-starter'
+
+project(':distributed-task-base-saga-test').projectDir = new File('test-utils/distributed-task-base-saga-test')
+project(':distributed-task-base-saga-test-spring-boot-autoconfigure').projectDir = new File('test-utils/distributed-task-base-saga-test-spring-boot-autoconfigure')
+project(':distributed-task-base-saga-test-spring-boot-starter').projectDir = new File('test-utils/distributed-task-base-saga-test-spring-boot-starter')
+
 //Perf test
 include ':distributed-task-perf-test-library'
 include ':distributed-task-perf-test-spring-boot-autoconfigure'

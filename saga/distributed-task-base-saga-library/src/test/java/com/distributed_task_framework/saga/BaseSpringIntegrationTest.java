@@ -1,7 +1,9 @@
 package com.distributed_task_framework.saga;
 
 import com.distributed_task_framework.Postgresql16Initializer;
+import com.distributed_task_framework.TestClock;
 import com.distributed_task_framework.saga.generator.TestSagaGenerator;
+import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
@@ -19,6 +21,14 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.concurrent.Callable;
+
+import static org.awaitility.Awaitility.await;
 
 @Disabled
 @ActiveProfiles("test")
@@ -45,9 +55,13 @@ import org.springframework.test.context.ContextConfiguration;
 @FieldDefaults(level = AccessLevel.PROTECTED)
 public abstract class BaseSpringIntegrationTest {
     @Autowired
+    TestClock clock;
+    @Autowired
     DistributedTaskTestUtil distributedTaskTestUtil;
     @Autowired
     DistributionSagaService distributionSagaService;
+    @Autowired
+    SagaRepository sagaRepository;
     @Autowired
     TestSagaGenerator testSagaGenerator;
 
@@ -55,8 +69,20 @@ public abstract class BaseSpringIntegrationTest {
     @BeforeEach
     public void init() {
         Assertions.setMaxStackTraceElementsDisplayed(100);
+        clock.setClock(Clock.systemUTC());
         distributedTaskTestUtil.reinitAndWait();
+        sagaRepository.deleteAll();
         testSagaGenerator.reset();
+    }
+
+    protected void setFixedTime() {
+        clock.setClock(Clock.fixed(Instant.ofEpochSecond(0), ZoneId.of("UTC")));
+    }
+
+    protected void waitFor(Callable<Boolean> conditionEvaluator) {
+        await().atMost(Duration.ofSeconds(60))
+            .pollInterval(Duration.ofMillis(500))
+            .until(conditionEvaluator);
     }
 
     @TestConfiguration

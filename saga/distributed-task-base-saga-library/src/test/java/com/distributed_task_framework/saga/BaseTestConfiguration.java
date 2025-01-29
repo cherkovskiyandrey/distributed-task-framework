@@ -34,6 +34,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
@@ -73,7 +74,9 @@ public class BaseTestConfiguration {
     @Bean
     public SagaCommonSettings sagaCommonSettings() {
         return SagaCommonSettings.DEFAULT.toBuilder()
-            .build(); //todo: can be customized for tests
+            .deprecatedSagaScanInitialDelay(Duration.ofMillis(500))
+            .deprecatedSagaScanFixedDelay(Duration.ofMillis(500))
+            .build();
     }
 
     @Bean

@@ -1,5 +1,6 @@
 package com.distributed_task_framework.saga.services.impl;
 
+import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.services.SagaFlow;
@@ -142,7 +143,8 @@ public class DistributionSagaServiceImpl implements DistributionSagaService {
     }
 
     @Override
-    public <OUTPUT> SagaFlow<OUTPUT> getFlow(UUID trackId, Class<OUTPUT> trackingClass) {
+    public <OUTPUT> SagaFlow<OUTPUT> getFlow(UUID trackId, Class<OUTPUT> trackingClass) throws SagaNotFoundException {
+        sagaManager.checkExistence(trackId);
         return SagaFlowImpl.<OUTPUT>builder()
             .distributedTaskService(distributedTaskService)
             .sagaManager(sagaManager)
@@ -152,7 +154,8 @@ public class DistributionSagaServiceImpl implements DistributionSagaService {
     }
 
     @Override
-    public SagaFlowWithoutResult getFlow(UUID trackId) {
+    public SagaFlowWithoutResult getFlow(UUID trackId) throws SagaNotFoundException {
+        sagaManager.checkExistence(trackId);
         return SagaFlowWithoutResultImpl.builderWithoutResult()
             .distributedTaskService(distributedTaskService)
             .sagaManager(sagaManager)
