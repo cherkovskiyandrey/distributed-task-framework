@@ -6,6 +6,5 @@ import java.io.Serializable;
 
 @FunctionalInterface
 public interface SagaRevertibleConsumer<IN> extends Serializable {
-
-    void apply(IN in, SagaExecutionException throwable);
+    void apply(IN in, SagaExecutionException throwable) throws Exception;
 }

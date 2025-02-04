@@ -3,13 +3,9 @@ package com.distributed_task_framework.saga.services;
 import com.distributed_task_framework.saga.BaseSpringIntegrationTest;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.TestUserUncheckedException;
-import com.distributed_task_framework.saga.generator.Revert;
 import com.distributed_task_framework.saga.generator.TestSagaGeneratorUtils;
 import com.distributed_task_framework.saga.generator.TestSagaModelSpec;
 import jakarta.annotation.Nullable;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 
@@ -22,16 +18,11 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRegisterToRun() {
         //when
-        record TestSaga(int value) {
-            public int sum(int i) {
-                return value + i;
-            }
-        }
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSaga(10));
+        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
 
         //do
         var resultOpt = distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(testSagaModel.getBean()::sum, 10)
+            .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
             .start()
             .get();
 
@@ -46,35 +37,37 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRegisterToRunWhenWithRevert() {
         //when
-        @Getter
-        @AllArgsConstructor
-        class TestSaga {
-            private int value;
+        class TestSaga extends TestSagaBase {
 
-            public int sum(int inputArg) {
-                value += inputArg;
+            public TestSaga(int value) {
+                super(value);
+            }
+
+            @Override
+            public int sumAsFunction(int input) {
+                super.sumAsFunction(input);
                 throw new TestUserUncheckedException();
             }
 
-            @Revert
-            public void diff(int inputArg, @Nullable Integer sumOutput, SagaExecutionException throwable) {
+            @Override
+            public void diffForFunction(int input, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
                 assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
-                value -= inputArg;
+                super.diffForFunction(input, output, throwable);
             }
         }
 
         var testSagaException = new TestSaga(100);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::sum, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::sumAsFunction, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
         //do
         assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToRun(
-                testSagaModel.getBean()::sum,
-                testSagaModel.getBean()::diff,
+                testSagaModel.getBean()::sumAsFunction,
+                testSagaModel.getBean()::diffForFunction,
                 5
             )
             .start()
@@ -91,17 +84,11 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRegisterToConsume() {
         //when
-        @Getter
-        @Setter
-        @AllArgsConstructor
-        class TestSagaToConsume {
-            private int value;
-        }
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaToConsume(0));
+        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(0));
 
         //do
         distributionSagaService.create(testSagaModel.getName())
-            .registerToConsume(testSagaModel.getBean()::setValue, 100)
+            .registerToConsume(testSagaModel.getBean()::sumAsConsumer, 100)
             .start()
             .waitCompletion();
 
@@ -112,35 +99,37 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
     @SneakyThrows
     @Test
     void shouldRegisterToConsumeWhenWithRevert() {
-        @Getter
-        @AllArgsConstructor
-        class TestSaga {
-            private int value;
+        class TestSaga extends TestSagaBase {
 
-            public void sum(int inputArg) {
-                value += inputArg;
+            public TestSaga(int value) {
+                super(value);
+            }
+
+            @Override
+            public void sumAsConsumer(int input) {
+                super.sumAsConsumer(input);
                 throw new TestUserUncheckedException();
             }
 
-            @Revert
-            public void diff(int inputArg, SagaExecutionException throwable) {
+            @Override
+            public void diffForConsumer(int input, @Nullable SagaExecutionException throwable) {
                 assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
-                value -= inputArg;
+                super.diffForConsumer(input, throwable);
             }
         }
 
         var testSagaException = new TestSaga(100);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::sum, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::sumAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
         //do
         assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToConsume(
-                testSagaModel.getBean()::sum,
-                testSagaModel.getBean()::diff,
+                testSagaModel.getBean()::sumAsConsumer,
+                testSagaModel.getBean()::diffForConsumer,
                 5
             )
             .start()

@@ -7,7 +7,6 @@ dependencies {
 
     // For integration tests (we use spring here)
     testImplementation testFixtures(project(':commons-test'))
-    testImplementation project(':distributed-task-spring-boot-starter')
     testImplementation project(':distributed-task-test-spring-boot-starter')
 
     testImplementation libs.caffeine

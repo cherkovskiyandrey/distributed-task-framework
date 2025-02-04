@@ -3,11 +3,9 @@ package com.distributed_task_framework.saga.services;
 import com.distributed_task_framework.saga.BaseSpringIntegrationTest;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.TestUserUncheckedException;
-import com.distributed_task_framework.saga.generator.Revert;
 import com.distributed_task_framework.saga.generator.TestSagaGeneratorUtils;
 import com.distributed_task_framework.saga.generator.TestSagaModelSpec;
 import jakarta.annotation.Nullable;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
@@ -200,43 +198,5 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
 
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(10);
-    }
-
-    @Getter
-    @AllArgsConstructor
-    static class TestSagaBase {
-        protected int value;
-
-        public void sumAsConsumer(int input) {
-            value += input;
-        }
-
-        @Revert
-        public void diffForConsumer(int input, @Nullable SagaExecutionException throwable) {
-            value -= input;
-        }
-
-        public void multiplyAsConsumer(int input) {
-            value *= input;
-        }
-
-        @Revert
-        public void divideForConsumer(int input, @Nullable SagaExecutionException throwable) {
-            value /= input;
-        }
-
-        public int multiplyAsFunction(int input) {
-            value *= input;
-            return value;
-        }
-
-        @Revert
-        public void divideForFunction(int input, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
-            value /= input;
-        }
-
-        public void justThrowException(int input) {
-            throw new TestUserUncheckedException();
-        }
     }
 }

@@ -6,8 +6,9 @@ import com.distributed_task_framework.saga.exceptions.TestUserUncheckedException
 import com.distributed_task_framework.saga.generator.TestSagaGeneratorUtils;
 import com.distributed_task_framework.saga.generator.TestSagaModelSpec;
 import com.distributed_task_framework.saga.settings.SagaSettings;
-import lombok.Getter;
+import lombok.AccessLevel;
 import lombok.SneakyThrows;
+import lombok.experimental.FieldDefaults;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +16,9 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -29,10 +33,115 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
     public class CreateTest {
 
         @Test
+        public void shouldCreateWhenWithDefaultSettings() {
+            //when
+            setFixedTime();
+            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(100));
+
+            //do
+            distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
+                .start();
+
+            //verify
+            assertThat(sagaRepository.findAll().iterator().next())
+                .matches(sagaEntity -> Objects.equals(
+                        sagaEntity.getExpirationDateUtc(),
+                        LocalDateTime.now(clock).plus(SagaSettings.DEFAULT.getExpirationTimeout())
+                    ),
+                    "expirationDate"
+                )
+                .matches(sagaEntity -> Objects.equals(
+                        sagaEntity.getAvailableAfterCompletionTimeoutSec(),
+                        SagaSettings.DEFAULT.getAvailableAfterCompletionTimeout().toSeconds()
+                    ),
+                    "availableAfterCompletionTimeoutSec"
+                );
+        }
+
+        @Test
+        public void shouldCreateWhenWithOverridenDefaultSettings() {
+            //when
+            setFixedTime();
+            var expirationTimeout = Duration.ofMinutes(20);
+            var availableAfterCompletionTimeout = Duration.ofMinutes(35);
+            distributionSagaService.registerDefaultSagaSettings(SagaSettings.DEFAULT.toBuilder()
+                .expirationTimeout(expirationTimeout)
+                .availableAfterCompletionTimeout(availableAfterCompletionTimeout)
+                .build()
+            );
+            var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(new TestSagaBase(100))
+                .withRegisterAllMethods(true)
+                .withoutSettings()
+                .build()
+            );
+
+            //do
+            distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
+                .start();
+
+            //verify
+            assertThat(sagaRepository.findAll().iterator().next())
+                .matches(sagaEntity -> Objects.equals(
+                        sagaEntity.getExpirationDateUtc(),
+                        LocalDateTime.now(clock).plus(expirationTimeout)
+                    ),
+                    "expirationDate"
+                )
+                .matches(sagaEntity -> Objects.equals(
+                        sagaEntity.getAvailableAfterCompletionTimeoutSec(),
+                        availableAfterCompletionTimeout.toSeconds()
+                    ),
+                    "availableAfterCompletionTimeoutSec"
+                );
+        }
+
+        @Test
+        public void shouldCreateWhenWithPredefinedSettings() {
+            //when
+            setFixedTime();
+            var expirationTimeout = Duration.ofMinutes(20);
+            var availableAfterCompletionTimeout = Duration.ofMinutes(35);
+            var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(new TestSagaBase(100))
+                .withRegisterAllMethods(true)
+                .withoutSettings()
+                .build()
+            );
+            distributionSagaService.registerSagaSettings(
+                testSagaModel.getName(),
+                SagaSettings.DEFAULT.toBuilder()
+                    .expirationTimeout(expirationTimeout)
+                    .availableAfterCompletionTimeout(availableAfterCompletionTimeout)
+                    .build()
+            );
+
+            //do
+            distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
+                .start();
+
+            //verify
+            assertThat(sagaRepository.findAll().iterator().next())
+                .matches(sagaEntity -> Objects.equals(
+                        sagaEntity.getExpirationDateUtc(),
+                        LocalDateTime.now(clock).plus(expirationTimeout)
+                    ),
+                    "expirationDate"
+                )
+                .matches(sagaEntity -> Objects.equals(
+                        sagaEntity.getAvailableAfterCompletionTimeoutSec(),
+                        availableAfterCompletionTimeout.toSeconds()
+                    ),
+                    "availableAfterCompletionTimeoutSec"
+                );
+        }
+
+        @Test
         public void shouldCreateWhenWithCustomSettings() {
             //when
             setFixedTime();
-            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSaga(100));
+            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(100));
 
             //do
             distributionSagaService.create(
@@ -42,7 +151,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
                         .availableAfterCompletionTimeout(Duration.ofSeconds(100))
                         .build()
                 )
-                .registerToRun(testSagaModel.getBean()::sum, 10)
+                .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
                 .start();
 
             //verify
@@ -57,11 +166,71 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
                         sagaEntity.getAvailableAfterCompletionTimeoutSec(),
                         100L
                     ),
-                    "AvailableAfterCompletionTimeoutSec"
+                    "availableAfterCompletionTimeoutSec"
                 );
         }
+    }
 
-        //todo
+    @Nested
+    public class CreateWithAffinityTest {
+
+        @SneakyThrows
+        @Test
+        public void shouldDoSequencialyWhenCreateWithAffinity() {
+            //when
+            @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
+            class TestSaga {
+                CyclicBarrier firstSagaRun = new CyclicBarrier(2);
+                CountDownLatch firstSagaLock = new CountDownLatch(1);
+                CountDownLatch secondSagaCompletionSignal = new CountDownLatch(1);
+
+                public void firstSagaFirstMethod(int dummy) throws BrokenBarrierException, InterruptedException {
+                    firstSagaRun.await();
+                    firstSagaLock.await();
+                }
+
+                public void firstSagaSecondMethod(int dummy) {
+                }
+
+                public void secondSagaFirstMethod(int dummy) {
+                }
+
+                public void secondSagaSecondMethod(int dummy) {
+                    secondSagaCompletionSignal.countDown();
+                }
+
+                public void waitForFirstSagaStart() throws BrokenBarrierException, InterruptedException {
+                    firstSagaRun.await();
+                }
+
+                public boolean waitForSecondSagaCompletion(int timeout) throws InterruptedException {
+                    return secondSagaCompletionSignal.await(timeout, TimeUnit.SECONDS);
+                }
+
+                public void unlockFirstSaga() {
+                    firstSagaLock.countDown();
+                }
+            }
+            var testSaga = new TestSaga();
+            var testSagaModel = testSagaGenerator.generateDefaultFor(testSaga);
+
+            //do
+            distributionSagaService.createWithAffinity(testSagaModel.getName(), "afg", "aff")
+                .registerToConsume(testSagaModel.getBean()::firstSagaFirstMethod, 1)
+                .thenConsume(testSagaModel.getBean()::firstSagaSecondMethod)
+                .start();
+            TimeUnit.MILLISECONDS.sleep(100);
+            distributionSagaService.createWithAffinity(testSagaModel.getName(), "afg", "aff")
+                .registerToConsume(testSagaModel.getBean()::secondSagaFirstMethod, 1)
+                .thenConsume(testSagaModel.getBean()::secondSagaSecondMethod)
+                .start();
+
+            //verify
+            testSaga.waitForFirstSagaStart();
+            assertThat(testSaga.waitForSecondSagaCompletion(5)).isFalse();
+            testSaga.unlockFirstSaga();
+            testSaga.waitForSecondSagaCompletion(1);
+        }
     }
 
     @Nested
@@ -93,7 +262,6 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
             //verify
             assertThat(result)
                 .isNotNull()
-                .matches(r -> Objects.equals(r.trackId(), trackId), "trackId")
                 .satisfies(r -> assertThat(r.get())
                     .isPresent()
                     .get()
@@ -196,40 +364,19 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
             .isEqualTo(20);
     }
 
-    @SneakyThrows
-    @Test
-    void shouldExecuteWhenSequenceOfMethod() {
-        //when
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSaga(0));
-
-        //do
-        var resultOpt = distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(testSagaModel.getBean()::sum, 10)
-            .thenRun(testSagaModel.getBean()::multiply)
-            .thenRun(testSagaModel.getBean()::divide)
-            .start()
-            .get();
-
-        //verify
-        assertThat(resultOpt)
-            .isPresent()
-            .get()
-            .isEqualTo(40);
-    }
-
     //todo: rewrite
     @SneakyThrows
     @Test
     void shouldNotRetryWhenNoRetryFor() {
         //when
-        class TestSagaNotRetry extends TestSaga {
+        class TestSagaNotRetry extends TestSagaBase {
             public TestSagaNotRetry(int value) {
                 super(value);
             }
 
             @Override
-            public int sum(int i) {
-                super.sum(i);
+            public void sumAsConsumer(int input) {
+                super.sumAsConsumer(input);
                 throw new TestUserUncheckedException();
             }
         }
@@ -238,7 +385,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaNoRetryFor)
             .withRegisterAllMethods(true)
             .withMethod(
-                testSagaNoRetryFor::sum,
+                testSagaNoRetryFor::sumAsConsumer,
                 TestSagaGeneratorUtils.withNoRetryFor(TestUserUncheckedException.class)
             )
             .build()
@@ -246,39 +393,12 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
         //do
         distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(testSagaModel.getBean()::sum, 5)
+            .registerToConsume(testSagaModel.getBean()::sumAsConsumer, 5)
             .start()
             .waitCompletion();
 
         //verify
         assertThat(testSagaNoRetryFor.getValue()).isEqualTo(105);
-    }
-
-
-    @Getter
-    public static class TestSaga {
-        private int value;
-
-        public TestSaga(int value) {
-            this.value = value;
-        }
-
-        public int sum(int i) {
-            value += i;
-            return i;
-        }
-
-        public int diff(int i) {
-            return value - i;
-        }
-
-        public int multiply(int i) {
-            return i * 10;
-        }
-
-        public int divide(int i) {
-            return i / 5;
-        }
     }
 
 

@@ -41,6 +41,7 @@ import static org.awaitility.Awaitility.await;
         "distributed-task.common.planner.polling-delay.0=100",
         "distributed-task.common.registry.update-initial-delay-ms=100",
         "distributed-task.common.registry.update-fixed-delay-ms=100",
+        "distributed-task.common.worker-manager.max-parallel-tasks-in-node=10",
     }
 )
 @EnableAutoConfiguration

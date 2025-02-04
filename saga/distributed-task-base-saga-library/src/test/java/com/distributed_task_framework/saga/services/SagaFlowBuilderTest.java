@@ -3,11 +3,9 @@ package com.distributed_task_framework.saga.services;
 import com.distributed_task_framework.saga.BaseSpringIntegrationTest;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.TestUserUncheckedException;
-import com.distributed_task_framework.saga.generator.Revert;
 import com.distributed_task_framework.saga.generator.TestSagaGeneratorUtils;
 import com.distributed_task_framework.saga.generator.TestSagaModelSpec;
 import jakarta.annotation.Nullable;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
@@ -402,70 +400,5 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(10);
-    }
-
-    @Getter
-    @AllArgsConstructor
-    static class TestSagaBase {
-        protected int value;
-
-        public int sumAsFunction(int input) {
-            value += input;
-            return value;
-        }
-
-        @Revert
-        public void diffForFunction(int input, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
-            assertThat(throwable).isNull();
-            assertThat(output).isNotNull().isEqualTo(value);
-            value -= input;
-        }
-
-        public void multiplyAsConsumer(int parentOutput) {
-            value *= parentOutput;
-        }
-
-        @Revert
-        public void divideForConsumer(int parentOutput, @Nullable SagaExecutionException throwable) {
-            value /= parentOutput;
-        }
-
-        public void multiplyAsConsumerWithRootInput(int parentOutput, int input) {
-            value *= input * parentOutput;
-        }
-
-        @Revert
-        public void divideForConsumerWithRootInput(int parentOutput,
-                                                   int rootInput,
-                                                   SagaExecutionException throwable) {
-            value /= parentOutput * rootInput;
-        }
-
-        public int multiplyAsFunction(int parentOutput) {
-            value *= parentOutput;
-            return value;
-        }
-
-        @Revert
-        public void divideForFunction(int parentOutput, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
-            value /= parentOutput;
-        }
-
-        public int multiplyAsFunctionWithRootInput(int parentOutput, int rootInput) {
-            value *= parentOutput * rootInput;
-            return value;
-        }
-
-        @Revert
-        public void divideForFunctionWithRootInput(int parentOutput,
-                                                   int rootInput,
-                                                   @Nullable Integer output,
-                                                   @Nullable SagaExecutionException throwable) {
-            value /= parentOutput * rootInput;
-        }
-
-        public void justThrowException(int input) {
-            throw new TestUserUncheckedException();
-        }
     }
 }

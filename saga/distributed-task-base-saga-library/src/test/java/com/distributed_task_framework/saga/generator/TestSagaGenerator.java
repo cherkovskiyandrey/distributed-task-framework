@@ -61,8 +61,7 @@ public class TestSagaGenerator {
 
     public <T> TestSagaModel<T> generate(TestSagaModelSpec<T> testSagaModelSpec) {
         String sagaName = generateName(testSagaModelSpec);
-        SagaSettings sagaSettings = generateSettings(testSagaModelSpec);
-        distributionSagaService.registerSagaSettings(sagaName, sagaSettings);
+        SagaSettings sagaSettings = generateSettingsAndRegisterIfRequired(sagaName, testSagaModelSpec);
         registeredSagas.add(sagaName);
 
         registerSagaMethods(testSagaModelSpec);
@@ -155,9 +154,15 @@ public class TestSagaGenerator {
             );
     }
 
-    private <T> SagaSettings generateSettings(TestSagaModelSpec<T> testSagaModelSpec) {
-        return Optional.ofNullable(testSagaModelSpec.getSagaSettings())
+    private <T> SagaSettings generateSettingsAndRegisterIfRequired(String sagaName,
+                                                                   TestSagaModelSpec<T> testSagaModelSpec) {
+        if (Boolean.TRUE.equals(testSagaModelSpec.getWithoutSettings())) {
+            return null;
+        }
+        var sagaSettings = Optional.ofNullable(testSagaModelSpec.getSagaSettings())
             .orElse(SagaSettings.DEFAULT);
+        distributionSagaService.registerSagaSettings(sagaName, sagaSettings);
+        return sagaSettings;
     }
 
     private <T> String generateName(TestSagaModelSpec<T> testSagaModelSpec) {

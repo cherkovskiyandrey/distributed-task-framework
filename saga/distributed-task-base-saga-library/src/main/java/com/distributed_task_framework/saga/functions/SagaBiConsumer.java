@@ -1,8 +1,8 @@
 package com.distributed_task_framework.saga.functions;
 
 import java.io.Serializable;
-import java.util.function.BiConsumer;
 
 @FunctionalInterface
-public interface SagaBiConsumer<T, U> extends BiConsumer<T, U>, Serializable {
+public interface SagaBiConsumer<T, U> extends Serializable {
+    void accept(T t, U u) throws Exception;
 }

@@ -25,6 +25,8 @@ public class TestSagaModelSpec<T> {
     @Nullable
     SagaSettings sagaSettings;
     @Nullable
+    Boolean withoutSettings;
+    @Nullable
     Boolean registerAllMethods;
     @Nullable
     SagaMethodSettings methodSettings;
@@ -47,6 +49,8 @@ public class TestSagaModelSpec<T> {
         @Nullable
         Boolean registerAllMethods;
         @Nullable
+        Boolean withoutSettings;
+        @Nullable
         SagaMethodSettings methodSettings;
         private final Map<SagaBiFunction<?, ?, ?>, SagaMethodSettings> biFunctionMethods = Maps.newHashMap();
         private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods = Maps.newHashMap();
@@ -64,6 +68,11 @@ public class TestSagaModelSpec<T> {
 
         public TestSagaModelSpecBuilder<T> withSagaSettings(SagaSettings sagaSettings) {
             this.sagaSettings = sagaSettings;
+            return this;
+        }
+
+        public TestSagaModelSpecBuilder<T> withoutSettings() {
+            this.withoutSettings = true;
             return this;
         }
 
@@ -117,6 +126,7 @@ public class TestSagaModelSpec<T> {
                 bean,
                 name,
                 sagaSettings,
+                withoutSettings,
                 registerAllMethods,
                 methodSettings,
                 functionMethods,
