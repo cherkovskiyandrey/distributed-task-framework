@@ -15,14 +15,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
-import java.lang.reflect.Type;
 import java.sql.Types;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+import static com.distributed_task_framework.utils.ComparatorUtils.TASK_ID_COMPARATOR;
+import static com.distributed_task_framework.utils.ComparatorUtils.NULL_SAFE_UUID_STRING_COMPARATOR;
 import static java.lang.String.format;
 
 @Slf4j
@@ -71,6 +71,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
     @Override
     public void rescheduleAll(Collection<TaskEntity> taskEntities) {
         var batchArgs = taskEntities.stream()
+            .sorted(TASK_ID_COMPARATOR)
             .map(this::toArrayOfParamsToReschedule)
             .toList();
         int[] result = namedParameterJdbcTemplate.getJdbcOperations()
@@ -133,6 +134,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
     @Override
     public void rescheduleAllIgnoreVersion(List<TaskEntity> tasksToSave) {
         List<Object[]> batchArgs = tasksToSave.stream()
+            .sorted(TASK_ID_COMPARATOR)
             .map(this::toArrayOfParamsIgnoreVersionToRescheduleAll)
             .toList();
         namedParameterJdbcTemplate.getJdbcOperations().batchUpdate(RESCHEDULE_IGNORE_VERSION, batchArgs);
@@ -160,6 +162,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
     @Override
     public void cancelAll(Collection<UUID> taskIds) {
         List<Object[]> batchArgs = taskIds.stream()
+            .sorted(NULL_SAFE_UUID_STRING_COMPARATOR)
             .map(this::toArrayOfParamsToCancel)
             .toList();
 
