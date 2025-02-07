@@ -25,8 +25,7 @@ import java.util.function.Function;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-//todo: create
-//todo: createWithAffinity
+
 class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
     @Nested
@@ -60,7 +59,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
         }
 
         @Test
-        public void shouldCreateWhenWithOverridenDefaultSettings() {
+        public void shouldCreateWhenWithOverrideDefaultSettings() {
             //when
             setFixedTime();
             var expirationTimeout = Duration.ofMinutes(20);
@@ -176,7 +175,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
         @SneakyThrows
         @Test
-        public void shouldDoSequencialyWhenCreateWithAffinity() {
+        public void shouldDoSequentiallyWhenCreateWithAffinity() {
             //when
             @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
             class TestSaga {
@@ -270,7 +269,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
         }
 
         @Test
-        public void shouldNotGetFlowWhenNotExists() {
+        public void shouldThrowSagaNotFoundExceptionWhenNotExists() {
             //do & verify
             assertThatThrownBy(() -> distributionSagaService.getFlow(UUID.randomUUID()))
                 .isInstanceOf(SagaNotFoundException.class);
@@ -278,7 +277,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
         @SneakyThrows
         @Test
-        public void shouldNotGetFlowWhenCompletedAndRemoved() {
+        public void shouldThrowSagaNotFoundExceptionWhenCompletedAndRemoved() {
             //when
             var trackId = generateAndRegisterSaga(
                 1,
@@ -297,7 +296,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
         @SneakyThrows
         @Test
-        public void shouldNotGetFlowWhenExpired() {
+        public void shouldThrowSagaNotFoundExceptionWhenExpired() {
             //when
             var trackId = generateAndRegisterSaga(
                 100_000,

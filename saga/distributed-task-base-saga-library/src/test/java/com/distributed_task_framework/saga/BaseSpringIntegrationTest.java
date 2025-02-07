@@ -5,6 +5,7 @@ import com.distributed_task_framework.TestClock;
 import com.distributed_task_framework.saga.generator.TestSagaGenerator;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
+import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
 import lombok.AccessLevel;
@@ -34,6 +35,7 @@ import static org.awaitility.Awaitility.await;
 @ActiveProfiles("test")
 @SpringBootTest(
     properties = {
+        "spring.datasource.hikari.minimum-idle=10",
         "distributed-task.enabled=true",
         "distributed-task.common.app-name=saga-test",
         "distributed-task.common.planner.watchdog-initial-delay-ms=100",
@@ -65,6 +67,8 @@ public abstract class BaseSpringIntegrationTest {
     SagaRepository sagaRepository;
     @Autowired
     TestSagaGenerator testSagaGenerator;
+    @Autowired
+    SagaManager sagaManager;
 
     @SneakyThrows
     @BeforeEach

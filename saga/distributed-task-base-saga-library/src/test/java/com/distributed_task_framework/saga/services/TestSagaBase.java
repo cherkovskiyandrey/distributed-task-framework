@@ -6,6 +6,9 @@ import com.distributed_task_framework.saga.generator.Revert;
 import jakarta.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.SneakyThrows;
+
+import java.util.concurrent.TimeUnit;
 
 @Getter
 @AllArgsConstructor
@@ -76,5 +79,11 @@ class TestSagaBase {
 
     public void justThrowException(int input) {
         throw new TestUserUncheckedException();
+    }
+
+    @SneakyThrows
+    public int sleep(int i) {
+        TimeUnit.MILLISECONDS.sleep(i);
+        return i;
     }
 }
