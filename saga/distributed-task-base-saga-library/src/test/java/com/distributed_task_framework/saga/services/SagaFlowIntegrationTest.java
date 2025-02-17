@@ -22,6 +22,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 //todo
@@ -30,9 +31,27 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
     @Nested
     public class WaitCompletion {
 
-        //todo:
+        @SneakyThrows
+        @Test
         public void shouldWaitCompletion() {
+            //when
+            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaWithLocks());
+            var sagaFlow = distributionSagaService.create(testSagaModel.getName())
+                .registerToConsume(testSagaModel.getBean()::method, 1)
+                .start();
 
+            //do
+            testSagaModel.getBean().getCyclicBarrier().await();
+
+            //verify
+            assertThatThrownBy(() -> sagaFlow.waitCompletion(Duration.ofSeconds(3)))
+                .isInstanceOf(TimeoutException.class);
+
+            //do
+            testSagaModel.getBean().getSagaMethodLock().countDown();
+
+            //verify
+            sagaFlow.waitCompletion(Duration.ofSeconds(3));
         }
 
         @SneakyThrows
@@ -84,7 +103,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
 
         @SneakyThrows
         @Test
-        public void shouldThrowSagaExecutionExceptionOnlyAfterRevert() {
+        public void shouldThrowSagaExecutionOnlyAfterRevert() {
             //when
             @Getter
             @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
@@ -131,24 +150,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
         @Test
         public void shouldThrowSagaCancellationExceptionOnlyAfterRevert() {
             //when
-            @Getter
-            @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-            class TestSaga {
-                CyclicBarrier cyclicBarrier = new CyclicBarrier(2);
-                CountDownLatch sagaMethodLock = new CountDownLatch(1);
-                CountDownLatch sagaRevertLock = new CountDownLatch(1);
-
-                public void method(int input) throws Exception {
-                    cyclicBarrier.await();
-                    sagaMethodLock.await();
-                }
-
-                @Revert
-                public void revertMethod(int input, @Nullable SagaExecutionException throwable) throws Exception {
-                    sagaRevertLock.await();
-                }
-            }
-            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSaga());
+            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaWithLocks());
             var sagaFlow = distributionSagaService.create(testSagaModel.getName())
                 .registerToConsume(
                     testSagaModel.getBean()::method,
@@ -184,11 +186,143 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
                 .registerToRun(testSagaModel.getBean()::sleep, delay)
                 .start();
         }
+
+        @Getter
+        @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
+        static class TestSagaWithLocks {
+            CyclicBarrier cyclicBarrier = new CyclicBarrier(2);
+            CountDownLatch sagaMethodLock = new CountDownLatch(1);
+            CountDownLatch sagaRevertLock = new CountDownLatch(1);
+
+            public void method(int input) throws Exception {
+                cyclicBarrier.await();
+                sagaMethodLock.await();
+            }
+
+            @Revert
+            public void revertMethod(int input, @Nullable SagaExecutionException throwable) throws Exception {
+                sagaRevertLock.await();
+            }
+        }
     }
 
     @Nested
-    public class GetCompletion {
-        //todo
+    public class GetResult {
+
+        @SneakyThrows
+        @Test
+        public void shouldReturnResult() {
+            //when
+            var sagaFlow = generateAndCreateSagaWithResult(Function.identity());
+
+            //do
+            var optionalResult = sagaFlow.get();
+
+            //verify
+            assertThat(optionalResult)
+                .isPresent()
+                .get()
+                .isEqualTo(800);
+        }
+
+        @SneakyThrows
+        @Test
+        public void shouldThrowSagaNotFoundExceptionWhenCompletedAndRemoved() {
+            //when
+            var sagaFlow = generateAndCreateSagaWithResult(sagaSettings -> sagaSettings.toBuilder()
+                .availableAfterCompletionTimeout(Duration.ofMillis(1))
+                .build()
+            );
+
+            //do
+            waitFor(() -> !sagaRepository.existsById(sagaFlow.trackId()));
+
+            //verify
+            assertThatThrownBy(sagaFlow::get).isInstanceOf(SagaNotFoundException.class);
+        }
+
+        @SneakyThrows
+        @Test
+        public void shouldThrowSagaNotFoundExceptionWhenExpired() {
+            //when
+            var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(new TestSagaBase(10))
+                .withRegisterAllMethods(true)
+                .withSagaSettings(SagaSettings.DEFAULT.toBuilder()
+                    .expirationTimeout(Duration.ofSeconds(1))
+                    .build()
+                )
+                .build()
+            );
+            var sagaFlow = distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(testSagaModel.getBean()::sleep, 100_000)
+                .start();
+
+            //do
+            waitFor(() -> !sagaRepository.existsById(sagaFlow.trackId()));
+
+            //verify
+            assertThatThrownBy(sagaFlow::get).isInstanceOf(SagaNotFoundException.class);
+        }
+
+        @SneakyThrows
+        @Test
+        public void shouldThrowTimeoutException() {
+            //when
+            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
+            var sagaFlow = distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(testSagaModel.getBean()::sleep, 100_000)
+                .start();
+
+            //verify
+            assertThatThrownBy(() -> sagaFlow.get(Duration.ofSeconds(1)))
+                .isInstanceOf(TimeoutException.class);
+        }
+
+        @Test
+        @SneakyThrows
+        public void shouldThrowSagaExecution() {
+            //when
+            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
+
+            //do
+            var sagaFlow = distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(testSagaModel.getBean()::justThrowExceptionAsFunction, 10)
+                .start();
+
+            //verify
+            assertThatThrownBy(sagaFlow::get)
+                .isInstanceOf(SagaExecutionException.class)
+                .hasCauseInstanceOf(TestUserUncheckedException.class);
+        }
+
+        @Test
+        @SneakyThrows
+        public void shouldThrowSagaCancellationException() {
+            //when
+            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
+            var sagaFlow = distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(testSagaModel.getBean()::sleep, 100_000)
+                .start();
+
+            //do
+            sagaManager.cancel(sagaFlow.trackId());
+
+            //verify
+            assertThatThrownBy(sagaFlow::get).isInstanceOf(SagaCancellationException.class);
+        }
+
+        private SagaFlow<Integer> generateAndCreateSagaWithResult(Function<SagaSettings, SagaSettings> settingCustomizer) {
+            var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(new TestSagaBase(10))
+                .withRegisterAllMethods(true)
+                .withSagaSettings(settingCustomizer.apply(SagaSettings.DEFAULT))
+                .build()
+            );
+            return distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(testSagaModel.getBean()::sumAsFunction, 10)
+                .thenRun(testSagaModel.getBean()::multiplyAsFunction)
+                .thenRun(testSagaModel.getBean()::sumAsFunction)
+                .start();
+        }
     }
 
     @Nested
@@ -197,11 +331,13 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
     }
 
     @Nested
+    public class IsCanceled {
+        //todo
+    }
+
+    @Nested
     public class Cancel {
         //todo
 
-        //todo: SagaCancellationException in get() method
     }
-
-
 }

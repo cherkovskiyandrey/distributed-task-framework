@@ -108,7 +108,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::justThrowException, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::justThrowExceptionAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
@@ -123,7 +123,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
                 testSagaModel.getBean()::multiplyAsFunction,
                 testSagaModel.getBean()::divideForFunction
             )
-            .thenConsume(testSagaModel.getBean()::justThrowException)
+            .thenConsume(testSagaModel.getBean()::justThrowExceptionAsConsumer)
             .start()
             .waitCompletion()
         )
@@ -235,7 +235,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::justThrowException, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::justThrowExceptionAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
@@ -250,7 +250,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
                 testSagaModel.getBean()::multiplyAsFunctionWithRootInput,
                 testSagaModel.getBean()::divideForFunctionWithRootInput
             )
-            .thenConsume(testSagaModel.getBean()::justThrowException)
+            .thenConsume(testSagaModel.getBean()::justThrowExceptionAsConsumer)
             .start()
             .waitCompletion()
         )

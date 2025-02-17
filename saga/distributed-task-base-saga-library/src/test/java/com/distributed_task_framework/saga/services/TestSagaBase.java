@@ -77,7 +77,11 @@ class TestSagaBase {
         value /= parentOutput * rootInput;
     }
 
-    public void justThrowException(int input) {
+    public void justThrowExceptionAsConsumer(int input) {
+        throw new TestUserUncheckedException();
+    }
+
+    public int justThrowExceptionAsFunction(int input) {
         throw new TestUserUncheckedException();
     }
 

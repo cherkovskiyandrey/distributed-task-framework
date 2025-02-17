@@ -337,8 +337,6 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
 
     //todo: move to groups
-
-
     @SneakyThrows
     @Test
     void shouldExecuteWhenHiddenMethod() {

@@ -12,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,6 +73,7 @@ public abstract class BaseSpringIntegrationTest {
 
     @SneakyThrows
     @BeforeEach
+    @AfterEach
     public void init() {
         Assertions.setMaxStackTraceElementsDisplayed(100);
         clock.setClock(Clock.systemUTC());

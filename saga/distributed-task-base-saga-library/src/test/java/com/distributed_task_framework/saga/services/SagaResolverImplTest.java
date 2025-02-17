@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.services.impl;
+package com.distributed_task_framework.saga.services;
 
 import org.junit.jupiter.api.Test;
 

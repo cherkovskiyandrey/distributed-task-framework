@@ -174,7 +174,7 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
             .withRegisterAllMethods(true)
-            .withMethod(testSagaException::justThrowException, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::justThrowExceptionAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
@@ -189,7 +189,7 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
                 testSagaModel.getBean()::multiplyAsFunction,
                 testSagaModel.getBean()::divideForFunction
             )
-            .thenConsume(testSagaModel.getBean()::justThrowException)
+            .thenConsume(testSagaModel.getBean()::justThrowExceptionAsConsumer)
             .start()
             .waitCompletion()
         )
