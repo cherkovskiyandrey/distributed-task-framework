@@ -57,7 +57,6 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
 
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::multiplyAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
@@ -128,7 +127,6 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
         }
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::multiplyAsFunction, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
@@ -173,7 +171,6 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
         }
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::justThrowExceptionAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );

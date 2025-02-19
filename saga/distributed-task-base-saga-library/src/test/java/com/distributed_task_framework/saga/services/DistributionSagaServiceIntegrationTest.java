@@ -70,7 +70,6 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
                 .build()
             );
             var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(new TestSagaBase(100))
-                .withRegisterAllMethods(true)
                 .withoutSettings()
                 .build()
             );
@@ -103,7 +102,6 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
             var expirationTimeout = Duration.ofMinutes(20);
             var availableAfterCompletionTimeout = Duration.ofMinutes(35);
             var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(new TestSagaBase(100))
-                .withRegisterAllMethods(true)
                 .withoutSettings()
                 .build()
             );
@@ -323,7 +321,6 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
             }
 
             var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(new TestSaga())
-                .withRegisterAllMethods(true)
                 .withSagaSettings(settingCustomizer.apply(SagaSettings.DEFAULT))
                 .build()
             );
@@ -380,7 +377,6 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
         var testSagaNoRetryFor = new TestSagaNotRetry(100);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaNoRetryFor)
-            .withRegisterAllMethods(true)
             .withMethod(
                 testSagaNoRetryFor::sumAsConsumer,
                 TestSagaGeneratorUtils.withNoRetryFor(TestUserUncheckedException.class)

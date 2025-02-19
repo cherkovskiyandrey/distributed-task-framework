@@ -58,7 +58,6 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
 
         var testSagaException = new TestSaga(100);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::sumAsFunction, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
@@ -120,7 +119,6 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
 
         var testSagaException = new TestSaga(100);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::sumAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );

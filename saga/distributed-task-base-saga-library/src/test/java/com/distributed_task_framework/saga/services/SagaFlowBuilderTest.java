@@ -61,7 +61,6 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::multiplyAsFunction, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
@@ -107,7 +106,6 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::justThrowExceptionAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
@@ -184,7 +182,6 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::multiplyAsFunctionWithRootInput, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
@@ -234,7 +231,6 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::justThrowExceptionAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
@@ -305,7 +301,6 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::multiplyAsConsumer, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
@@ -376,7 +371,6 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
 
         var testSagaException = new TestSaga(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::multiplyAsConsumerWithRootInput, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );

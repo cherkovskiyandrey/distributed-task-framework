@@ -26,8 +26,7 @@ public class TestSagaModelSpec<T> {
     SagaSettings sagaSettings;
     @Nullable
     Boolean withoutSettings;
-    @Nullable
-    Boolean registerAllMethods;
+    boolean disableRegisterAllMethods;
     @Nullable
     SagaMethodSettings methodSettings;
     private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods;
@@ -46,8 +45,7 @@ public class TestSagaModelSpec<T> {
         String name;
         @Nullable
         SagaSettings sagaSettings;
-        @Nullable
-        Boolean registerAllMethods;
+        boolean disableRegisterAllMethods = false;
         @Nullable
         Boolean withoutSettings;
         @Nullable
@@ -76,8 +74,8 @@ public class TestSagaModelSpec<T> {
             return this;
         }
 
-        public TestSagaModelSpecBuilder<T> withRegisterAllMethods(boolean registerAllMethods) {
-            this.registerAllMethods = registerAllMethods;
+        public TestSagaModelSpecBuilder<T> disableRegisterAllMethods() {
+            this.disableRegisterAllMethods = true;
             return this;
         }
 
@@ -127,7 +125,7 @@ public class TestSagaModelSpec<T> {
                 name,
                 sagaSettings,
                 withoutSettings,
-                registerAllMethods,
+                disableRegisterAllMethods,
                 methodSettings,
                 functionMethods,
                 biFunctionMethods,

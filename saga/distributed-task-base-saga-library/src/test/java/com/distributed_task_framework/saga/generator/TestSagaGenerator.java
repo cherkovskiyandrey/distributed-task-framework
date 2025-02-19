@@ -42,7 +42,6 @@ public class TestSagaGenerator {
 
     public <T> TestSagaModel<T> generateDefaultFor(T bean) {
         return generate(TestSagaModelSpec.builder(bean)
-            .withRegisterAllMethods(true)
             .withMethodSettings(SagaMethodSettings.DEFAULT.toBuilder()
                 .retry(Retry.builder()
                     .retryMode(RetryMode.FIXED)
@@ -86,7 +85,7 @@ public class TestSagaGenerator {
 
     private <T> void registerAllMethodsIfRequired(TestSagaModelSpec<T> testSagaModelSpec,
                                                   Set<Method> alreadyRegisteredMethods) {
-        if (!Boolean.TRUE.equals(testSagaModelSpec.getRegisterAllMethods())) {
+        if (testSagaModelSpec.isDisableRegisterAllMethods()) {
             return;
         }
 

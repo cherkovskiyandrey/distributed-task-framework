@@ -27,7 +27,6 @@ public class DistributionSagaServiceRevertIntegrationTest extends BaseSpringInte
         //when
         var testSagaException = new TestSagaException(watermark, 0);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withRegisterAllMethods(true)
             .withMethod(testSagaException::sum, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
