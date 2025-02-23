@@ -22,6 +22,7 @@ import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.mapstruct.factory.Mappers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -126,12 +127,13 @@ public class BaseTestConfiguration {
                                            TaskSerializer taskSerializer,
                                            SagaManager sagaManager,
                                            SagaHelper sagaHelper) {
-        return new SagaTaskFactoryImpl(
-            sagaResolver,
-            distributedTaskService,
-            sagaManager,
-            taskSerializer,
-            sagaHelper
+        return Mockito.spy(new SagaTaskFactoryImpl(
+                sagaResolver,
+                distributedTaskService,
+                sagaManager,
+                taskSerializer,
+                sagaHelper
+            )
         );
     }
 

@@ -6,6 +6,7 @@ import com.distributed_task_framework.saga.functions.SagaConsumer;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
+import com.distributed_task_framework.utils.RunnableWithException;
 import com.google.common.collect.Maps;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
@@ -33,6 +34,7 @@ public class TestSagaModelSpec<T> {
     private final Map<SagaBiFunction<?, ?, ?>, SagaMethodSettings> biFunctionMethods;
     private final Map<SagaConsumer<?>, SagaMethodSettings> consumerMethods;
     private final Map<SagaBiConsumer<?, ?>, SagaMethodSettings> sagaBiConsumerMethods;
+    private final Map<SagaFunction<?, ?>, RunnableWithException> beforeExecution;
 
     public static <T> TestSagaModelSpecBuilder<T> builder(T bean) {
         return new TestSagaModelSpecBuilder<>(bean);
@@ -54,6 +56,7 @@ public class TestSagaModelSpec<T> {
         private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods = Maps.newHashMap();
         private final Map<SagaConsumer<?>, SagaMethodSettings> consumerMethods = Maps.newHashMap();
         private final Map<SagaBiConsumer<?, ?>, SagaMethodSettings> sagaBiConsumerMethods = Maps.newHashMap();
+        private final Map<SagaFunction<?, ?>, RunnableWithException> beforeExecution = Maps.newHashMap();
 
         private TestSagaModelSpecBuilder(T bean) {
             this.bean = bean;
@@ -119,6 +122,12 @@ public class TestSagaModelSpec<T> {
             return this;
         }
 
+        public <U, V> TestSagaModelSpecBuilder<T> doBeforeExecutionSagaMethod(SagaFunction<U, V> methodName,
+                                                                              RunnableWithException runnable) {
+            beforeExecution.put(methodName, runnable);
+            return this;
+        }
+
         public TestSagaModelSpec<T> build() {
             return new TestSagaModelSpec<>(
                 bean,
@@ -130,7 +139,8 @@ public class TestSagaModelSpec<T> {
                 functionMethods,
                 biFunctionMethods,
                 consumerMethods,
-                sagaBiConsumerMethods
+                sagaBiConsumerMethods,
+                beforeExecution
             );
         }
     }

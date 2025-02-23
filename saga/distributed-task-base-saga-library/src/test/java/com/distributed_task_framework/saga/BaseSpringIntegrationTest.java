@@ -7,6 +7,7 @@ import com.distributed_task_framework.saga.persistence.repository.SagaRepository
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
+import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
@@ -20,6 +21,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
@@ -70,6 +72,8 @@ public abstract class BaseSpringIntegrationTest {
     TestSagaGenerator testSagaGenerator;
     @Autowired
     SagaManager sagaManager;
+    @Autowired
+    SagaTaskFactory sagaTaskFactory;
 
     @SneakyThrows
     @BeforeEach
@@ -97,10 +101,12 @@ public abstract class BaseSpringIntegrationTest {
 
         @Bean
         public TestSagaGenerator taskPopulate(DistributionSagaService distributionSagaService,
-                                              SagaResolver sagaResolver) {
+                                              SagaResolver sagaResolver,
+                                              SagaTaskFactory sagaTaskFactory) {
             return new TestSagaGenerator(
                 distributionSagaService,
-                sagaResolver
+                sagaResolver,
+                sagaTaskFactory
             );
         }
     }

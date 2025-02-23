@@ -1,6 +1,8 @@
 package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.model.WorkerContext;
+import com.distributed_task_framework.utils.RunnableWithException;
+import com.distributed_task_framework.utils.SupplierWithException;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
@@ -55,13 +57,5 @@ public abstract class AbstractTaskCommandWithDetectorService implements TaskComm
         }
 
         return action.get();
-    }
-
-    protected interface SupplierWithException<U> {
-        U get() throws Exception;
-    }
-
-    protected interface RunnableWithException {
-        void execute() throws Exception;
     }
 }

@@ -18,14 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 import java.time.Duration;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.distributed_task_framework.saga.generator.TestSagaGeneratorUtils.withAvailableAfterCompletionTimeout;
@@ -33,6 +31,10 @@ import static com.distributed_task_framework.saga.generator.TestSagaGeneratorUti
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 //todo
 public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
@@ -306,18 +308,69 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
         }
     }
 
+    //todo
     @Nested
     public class Cancel {
-        //todo
 
+        //todo
+        @Test
+        public void shouldCompleteWhenGracefullyCanceledBeforeExecutionAndOneStep() {
+
+        }
+
+        @SneakyThrows
+        @Test
+        public void shouldRunRevertFlowFromPrevPositionWhenGracefullyCanceledBeforeExecution() {
+            //when
+            var testSaga = Mockito.spy(new TestSagaBase(10));
+            var barrier = new CyclicBarrier(2);
+            var locker = new CountDownLatch(1);
+            var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSaga)
+                .doBeforeExecutionSagaMethod(testSaga::multiplyAsFunction, () -> {
+                        barrier.await();
+                        locker.await();
+                    }
+                )
+                .build()
+            );
+            var sagaFlow = distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(
+                    testSagaModel.getBean()::sumAsFunction,
+                    testSagaModel.getBean()::diffForFunction,
+                    10
+                )
+                .thenRun(
+                    testSagaModel.getBean()::multiplyAsFunction,
+                    testSagaModel.getBean()::divideForFunction
+                )
+                .start();
+
+            //do
+            barrier.await();
+            sagaFlow.cancel(true);
+            locker.countDown();
+            waitFor(() -> sagaRepository.isCompleted(sagaFlow.trackId()).orElse(true));
+
+            //verify
+            verify(testSaga, never()).divideForFunction(anyInt(), any(), any());
+            assertThatThrownBy(sagaFlow::get).isInstanceOf(SagaCancellationException.class);
+            assertThat(testSaga.getValue()).isEqualTo(10);
+        }
+
+        //todo
+        @Test
+        @SneakyThrows
+        public void shouldRunRevertFlowFromCurPositionWhenGracefullyCanceledBeforeExecutionAndSecondAttempt() {
+
+        }
     }
 
     private static Stream<Arguments> sagaNotFoundExceptionSourceProvider() {
         return Stream.of(
-            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>)SagaFlow::waitCompletion),
-            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>)SagaFlow::get),
-            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>)SagaFlow::isCompleted),
-            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>)SagaFlow::isCanceled)
+            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::waitCompletion),
+            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::get),
+            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::isCompleted),
+            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::isCanceled)
         );
     }
 

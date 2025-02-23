@@ -1,7 +1,9 @@
 package com.distributed_task_framework.saga.generator;
 
 import com.distributed_task_framework.saga.services.DistributionSagaService;
+import com.distributed_task_framework.saga.services.impl.SagaTask;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
+import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.settings.Fixed;
@@ -13,6 +15,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.mockito.Mockito;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 
 import java.io.Serializable;
@@ -23,6 +26,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.when;
+
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TestSagaGenerator {
@@ -32,6 +39,7 @@ public class TestSagaGenerator {
 
     DistributionSagaService distributionSagaService;
     SagaResolver sagaResolver;
+    SagaTaskFactory sagaTaskFactory;
 
     public void reset() {
         registeredSagaMethods.forEach(distributionSagaService::unregisterSagaMethod);
@@ -63,6 +71,7 @@ public class TestSagaGenerator {
         SagaSettings sagaSettings = generateSettingsAndRegisterIfRequired(sagaName, testSagaModelSpec);
         registeredSagas.add(sagaName);
 
+        registerBeforeExecutionHooks(testSagaModelSpec);
         registerSagaMethods(testSagaModelSpec);
 
         return TestSagaModel.<T>builder()
@@ -70,6 +79,32 @@ public class TestSagaGenerator {
             .bean(testSagaModelSpec.getBean())
             .sagaSettings(sagaSettings)
             .build();
+    }
+
+    private <T> void registerBeforeExecutionHooks(TestSagaModelSpec<T> testSagaModelSpec) {
+        testSagaModelSpec.getBeforeExecution().forEach((sagaFunction, hook) -> {
+                var method = sagaResolver.resolveAsMethod(sagaFunction, testSagaModelSpec.getBean());
+                when(sagaTaskFactory.sagaTask(
+                    argThat(taskDef -> taskDef.getTaskName().contains(method.getName() + "-")),
+                    any(Method.class),
+                    any(),
+                    any(SagaMethodSettings.class))
+                )
+                    .thenAnswer(invocation -> {
+                            var realTask = (SagaTask) invocation.callRealMethod();
+                            var spyTask = Mockito.spy(realTask);
+                            Mockito.doAnswer(inv -> {
+                                        hook.execute();
+                                        inv.callRealMethod();
+                                        return null;
+                                    }
+                                )
+                                .when(spyTask).execute(any(), any());
+                            return spyTask;
+                        }
+                    );
+            }
+        );
     }
 
     private <T> void registerSagaMethods(TestSagaModelSpec<T> testSagaModelSpec) {
