@@ -86,5 +86,6 @@ distributed-task:
           delay-period: PT10S
           max-retries: 1000
           max-delay: PT5M
-      max-parallel-in-cluster: 200
+      max-parallel-in-cluster: 300
+      max-parallel-in-node: 200
       timeout: PT5M

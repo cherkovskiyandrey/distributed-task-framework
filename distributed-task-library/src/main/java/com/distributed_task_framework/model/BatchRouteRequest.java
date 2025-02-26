@@ -11,9 +11,11 @@ import java.util.Set;
 @Builder
 public class BatchRouteRequest {
     @Builder.Default
-    Set<PartitionStat> newTaskBatches = Set.of();
+    Set<PartitionStat> partitionStatsToPlan = Set.of();
     @Builder.Default
-    Map<String, Integer> actualTaskLimits = Map.of();
+    Map<String, Integer> actualClusterTaskLimits = Map.of();
+    @Builder.Default
+    Map<String, Integer> nodeTaskLimits = Map.of();
     @Builder.Default
     List<NodeTaskActivity> nodeTaskActivities = List.of();
     @Builder.Default

@@ -27,7 +27,6 @@ distributed-task:
       max-inactivity-interval-ms: 16000
       cache-expiration-ms: 5000
     planner:
-      planner-algorithm-type: 'round-robbin'
       watchdog-initial-delay-ms: 5000
       watchdog-fixed-delay-ms: 5000
       max-parallel-tasks-in-cluster-default: 100
@@ -61,6 +60,7 @@ distributed-task:
           max-retries: 1000
           max-delay: PT1H
       max-parallel-in-cluster: 100
+#      max-parallel-in-node: 1
       timeout: PT10S
 
     task-properties:

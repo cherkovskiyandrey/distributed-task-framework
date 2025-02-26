@@ -792,11 +792,17 @@ todo
 ## Samples
 todo
 
-## Perf test results
-| Nodes | max-parallel-tasks-in-cluster-default | batch-size | polling-delay | new-batch-size | max-parallel-tasks-in-node | manage-delay | Total tasks | Total time | RPM                                         | RPS                                       |
-|-------|---------------------------------------|------------|---------------|----------------|----------------------------|--------------|-------------|------------|---------------------------------------------|-------------------------------------------|
-| 1     | 200                                   | 200        | 10 ms         | 100            | 200                        | 10 ms        | 12_000      | 195 sec    | <span style="color:green"> **3692** </span> | <span style="color:green"> **61** </span> |
-| 1     | 200                                   | 200        | 10 ms         | 100            | 200                        | 10 ms        | 120_000     | 1951 sec   | <span style="color:green"> **3692** </span> | <span style="color:green"> **61** </span> |
+## Perf tests
+### Environment
+1. One node
+2. CPU: Apple M2 Pro
+3. RAM: 32 ГБ
+
+### Results
+| Nodes | max-parallel-tasks-in-cluster-default | batch-size | polling-delay | new-batch-size | max-parallel-tasks-in-node | manage-delay | Total tasks | Total time | RPM                                          | RPS                                        |
+|-------|---------------------------------------|------------|---------------|----------------|----------------------------|--------------|-------------|------------|----------------------------------------------|--------------------------------------------|
+| 1     | 200                                   | 200        | 10 ms         | 100            | 200                        | 10 ms        | 12_000      | 43 sec      | <span style="color:green"> **16744** </span> | <span style="color:green"> **279** </span> |
+| 1     | 200                                   | 200        | 10 ms         | 100            | 200                        | 10 ms        | 120_000     | 1951 sec   | <span style="color:green"> **16744** </span>  | <span style="color:green"> **279** </span> |
 
 
 ## How it works?

@@ -13,6 +13,7 @@ import com.distributed_task_framework.exception.TaskConfigurationException;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
@@ -276,8 +277,11 @@ public class TaskConfigurationDiscoveryProcessor {
     private void fillConcurrency(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
         findAnnotation(task, TaskConcurrency.class)
             .ifPresent(taskConcurrency -> {
-                if (taskConcurrency.maxParallelInCluster() > 0) {
+                if (taskConcurrency.maxParallelInCluster() > CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS) {
                     taskProperties.setMaxParallelInCluster(taskConcurrency.maxParallelInCluster());
+                }
+                if (taskConcurrency.maxParallelInNode() > CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS) {
+                    taskProperties.setMaxParallelInNode(taskConcurrency.maxParallelInNode());
                 }
             });
     }

@@ -1,11 +1,6 @@
 package com.distributed_task_framework.service.impl;
 
-import com.distributed_task_framework.model.BatchRouteMap;
-import com.distributed_task_framework.model.BatchRouteRequest;
-import com.distributed_task_framework.model.NodeCapacity;
-import com.distributed_task_framework.model.NodeTaskActivity;
-import com.distributed_task_framework.model.Partition;
-import com.distributed_task_framework.model.PartitionStat;
+import com.distributed_task_framework.model.*;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableTable;
@@ -16,14 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -40,14 +28,14 @@ class TaskRouterTest {
     private static Arguments shouldRouteFair() {
         return Arguments.of(
                 InputTestData.withoutState(BatchRouteRequest.builder()
-                        .newTaskBatches(Set.of(stat(AFG_1, TASK_NAME_1, 10)))
-                        .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
+                        .partitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 10)))
+                        .actualClusterTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
                         .nodeCapacities(capacityForAllNodes(100))
                         .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
                         BatchRouteMap.builder()
-                                .partitionLimits(Map.of(afgTaskName(AFG_1, TASK_NAME_1), 10))
+                                .partitionLimits(Map.of(partition(AFG_1, TASK_NAME_1), 10))
                                 .taskNameNodeQuota(fairQuotaDistribution(TASK_NAME_1, 1))
                                 .build()
                 )
@@ -58,15 +46,15 @@ class TaskRouterTest {
         var nodeTaskActivities = List.of(new NodeTaskActivity(NODES.get(0), TASK_NAME_1, 10));
         return Arguments.of(
                 InputTestData.withoutState(BatchRouteRequest.builder()
-                        .newTaskBatches(Set.of(stat(AFG_1, TASK_NAME_1, 18))) //9(available nodes)*2 = 18
-                        .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
+                        .partitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 18))) //9(available nodes)*2 = 18
+                        .actualClusterTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
                         .nodeTaskActivities(nodeTaskActivities)
                         .nodeCapacities(capacityForAllNodes(100, nodeTaskActivities))
                         .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
                         BatchRouteMap.builder()
-                                .partitionLimits(Map.of(afgTaskName(AFG_1, TASK_NAME_1), 18))
+                                .partitionLimits(Map.of(partition(AFG_1, TASK_NAME_1), 18))
                                 .taskNameNodeQuota(fairQuotaDistribution(TASK_NAME_1, 2, Set.of(NODES.get(0))))
                                 .build()
                 )
@@ -82,8 +70,8 @@ class TaskRouterTest {
 
         return Arguments.of(
                 InputTestData.withoutState(BatchRouteRequest.builder()
-                        .newTaskBatches(Set.of(stat(AFG_1, TASK_NAME_1, 19))) //9 + 1 + 9
-                        .actualTaskLimits(Map.of(
+                        .partitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 19))) //9 + 1 + 9
+                        .actualClusterTaskLimits(Map.of(
                                         TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS,
                                         TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                                 )
@@ -94,7 +82,7 @@ class TaskRouterTest {
                 ),
                 ExpectedOutputData.withoutInternalState(
                         BatchRouteMap.builder()
-                                .partitionLimits(Map.of(afgTaskName(AFG_1, TASK_NAME_1), 19))
+                                .partitionLimits(Map.of(partition(AFG_1, TASK_NAME_1), 19))
                                 .taskNameNodeQuota(all(
                                                 ImmutableTable.of(TASK_NAME_1, NODES.get(0), 1),
                                                 fairQuotaDistribution(TASK_NAME_1, 2, Set.of(NODES.get(0)))
@@ -116,8 +104,8 @@ class TaskRouterTest {
                 InputTestData.withNodeLastUpdateNumber(
                         updatedNumber(9, 8, 7, 6, 5, 0, 4, 3, 2, 1),
                         BatchRouteRequest.builder()
-                                .newTaskBatches(Set.of(stat(AFG_1, TASK_NAME_1, 1)))
-                                .actualTaskLimits(Map.of(
+                                .partitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 1)))
+                                .actualClusterTaskLimits(Map.of(
                                                 TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS,
                                                 TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                                         )
@@ -128,7 +116,7 @@ class TaskRouterTest {
                 ),
                 ExpectedOutputData.withoutInternalState(
                         BatchRouteMap.builder()
-                                .partitionLimits(Map.of(afgTaskName(AFG_1, TASK_NAME_1), 1))
+                                .partitionLimits(Map.of(partition(AFG_1, TASK_NAME_1), 1))
                                 .taskNameNodeQuota(ImmutableTable.of(TASK_NAME_1, NODES.get(5), 1))
                                 .build()
                 )
@@ -143,29 +131,29 @@ class TaskRouterTest {
         );
 
         return Arguments.of(
-                InputTestData.withLastAffinityGroupCursor(
-                        afgTaskName(AFG_1, TASK_NAME_1),
+                InputTestData.withPartitionCursor(
+                        partition(AFG_1, TASK_NAME_1),
                         BatchRouteRequest.builder()
-                                .newTaskBatches(Set.of(
+                                .partitionStatsToPlan(Set.of(
                                                 stat(AFG_1, TASK_NAME_1, 1),
                                                 stat(AFG_2, TASK_NAME_2, 1)
                                         )
                                 )
                                 .nodeTaskActivities(nodeTaskActivities)
-                                .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
+                                .actualClusterTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
                                 .nodeCapacities(capacityForAllNodes(10, nodeTaskActivities))
                                 .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
                         BatchRouteMap.builder()
-                                .partitionLimits(Map.of(afgTaskName(AFG_2, TASK_NAME_2), 1))
+                                .partitionLimits(Map.of(partition(AFG_2, TASK_NAME_2), 1))
                                 .taskNameNodeQuota(singleQuota(TASK_NAME_2, NODES.get(0), 1))
                                 .build()
                 )
         );
     }
 
-    private static Arguments shouldRouteBaseOnTaskLimit() {
+    private static Arguments shouldRouteBaseOnClusterTaskLimit() {
         //leave only one place
         List<NodeTaskActivity> nodeTaskActivities = all(
                 fairActivityDistribution(TASK_NAME_1, 1)
@@ -174,12 +162,12 @@ class TaskRouterTest {
         return Arguments.of(
                 InputTestData.withoutState(
                         BatchRouteRequest.builder()
-                                .newTaskBatches(Set.of(
+                                .partitionStatsToPlan(Set.of(
                                                 stat(AFG_1, TASK_NAME_1, 10),
                                                 stat(AFG_2, TASK_NAME_2, 9)
                                         )
                                 )
-                                .actualTaskLimits(Map.of(
+                                .actualClusterTaskLimits(Map.of(
                                                 TASK_NAME_1, 1,
                                                 TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                                         )
@@ -191,8 +179,8 @@ class TaskRouterTest {
                 ExpectedOutputData.withoutInternalState(
                         BatchRouteMap.builder()
                                 .partitionLimits(Map.of(
-                                                afgTaskName(AFG_1, TASK_NAME_1), 1,
-                                                afgTaskName(AFG_2, TASK_NAME_2), 9
+                                                partition(AFG_1, TASK_NAME_1), 1,
+                                                partition(AFG_2, TASK_NAME_2), 9
                                         )
                                 )
                                 .taskNameNodeQuota(all(
@@ -205,16 +193,57 @@ class TaskRouterTest {
         );
     }
 
+    private static Arguments shouldRouteBaseOnNodeTaskLimit() {
+        //leave only one place
+        List<NodeTaskActivity> nodeTaskActivities = all(
+                fairActivityDistribution(TASK_NAME_1, 10)
+        );
+
+        return Arguments.of(
+                InputTestData.withoutState(
+                        BatchRouteRequest.builder()
+                                .partitionStatsToPlan(Set.of(
+                                                stat(AFG_1, TASK_NAME_1, 100),
+                                                stat(AFG_2, TASK_NAME_2, 100)
+                                        )
+                                )
+                                .actualClusterTaskLimits(Map.of(
+                                                TASK_NAME_1, 100,
+                                                TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
+                                        )
+                                )
+                                .nodeTaskLimits(Map.of(TASK_NAME_1, 15))
+                                .nodeTaskActivities(nodeTaskActivities)
+                                .nodeCapacities(capacityForAllNodes(30, nodeTaskActivities))
+                                .build()
+                ),
+                ExpectedOutputData.withoutInternalState(
+                        BatchRouteMap.builder()
+                                .partitionLimits(Map.of(
+                                                partition(AFG_1, TASK_NAME_1), 50,
+                                                partition(AFG_2, TASK_NAME_2), 100
+                                        )
+                                )
+                                .taskNameNodeQuota(all(
+                                                fairQuotaDistribution(TASK_NAME_1, 5),
+                                                fairQuotaDistribution(TASK_NAME_2, 10)
+                                        )
+                                )
+                                .build()
+                )
+        );
+    }
+
     private static Arguments shouldCalculateCursorAndAffinityGroupTaskNameCorrectly() {
         return Arguments.of(
                 InputTestData.withoutState(
                         BatchRouteRequest.builder()
-                                .newTaskBatches(Set.of(
+                                .partitionStatsToPlan(Set.of(
                                                 stat(AFG_1, TASK_NAME_1, 10),
                                                 stat(AFG_2, TASK_NAME_2, 9)
                                         )
                                 )
-                                .actualTaskLimits(Map.of(
+                                .actualClusterTaskLimits(Map.of(
                                                 TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS,
                                                 TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                                         )
@@ -225,8 +254,8 @@ class TaskRouterTest {
                 new ExpectedOutputData(
                         BatchRouteMap.builder()
                                 .partitionLimits(Map.of(
-                                                afgTaskName(AFG_1, TASK_NAME_1), 10,
-                                                afgTaskName(AFG_2, TASK_NAME_2), 9
+                                                partition(AFG_1, TASK_NAME_1), 10,
+                                                partition(AFG_2, TASK_NAME_2), 9
                                         )
                                 )
                                 .taskNameNodeQuota(all(
@@ -236,20 +265,21 @@ class TaskRouterTest {
                                 )
                                 .build(),
                         Optional.of(NODES.get(9)),
-                        Optional.of(afgTaskName(AFG_1, TASK_NAME_1))
+                        Optional.of(partition(AFG_1, TASK_NAME_1))
                 )
         );
     }
 
     private static Stream<Arguments> shouldBatchRouteProvider() {
         return Stream.of(
-                shouldRouteFair(),
-                shouldRouteBaseOnCurrentLoadWhenNotEvenly(),
-                shouldRouteBaseOnCurrentLoadWhenTaskEvenlyAndAllTasksUnevenly(),
-                shouldRouteBaseOnEarliestAssignedWhenTaskEvenly(),
-                shouldRouteBaseOnLastAffinityGroupAndTaskAssigned(),
-                shouldRouteBaseOnTaskLimit(),
-                shouldCalculateCursorAndAffinityGroupTaskNameCorrectly()
+                shouldRouteFair()
+                , shouldRouteBaseOnCurrentLoadWhenNotEvenly()
+                , shouldRouteBaseOnCurrentLoadWhenTaskEvenlyAndAllTasksUnevenly()
+                , shouldRouteBaseOnEarliestAssignedWhenTaskEvenly()
+                , shouldRouteBaseOnLastAffinityGroupAndTaskAssigned()
+                , shouldRouteBaseOnClusterTaskLimit()
+                , shouldRouteBaseOnNodeTaskLimit()
+                , shouldCalculateCursorAndAffinityGroupTaskNameCorrectly()
         );
     }
 
@@ -338,7 +368,7 @@ class TaskRouterTest {
         return builder.build();
     }
 
-    private static Partition afgTaskName(String afg, String taskName) {
+    private static Partition partition(String afg, String taskName) {
         return Partition.builder()
                 .affinityGroup(afg)
                 .taskName(taskName)
@@ -397,8 +427,8 @@ class TaskRouterTest {
             );
         }
 
-        public static InputTestData withLastAffinityGroupCursor(Partition cursor,
-                                                                BatchRouteRequest batchRouteRequest) {
+        public static InputTestData withPartitionCursor(Partition cursor,
+                                                        BatchRouteRequest batchRouteRequest) {
             return new InputTestData(
                     Maps.newHashMap(),
                     cursor,
