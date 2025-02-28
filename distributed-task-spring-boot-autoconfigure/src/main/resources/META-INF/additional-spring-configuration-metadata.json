@@ -186,6 +186,10 @@
       "defaultValue": "-1"
     },
     {
+      "name": "distributed-task.task-properties-group.default-properties.max-parallel-in-node",
+      "defaultValue": "-1"
+    },
+    {
       "name": "distributed-task.task-properties-group.default-properties.timeout",
       "defaultValue": "0"
     }

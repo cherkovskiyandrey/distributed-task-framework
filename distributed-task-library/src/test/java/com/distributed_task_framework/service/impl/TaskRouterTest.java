@@ -184,6 +184,7 @@ class TaskRouterTest {
                             TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                         )
                     )
+                    .nodeTaskLimits(Map.of(TASK_NAME_1, 3))
                     .nodeTaskActivities(nodeTaskActivities)
                     .nodeCapacities(capacityForAllNodes(10, nodeTaskActivities))
                     .build()
