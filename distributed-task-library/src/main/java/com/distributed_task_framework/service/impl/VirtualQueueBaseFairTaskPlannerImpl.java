@@ -1,10 +1,21 @@
 package com.distributed_task_framework.service.impl;
 
-import com.distributed_task_framework.model.*;
+import com.distributed_task_framework.model.BatchRouteMap;
+import com.distributed_task_framework.model.BatchRouteRequest;
+import com.distributed_task_framework.model.Capabilities;
+import com.distributed_task_framework.model.NodeCapacity;
+import com.distributed_task_framework.model.NodeLoading;
+import com.distributed_task_framework.model.NodeTaskActivity;
+import com.distributed_task_framework.model.PartitionStat;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.service.internal.*;
+import com.distributed_task_framework.service.internal.CapabilityRegister;
+import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.PartitionTracker;
+import com.distributed_task_framework.service.internal.PlannerGroups;
+import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Lists;
@@ -21,7 +32,13 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.distributed_task_framework.settings.CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS;
@@ -69,20 +86,20 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         this.clock = clock;
         this.commonTags = List.of(Tag.of("group", groupName()));
         this.currentAssignedTaskStatTimer = metricHelper.timer(
-                List.of("planner", "vqb", "currentAssignedTaskStat", "time"),
-                commonTags
+            List.of("planner", "vqb", "currentAssignedTaskStat", "time"),
+            commonTags
         );
         this.partitionsFromNewStatTimer = metricHelper.timer(
-                List.of("planner", "vqb", "partitionsFromNewStatTimer", "time"),
-                commonTags
+            List.of("planner", "vqb", "partitionsFromNewStatTimer", "time"),
+            commonTags
         );
         this.batchRouteTimer = metricHelper.timer(
-                List.of("planner", "vqb", "batchRouteTimer", "time"),
-                commonTags
+            List.of("planner", "vqb", "batchRouteTimer", "time"),
+            commonTags
         );
         this.loadTasksToPlanTimer = metricHelper.timer(
-                List.of("planner", "vqb", "loadTasksToPlanTimer", "time"),
-                commonTags
+            List.of("planner", "vqb", "loadTasksToPlanTimer", "time"),
+            commonTags
         );
     }
 
@@ -138,41 +155,41 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         Map<UUID, Set<String>> registeredTaskByNode = taskRegistryService.getRegisteredLocalTaskInCluster();
         Set<UUID> knownNodes = registeredTaskByNode.keySet();
         Set<String> knownTaskNames = registeredTaskByNode.entrySet().stream()
-                .flatMap(entry -> entry.getValue().stream())
-                .collect(Collectors.toSet());
+            .flatMap(entry -> entry.getValue().stream())
+            .collect(Collectors.toSet());
 
         Map<UUID, Set<String>> availableTaskByNode = registeredTaskByNode.entrySet().stream()
-                .filter(entry -> availableNodes.contains(entry.getKey()))
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue
+            .filter(entry -> availableNodes.contains(entry.getKey()))
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue
 
-                ));
+            ));
         Set<String> availableTaskNames = availableTaskByNode.entrySet().stream()
-                .flatMap(entry -> entry.getValue().stream())
-                .collect(Collectors.toSet());
+            .flatMap(entry -> entry.getValue().stream())
+            .collect(Collectors.toSet());
         if (availableTaskNames.isEmpty()) {
             log.debug("processInLoop(): there aren't registered tasks on available nodes to plan");
             return 0;
         }
 
         var activePartitions = partitionTracker.getAll().stream()
-                .filter(entity -> availableTaskNames.contains(entity.getTaskName()))
-                .collect(Collectors.toSet());
+            .filter(entity -> availableTaskNames.contains(entity.getTaskName()))
+            .collect(Collectors.toSet());
         if (activePartitions.isEmpty()) {
             log.debug("processInLoop(): activeTaskNameAndAffinityGroups are empty");
             return 0;
         }
 
         List<NodeTaskActivity> nodeTaskActivities = Objects.requireNonNull(
-                currentAssignedTaskStatTimer.record(
-                        () -> taskRepository.currentAssignedTaskStat(knownNodes, knownTaskNames)
-                )
+            currentAssignedTaskStatTimer.record(
+                () -> taskRepository.currentAssignedTaskStat(knownNodes, knownTaskNames)
+            )
         );
 
         List<NodeCapacity> nodeCapacities = calculateNodeCapacities(
-                availableTaskByNode,
-                nodeTaskActivities
+            availableTaskByNode,
+            nodeTaskActivities
         );
         if (nodeCapacities.isEmpty()) {
             log.debug("processInLoop(): nodeCapacities is empty");
@@ -180,30 +197,30 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         }
 
         int clusterCapacity = nodeCapacities.stream()
-                .mapToInt(NodeCapacity::getFreeCapacity)
-                .sum();
+            .mapToInt(NodeCapacity::getFreeCapacity)
+            .sum();
         Set<PartitionStat> partitionStatsToPlan = Objects.requireNonNull(
-                partitionsFromNewStatTimer.record(() ->
-                        taskRepository.findPartitionStatToPlan(
-                                knownNodes,
-                                activePartitions,
-                                clusterCapacity
-                        )
+            partitionsFromNewStatTimer.record(() ->
+                taskRepository.findPartitionStatToPlan(
+                    knownNodes,
+                    activePartitions,
+                    clusterCapacity
                 )
+            )
         );
 
         Set<String> taskNamesToPlan = partitionStatsToPlan.stream()
-                .map(PartitionStat::getTaskName)
-                .collect(Collectors.toSet());
+            .map(PartitionStat::getTaskName)
+            .collect(Collectors.toSet());
         Map<String, Integer> currentActiveTasksByName = nodeTaskActivities.stream()
-                .collect(Collectors.groupingBy(
-                        NodeTaskActivity::getTask,
-                        Collectors.summingInt(NodeTaskActivity::getNumber)
-                ));
+            .collect(Collectors.groupingBy(
+                NodeTaskActivity::getTask,
+                Collectors.summingInt(NodeTaskActivity::getNumber)
+            ));
 
         Map<String, Integer> actualClusterTaskLimits = applyClusterTaskLimits(taskNamesToPlan, currentActiveTasksByName);
         boolean isReachedLimits = actualClusterTaskLimits.values().stream()
-                .allMatch(limit -> limit == 0);
+            .allMatch(limit -> limit == 0);
         if (isReachedLimits) {
             log.debug("processInLoop(): isReachedLimits=true");
             return 0;
@@ -211,15 +228,15 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
 
         var nodeTaskLimits = fillNodeTaskLimits(availableTaskNames);
         BatchRouteMap batchRouteMap = Objects.requireNonNull(
-                batchRouteTimer.record(() -> taskRouter.batchRoute(BatchRouteRequest.builder()
-                                .partitionStatsToPlan(partitionStatsToPlan)
-                                .actualClusterTaskLimits(actualClusterTaskLimits)
-                                .nodeTaskLimits(nodeTaskLimits)
-                                .nodeTaskActivities(nodeTaskActivities)
-                                .nodeCapacities(nodeCapacities)
-                                .build()
-                        )
+            batchRouteTimer.record(() -> taskRouter.batchRoute(BatchRouteRequest.builder()
+                    .partitionStatsToPlan(partitionStatsToPlan)
+                    .actualClusterTaskLimits(actualClusterTaskLimits)
+                    .nodeTaskLimits(nodeTaskLimits)
+                    .nodeTaskActivities(nodeTaskActivities)
+                    .nodeCapacities(nodeCapacities)
+                    .build()
                 )
+            )
         );
         if (batchRouteMap.getPartitionLimits().isEmpty()) {
             log.debug("processInLoop(): partitionLimits is empty");
@@ -227,11 +244,11 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         }
 
         Collection<ShortTaskEntity> unplannedActualTasks = Objects.requireNonNull(
-                loadTasksToPlanTimer.record(() -> taskRepository.loadTasksToPlan(
-                                knownNodes,
-                                batchRouteMap.getPartitionLimits()
-                        )
+            loadTasksToPlanTimer.record(() -> taskRepository.loadTasksToPlan(
+                    knownNodes,
+                    batchRouteMap.getPartitionLimits()
                 )
+            )
         );
         if (unplannedActualTasks.isEmpty()) {
             log.debug("planTaskFromActiveQueue(): there isn't unplanned tasks");
@@ -240,16 +257,16 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
 
         log.info("planTaskFromActiveQueue(): batchRouteMap=[{}]", batchRouteMap);
         Collection<ShortTaskEntity> plannedTasks = assignNodeToTasks(
-                unplannedActualTasks,
-                batchRouteMap.getTaskNameNodeQuota()
+            unplannedActualTasks,
+            batchRouteMap.getTaskNameNodeQuota()
         );
         plannedTasks = sort(plannedTasks); //to prevent deadlocks during split brain
         taskRepository.updateAll(plannedTasks);
         virtualQueueStatHelper.updatePlannedTasks(plannedTasks);
         log.info(
-                "planTaskFromActiveQueue(): unplannedActualTasks=[{}], plannedTasks=[{}]",
-                toIdList(unplannedActualTasks),
-                toIdList(plannedTasks)
+            "planTaskFromActiveQueue(): unplannedActualTasks=[{}], plannedTasks=[{}]",
+            toIdList(unplannedActualTasks),
+            toIdList(plannedTasks)
         );
 
         return plannedTasks.size();
@@ -257,36 +274,36 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
 
     private Map<String, Integer> fillNodeTaskLimits(Set<String> availableTaskNames) {
         return availableTaskNames.stream()
-                .map(taskName -> Pair.of(
-                                taskName,
-                                taskRegistryService.getLocalTaskParameters(taskName)
-                                        .map(TaskSettings::getMaxParallelInNode)
-                                        .orElse(CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS)
-                        )
+            .map(taskName -> Pair.of(
+                    taskName,
+                    taskRegistryService.getLocalTaskParameters(taskName)
+                        .map(TaskSettings::getMaxParallelInNode)
+                        .orElse(CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS)
                 )
-                .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+            )
+            .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
 
     private Set<UUID> availableNodesCalculation() {
         var currentNodeLoading = clusterProvider.currentNodeLoading();
         var allNodes = currentNodeLoading.stream()
-                .map(NodeLoading::getNode)
-                .collect(Collectors.toSet());
+            .map(NodeLoading::getNode)
+            .collect(Collectors.toSet());
         Map<Boolean, Set<UUID>> nodesPartitionedByCpuLoading = currentNodeLoading.stream()
-                .collect(Collectors.partitioningBy(
-                                nodeLoading -> {
-                                    int compareResult = Double.compare(
-                                            nodeLoading.getMedianCpuLoading(),
-                                            commonSettings.getPlannerSettings().getNodeCpuLoadingLimit()
-                                    );
-                                    return compareResult < 0;
-                                },
-                                Collectors.mapping(
-                                        NodeLoading::getNode,
-                                        Collectors.toSet()
-                                )
-                        )
-                );
+            .collect(Collectors.partitioningBy(
+                    nodeLoading -> {
+                        int compareResult = Double.compare(
+                            nodeLoading.getMedianCpuLoading(),
+                            commonSettings.getPlannerSettings().getNodeCpuLoadingLimit()
+                        );
+                        return compareResult < 0;
+                    },
+                    Collectors.mapping(
+                        NodeLoading::getNode,
+                        Collectors.toSet()
+                    )
+                )
+            );
         virtualQueueStatHelper.overloadedNodes(allNodes, nodesPartitionedByCpuLoading.get(false));
         return nodesPartitionedByCpuLoading.get(true);
     }
@@ -294,44 +311,44 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     private Collection<ShortTaskEntity> assignNodeToTasks(Collection<ShortTaskEntity> unplannedActualTasks,
                                                           Table<String, UUID, Integer> taskNameNodeQuota) {
         return unplannedActualTasks.stream()
-                .map(shortTaskEntity -> {
-                    String taskName = shortTaskEntity.getTaskName();
-                    Map<UUID, Integer> nodeToQuotaMap = taskNameNodeQuota.row(taskName);
-                    if (nodeToQuotaMap.isEmpty()) {
-                        log.error(
-                                "assignNodeToTasks(): couldn't find quota for shortTaskEntity=[{}] in taskNameNodeQuota=[{}]",
-                                shortTaskEntity,
-                                taskNameNodeQuota
-                        );
-                        return shortTaskEntity;
-                    }
-                    Map.Entry<UUID, Integer> firstNodeToQuota = nodeToQuotaMap.entrySet().iterator().next();
-                    UUID nodeId = firstNodeToQuota.getKey();
-                    int newQuota = firstNodeToQuota.getValue() - 1;
-                    if (newQuota == 0) {
-                        taskNameNodeQuota.remove(taskName, nodeId);
-                    } else {
-                        taskNameNodeQuota.put(taskName, nodeId, newQuota);
-                    }
-                    return shortTaskEntity.toBuilder()
-                            .assignedWorker(nodeId)
-                            .lastAssignedDateUtc(LocalDateTime.now(clock))
-                            .build();
-                })
-                .filter(shortTaskEntity -> shortTaskEntity.getAssignedWorker() != null)
-                .toList();
+            .map(shortTaskEntity -> {
+                String taskName = shortTaskEntity.getTaskName();
+                Map<UUID, Integer> nodeToQuotaMap = taskNameNodeQuota.row(taskName);
+                if (nodeToQuotaMap.isEmpty()) {
+                    log.error(
+                        "assignNodeToTasks(): couldn't find quota for shortTaskEntity=[{}] in taskNameNodeQuota=[{}]",
+                        shortTaskEntity,
+                        taskNameNodeQuota
+                    );
+                    return shortTaskEntity;
+                }
+                Map.Entry<UUID, Integer> firstNodeToQuota = nodeToQuotaMap.entrySet().iterator().next();
+                UUID nodeId = firstNodeToQuota.getKey();
+                int newQuota = firstNodeToQuota.getValue() - 1;
+                if (newQuota == 0) {
+                    taskNameNodeQuota.remove(taskName, nodeId);
+                } else {
+                    taskNameNodeQuota.put(taskName, nodeId, newQuota);
+                }
+                return shortTaskEntity.toBuilder()
+                    .assignedWorker(nodeId)
+                    .lastAssignedDateUtc(LocalDateTime.now(clock))
+                    .build();
+            })
+            .filter(shortTaskEntity -> shortTaskEntity.getAssignedWorker() != null)
+            .toList();
     }
 
     private List<UUID> toIdList(Collection<ShortTaskEntity> plannedTasks) {
         return plannedTasks.stream()
-                .map(ShortTaskEntity::getId)
-                .toList();
+            .map(ShortTaskEntity::getId)
+            .toList();
     }
 
     private Collection<ShortTaskEntity> sort(Collection<ShortTaskEntity> plannedTasks) {
         return plannedTasks.stream()
-                .sorted(ShortTaskEntity.COMPARATOR)
-                .toList();
+            .sorted(ShortTaskEntity.COMPARATOR)
+            .toList();
     }
 
     private Map<String, Integer> applyClusterTaskLimits(Set<String> potentialTasksToAssign,
@@ -341,7 +358,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
             int allowedTaskNumber = calculateAllowedTaskNumber(taskName, currentActiveTasksByName);
             if (allowedTaskNumber == 0) {
                 log.debug("applyLimits(): capacity is exhausted for task=[{}], currentTasks in cluster=[{}]",
-                        taskName, currentActiveTasksByName.getOrDefault(taskName, 0));
+                    taskName, currentActiveTasksByName.getOrDefault(taskName, 0));
             }
             limits.put(taskName, allowedTaskNumber);
         }
@@ -350,11 +367,11 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
 
     private int calculateAllowedTaskNumber(String taskName, Map<String, Integer> currentActiveTasksByName) {
         int maxParallelInCluster = taskRegistryService.getLocalTaskParameters(taskName)
-                .map(TaskSettings::getMaxParallelInCluster)
-                .orElseGet(() -> {
-                    log.warn("calculateAllowedTaskNumber(): unknown parameters for task=[{}], use default limit", taskName);
-                    return maxParallelTasksInClusterDefault;
-                });
+            .map(TaskSettings::getMaxParallelInCluster)
+            .orElseGet(() -> {
+                log.warn("calculateAllowedTaskNumber(): unknown parameters for task=[{}], use default limit", taskName);
+                return maxParallelTasksInClusterDefault;
+            });
         if (maxParallelInCluster == UNLIMITED_PARALLEL_TASKS) {
             return UNLIMITED_PARALLEL_TASKS;
         }
@@ -381,8 +398,8 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
 
         Float planFactor = commonSettings.getPlannerSettings().getPlanFactor();
         return result.stream()
-                .filter(nodeCapacity -> nodeCapacity.getFreeCapacity() > 0)
-                .peek(nodeCapacity -> nodeCapacity.setFreeCapacity((int) (nodeCapacity.getFreeCapacity() * planFactor)))
-                .toList();
+            .filter(nodeCapacity -> nodeCapacity.getFreeCapacity() > 0)
+            .peek(nodeCapacity -> nodeCapacity.setFreeCapacity((int) (nodeCapacity.getFreeCapacity() * planFactor)))
+            .toList();
     }
 }
