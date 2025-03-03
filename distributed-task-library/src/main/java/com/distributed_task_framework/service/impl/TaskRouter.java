@@ -62,18 +62,19 @@ public class TaskRouter {
         Map<Partition, Integer> partitionLimits = Maps.newHashMap();
         Table<String, UUID, Integer> taskNameNodeQuota = HashBasedTable.create();
 
-        Map<String, Integer> actualTaskLimits = Maps.newHashMap(batchRouteRequest.getActualTaskLimits());
+        Map<String, Integer> actualClusterTaskLimits = Maps.newHashMap(batchRouteRequest.getActualClusterTaskLimits());
+        Map<String, Integer> nodeTaskLimits = batchRouteRequest.getNodeTaskLimits();
         List<NodeCapacity> nodeCapacities = Lists.newArrayList(batchRouteRequest.getNodeCapacities());
         Map<NodeTask, Integer> nodeTaskToActivity = nodeTaskToActivityAsMap(batchRouteRequest.getNodeTaskActivities());
-        Map<Partition, Integer> newTaskBatches = newTaskBatchesAsMap(batchRouteRequest.getNewTaskBatches());
+        Map<Partition, Integer> newTaskBatches = newTaskBatchesAsMap(batchRouteRequest.getPartitionStatsToPlan());
 
         List<Partition> order = newTaskBatches.keySet().stream()
-                .sorted()
-                .toList();
+            .sorted()
+            .toList();
 
         Set<UUID> activeNodes = nodeCapacities.stream()
-                .map(NodeCapacity::getNode)
-                .collect(Collectors.toSet());
+            .map(NodeCapacity::getNode)
+            .collect(Collectors.toSet());
 
         normalizeNodeLastUpdate(activeNodes);
 
@@ -88,14 +89,15 @@ public class TaskRouter {
                     processed.add(partitionToPlan);
                     continue;
                 }
-                if (isLimitReached(partitionToPlan, actualTaskLimits)) {
+                if (isClusterTaskLimitReached(partitionToPlan, actualClusterTaskLimits)) {
                     processed.add(partitionToPlan);
                     continue;
                 }
                 Optional<NodeCapacity> commonCapacityOpt = lookupCapacity(
-                        partitionToPlan,
-                        nodeCapacities,
-                        nodeTaskToActivity
+                    partitionToPlan,
+                    nodeCapacities,
+                    nodeTaskToActivity,
+                    nodeTaskLimits
                 );
                 if (commonCapacityOpt.isEmpty()) {
                     processed.add(partitionToPlan);
@@ -106,9 +108,9 @@ public class TaskRouter {
                 nodeCapacity.busyOnlyOne();
 
                 NodeTask affectedNodeTask = NodeTask.builder()
-                        .node(nodeCapacity.getNode())
-                        .task(taskName)
-                        .build();
+                    .node(nodeCapacity.getNode())
+                    .task(taskName)
+                    .build();
                 nodeTaskToActivity.compute(affectedNodeTask, (key, oldVal) -> oldVal == null ? 1 : oldVal + 1);
 
                 Integer currentQuota = taskNameNodeQuota.get(taskName, nodeCapacity.getNode());
@@ -116,8 +118,8 @@ public class TaskRouter {
 
                 newTaskBatches.computeIfPresent(partitionToPlan, (key, oldVal) -> oldVal - 1);
                 partitionLimits.compute(partitionToPlan, (key, oldVal) -> oldVal == null ? 1 : oldVal + 1);
-                actualTaskLimits.computeIfPresent(taskName, (key, oldVal) ->
-                        oldVal == UNLIMITED_PARALLEL_TASKS ? UNLIMITED_PARALLEL_TASKS : oldVal - 1
+                actualClusterTaskLimits.computeIfPresent(taskName, (key, oldVal) ->
+                    oldVal == UNLIMITED_PARALLEL_TASKS ? UNLIMITED_PARALLEL_TASKS : oldVal - 1
                 );
                 partitionCursor = partitionToPlan;
                 nodeLastUpdateNumber.put(nodeCapacity.getNode(), currentUpdateNumber() + 1);
@@ -126,9 +128,9 @@ public class TaskRouter {
         }
 
         return BatchRouteMap.builder()
-                .partitionLimits(partitionLimits)
-                .taskNameNodeQuota(taskNameNodeQuota)
-                .build();
+            .partitionLimits(partitionLimits)
+            .taskNameNodeQuota(taskNameNodeQuota)
+            .build();
     }
 
     @VisibleForTesting
@@ -139,17 +141,17 @@ public class TaskRouter {
     @VisibleForTesting
     Optional<UUID> lastUpdatedNode() {
         return nodeLastUpdateNumber.entrySet().stream()
-                .max(Comparator.comparingLong(Map.Entry::getValue))
-                .map(Map.Entry::getKey);
+            .max(Comparator.comparingLong(Map.Entry::getValue))
+            .map(Map.Entry::getKey);
 
     }
 
     private long currentUpdateNumber() {
         return nodeLastUpdateNumber.values()
-                .stream()
-                .mapToLong(Long::longValue)
-                .max()
-                .orElse(0);
+            .stream()
+            .mapToLong(Long::longValue)
+            .max()
+            .orElse(0);
     }
 
     private void normalizeNodeLastUpdate(Set<UUID> activeNodes) {
@@ -157,8 +159,8 @@ public class TaskRouter {
         inactiveNodeIds.forEach(nodeLastUpdateNumber::remove);
 
         Optional<Long> minValOpt = nodeLastUpdateNumber.entrySet().stream()
-                .min(Comparator.comparingLong(Map.Entry::getValue))
-                .map(Map.Entry::getValue);
+            .min(Comparator.comparingLong(Map.Entry::getValue))
+            .map(Map.Entry::getValue);
         if (minValOpt.isEmpty() || minValOpt.get() == 0) {
             return;
         }
@@ -169,49 +171,67 @@ public class TaskRouter {
 
     private Map<Partition, Integer> newTaskBatchesAsMap(Set<PartitionStat> newTaskBatches) {
         return newTaskBatches.stream()
-                .collect(Collectors.toMap(
-                        stat -> Partition.builder()
-                                .affinityGroup(stat.getAffinityGroup())
-                                .taskName(stat.getTaskName())
-                                .build(),
-                        PartitionStat::getNumber
-                ));
+            .collect(Collectors.toMap(
+                stat -> Partition.builder()
+                    .affinityGroup(stat.getAffinityGroup())
+                    .taskName(stat.getTaskName())
+                    .build(),
+                PartitionStat::getNumber
+            ));
     }
 
     private Map<NodeTask, Integer> nodeTaskToActivityAsMap(List<NodeTaskActivity> nodeTaskActivities) {
         return nodeTaskActivities.stream()
-                .collect(Collectors.toMap(
-                        nodeTaskActivity -> NodeTask.builder()
-                                .node(nodeTaskActivity.getNode())
-                                .task(nodeTaskActivity.getTask())
-                                .build(),
-                        NodeTaskActivity::getNumber
-                ));
+            .collect(Collectors.toMap(
+                nodeTaskActivity -> NodeTask.builder()
+                    .node(nodeTaskActivity.getNode())
+                    .task(nodeTaskActivity.getTask())
+                    .build(),
+                NodeTaskActivity::getNumber
+            ));
     }
 
-    private boolean isLimitReached(Partition partition, Map<String, Integer> taskLimits) {
+    private boolean isClusterTaskLimitReached(Partition partition, Map<String, Integer> taskLimits) {
         return taskLimits.getOrDefault(partition.getTaskName(), UNLIMITED_PARALLEL_TASKS) == 0;
     }
 
     private Optional<NodeCapacity> lookupCapacity(Partition partitionToPlan,
                                                   List<NodeCapacity> nodeCapacities,
-                                                  Map<NodeTask, Integer> nodeTaskToActivity) {
+                                                  Map<NodeTask, Integer> nodeTaskToActivity,
+                                                  Map<String, Integer> actualNodeTaskLimits) {
         String taskName = partitionToPlan.getTaskName();
+        var nodeTaskLimit = actualNodeTaskLimits.getOrDefault(taskName, UNLIMITED_PARALLEL_TASKS);
         return nodeCapacities.stream()
-                .filter(nodeCapacity -> nodeCapacity.getTaskNames().contains(taskName) &&
-                        nodeCapacity.getFreeCapacity() > 0
-                )
-                .min(Comparator.<NodeCapacity>comparingInt(nodeCapacity -> nodeTaskToActivity.getOrDefault(NodeTask.builder()
-                                                        .node(nodeCapacity.getNode())
-                                                        .task(taskName)
-                                                        .build(),
-                                                0
-                                        )
-                                )
-                                .thenComparingInt(NodeCapacity::getBusyCapacity)
-                                .thenComparingLong(nodeCapacity ->
-                                        nodeLastUpdateNumber.getOrDefault(nodeCapacity.getNode(), 0L)
-                                )
-                );
+            //apply node capacity limit
+            .filter(nodeCapacity -> nodeCapacity.getTaskNames().contains(taskName) && nodeCapacity.getFreeCapacity() > 0)
+            //apply node task capacity limit
+            .filter(nodeCapacity -> {
+                    if (nodeTaskLimit == UNLIMITED_PARALLEL_TASKS) {
+                        return true;
+                    }
+                    var busyNumber = nodeTaskToActivity.getOrDefault(NodeTask.builder()
+                            .node(nodeCapacity.getNode())
+                            .task(taskName)
+                            .build(),
+                        0
+                    );
+                    return busyNumber < nodeTaskLimit;
+                }
+            )
+            //1. min certain task number
+            .min(Comparator.<NodeCapacity>comparingInt(nodeCapacity -> nodeTaskToActivity.getOrDefault(NodeTask.builder()
+                                .node(nodeCapacity.getNode())
+                                .task(taskName)
+                                .build(),
+                            0
+                        )
+                    )
+                    //2. least busy node
+                    .thenComparingInt(NodeCapacity::getBusyCapacity)
+                    //3. the earliest updated node
+                    .thenComparingLong(nodeCapacity ->
+                        nodeLastUpdateNumber.getOrDefault(nodeCapacity.getNode(), 0L)
+                    )
+            );
     }
 }

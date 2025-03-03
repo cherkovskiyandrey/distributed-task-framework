@@ -266,7 +266,6 @@ public class BaseTestConfiguration {
             )
             .plannerSettings(CommonSettings.DEFAULT.getPlannerSettings().toBuilder()
                 .batchSize(100)
-                .fetchFactor(2.F)
                 .affinityGroupScannerTimeOverlap(Duration.ofSeconds(1))
                 .partitionTrackingTimeWindow(Duration.ofSeconds(5))
                 .planFactor(2.F)

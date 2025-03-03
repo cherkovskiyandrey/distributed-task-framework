@@ -130,10 +130,6 @@
       "defaultValue": "0.95"
     },
     {
-      "name": "distributed-task.common.planner.fetch-factor",
-      "defaultValue": "2.0"
-    },
-    {
       "name": "distributed-task.common.planner.plan-factor",
       "defaultValue": "2.0"
     },
@@ -187,6 +183,10 @@
     },
     {
       "name": "distributed-task.task-properties-group.default-properties.max-parallel-in-cluster",
+      "defaultValue": "-1"
+    },
+    {
+      "name": "distributed-task.task-properties-group.default-properties.max-parallel-in-node",
       "defaultValue": "-1"
     },
     {

@@ -19,13 +19,12 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@SuppressWarnings("UnstableApiUsage")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @ExtendWith(MockitoExtension.class)
 class DistributedTaskPropertiesMapperTest {
     private final DistributedTaskPropertiesMapper distributedTaskPropertiesMapper = Mappers.getMapper(DistributedTaskPropertiesMapper.class);
 
-    //todo
-    @SuppressWarnings({"deprecation", "UnstableApiUsage"})
     @SneakyThrows
     @Test
     void shouldMergeCommonPropertiesWhenDefault() {
@@ -63,7 +62,6 @@ class DistributedTaskPropertiesMapperTest {
         assertThat(overrideCommonSettings).isEqualTo(expectedProperties);
     }
 
-    @SuppressWarnings({"deprecation", "UnstableApiUsage"})
     @SneakyThrows
     @Test
     void shouldMergeCommonPropertiesWhenOverride() {

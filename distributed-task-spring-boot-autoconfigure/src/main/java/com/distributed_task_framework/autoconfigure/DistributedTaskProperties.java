@@ -115,13 +115,10 @@ public class DistributedTaskProperties {
          */
         Double nodeCpuLoadingLimit;
         /**
-         * Used to calculate batch size base on current free capacity.
-         * Usually allow to take into account dependent tasks.
-         */
-        Float fetchFactor;
-        /**
          * Used to plan bigger than capacity in this factor times.
          * In order to reduce potential delay between planner loop steps.
+         * Take into account that work only for unlimited tasks
+         * (maxParallelTasksInClusterDefault = UNLIMITED_PARALLEL_TASKS and TaskSettings.maxParallelInCluster = UNLIMITED_PARALLEL_TASKS)
          */
         Float planFactor;
         /**
@@ -261,10 +258,14 @@ public class DistributedTaskProperties {
         Retry retry; //@TaskFixedRetryPolicy
         /**
          * How many parallel tasks can be in the cluster.
-         * '-1' means undefined and depends on current cluster configuration
-         * like how many pods work simultaneously.
+         * '-1' means undefined and depends on current cluster configuration.
          */
         Integer maxParallelInCluster; // @TaskConcurrency
+        /**
+         * How many parallel tasks can be on the one node (one worker).
+         * '-1' means undefined.
+         */
+        Integer maxParallelInNode; // @TaskConcurrency
         /**
          * Task timeout. If task still is in progress after timeout expired, it will be interrupted.
          * {@link InterruptedException} will be risen in {@link Task#execute(ExecutionContext)}
