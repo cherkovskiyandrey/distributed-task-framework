@@ -208,6 +208,7 @@ class TaskConfigurationDiscoveryProcessorTest {
         //verify
         TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
             .maxParallelInCluster(10)
+            .maxParallelInNode(1)
             .cron("* */10 * * *")
             .executionGuarantees(TaskSettings.ExecutionGuarantees.EXACTLY_ONCE)
             .dltEnabled(true)
@@ -239,6 +240,7 @@ class TaskConfigurationDiscoveryProcessorTest {
         //verify
         TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
             .maxParallelInCluster(300)
+            .maxParallelInNode(1)
             .cron("*/4 * * * *")
             .executionGuarantees(TaskSettings.ExecutionGuarantees.EXACTLY_ONCE)
             .dltEnabled(true)
