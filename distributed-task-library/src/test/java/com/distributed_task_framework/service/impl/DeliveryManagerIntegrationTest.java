@@ -4,6 +4,7 @@ package com.distributed_task_framework.service.impl;
 import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.controller.dto.CommandListDto;
 import com.distributed_task_framework.mapper.CommandMapper;
+import com.distributed_task_framework.persistence.entity.DlcEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
 import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
@@ -238,8 +239,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         //verify
         verifyBatch(firstBatch);
         waitFor(() -> EqualsBuilder.reflectionEquals(
-                Lists.newArrayList(remoteCommandRepository.findAll()),
-                foreignBatch,
+                Lists.newArrayList(remoteCommandRepository.findAll()).toArray(new RemoteCommandEntity[0]),
+                foreignBatch.toArray(new RemoteCommandEntity[0]),
                 "createdDateUtc",
                 "sendDateUtc"
         ));
@@ -280,8 +281,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
         //verify
         waitFor(() -> Lists.newArrayList(remoteCommandRepository.findAll()).isEmpty());
         waitFor(() -> EqualsBuilder.reflectionEquals(
-                Lists.newArrayList(dlcRepository.findAll()),
-                commandMapper.mapToDlcList(batch),
+                Lists.newArrayList(dlcRepository.findAll()).toArray(new DlcEntity[0]),
+                commandMapper.mapToDlcList(batch).toArray(new DlcEntity[0]),
                 "createdDateUtc"
         ));
     }
