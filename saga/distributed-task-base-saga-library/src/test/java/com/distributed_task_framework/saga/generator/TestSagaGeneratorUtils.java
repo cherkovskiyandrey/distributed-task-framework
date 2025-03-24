@@ -2,6 +2,7 @@ package com.distributed_task_framework.saga.generator;
 
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
+import com.distributed_task_framework.settings.Fixed;
 import com.distributed_task_framework.settings.Retry;
 import com.distributed_task_framework.settings.RetryMode;
 import com.google.common.collect.Lists;
@@ -16,6 +17,20 @@ public class TestSagaGeneratorUtils {
         return SagaMethodSettings.DEFAULT.toBuilder()
             .retry(Retry.builder()
                 .retryMode(RetryMode.OFF)
+                .build()
+            )
+            .build();
+    }
+
+    public SagaMethodSettings withRetry(int retry) {
+        return SagaMethodSettings.DEFAULT.toBuilder()
+            .retry(Retry.builder()
+                .retryMode(RetryMode.FIXED)
+                .fixed(Fixed.builder()
+                    .delay(Duration.ofMillis(100))
+                    .maxNumber(retry)
+                    .build()
+                )
                 .build()
             )
             .build();

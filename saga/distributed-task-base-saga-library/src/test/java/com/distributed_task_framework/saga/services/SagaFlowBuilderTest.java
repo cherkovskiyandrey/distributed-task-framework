@@ -20,7 +20,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
     @Test
     void shouldDoThenRun() {
         //when
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
+        var testSagaModel = testSagaGenerator.generateFor(new TestSagaBase(10));
 
         //do
         var resultOpt = distributionSagaService.create(testSagaModel.getName())
@@ -40,28 +40,9 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
     @Test
     void shouldDoThenRunWhenWithRevert() {
         //when
-        class TestSaga extends TestSagaBase {
-
-            public TestSaga(int value) {
-                super(value);
-            }
-
-            public int multiplyAsFunction(int parentOutput) {
-                value *= parentOutput;
-                throw new TestUserUncheckedException();
-            }
-
-            @Override
-            public void divideForFunction(int parentOutput, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
-                assertThat(output).isNull();
-                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
-                super.divideForFunction(parentOutput, output, throwable);
-            }
-        }
-
-        var testSagaException = new TestSaga(10);
+        var testSagaException = new TestSagaBase(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withMethod(testSagaException::multiplyAsFunction, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::multiplyAsFunctionWithException, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
@@ -73,8 +54,8 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
                 10
             )
             .thenRun(
-                testSagaModel.getBean()::multiplyAsFunction,
-                testSagaModel.getBean()::divideForFunction
+                testSagaModel.getBean()::multiplyAsFunctionWithException,
+                testSagaModel.getBean()::divideForFunctionWithExceptionHandling
             )
             .start()
             .get()
@@ -136,7 +117,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
     @Test
     void shouldDoThenRunWhenWithRootInput() {
         //when
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
+        var testSagaModel = testSagaGenerator.generateFor(new TestSagaBase(10));
 
         //do
         var resultOpt = distributionSagaService.create(testSagaModel.getName())
@@ -262,7 +243,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
     void shouldThenConsume() {
         //when
         var testSaga = new TestSagaBase(10);
-        var testSagaModel = testSagaGenerator.generateDefaultFor(testSaga);
+        var testSagaModel = testSagaGenerator.generateFor(testSaga);
 
         //do
         distributionSagaService.create(testSagaModel.getName())
@@ -331,7 +312,7 @@ class SagaFlowBuilderTest extends BaseSpringIntegrationTest {
     void shouldThenConsumeWhenWithRootInput() {
         //when
         var testSaga = new TestSagaBase(10);
-        var testSagaModel = testSagaGenerator.generateDefaultFor(testSaga);
+        var testSagaModel = testSagaGenerator.generateFor(testSaga);
 
         //do
         distributionSagaService.create(testSagaModel.getName())

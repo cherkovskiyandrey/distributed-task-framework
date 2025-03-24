@@ -5,7 +5,6 @@ import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.TestUserUncheckedException;
 import com.distributed_task_framework.saga.generator.TestSagaGeneratorUtils;
 import com.distributed_task_framework.saga.generator.TestSagaModelSpec;
-import jakarta.annotation.Nullable;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +17,7 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRegisterToRun() {
         //when
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
+        var testSagaModel = testSagaGenerator.generateFor(new TestSagaBase(10));
 
         //do
         var resultOpt = distributionSagaService.create(testSagaModel.getName())
@@ -37,36 +36,17 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRegisterToRunWhenWithRevert() {
         //when
-        class TestSaga extends TestSagaBase {
-
-            public TestSaga(int value) {
-                super(value);
-            }
-
-            @Override
-            public int sumAsFunction(int input) {
-                super.sumAsFunction(input);
-                throw new TestUserUncheckedException();
-            }
-
-            @Override
-            public void diffForFunction(int input, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
-                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
-                super.diffForFunction(input, output, throwable);
-            }
-        }
-
-        var testSagaException = new TestSaga(100);
+        var testSagaException = new TestSagaBase(100);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withMethod(testSagaException::sumAsFunction, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::sumAsFunctionWithException, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
         //do
         assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToRun(
-                testSagaModel.getBean()::sumAsFunction,
-                testSagaModel.getBean()::diffForFunction,
+                testSagaModel.getBean()::sumAsFunctionWithException,
+                testSagaModel.getBean()::diffForFunctionWithExceptionHandling,
                 5
             )
             .start()
@@ -83,7 +63,7 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRegisterToConsume() {
         //when
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(0));
+        var testSagaModel = testSagaGenerator.generateFor(new TestSagaBase(0));
 
         //do
         distributionSagaService.create(testSagaModel.getName())
@@ -98,36 +78,17 @@ class SagaFlowEntryPointIntegrationTest extends BaseSpringIntegrationTest {
     @SneakyThrows
     @Test
     void shouldRegisterToConsumeWhenWithRevert() {
-        class TestSaga extends TestSagaBase {
-
-            public TestSaga(int value) {
-                super(value);
-            }
-
-            @Override
-            public void sumAsConsumer(int input) {
-                super.sumAsConsumer(input);
-                throw new TestUserUncheckedException();
-            }
-
-            @Override
-            public void diffForConsumer(int input, @Nullable SagaExecutionException throwable) {
-                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
-                super.diffForConsumer(input, throwable);
-            }
-        }
-
-        var testSagaException = new TestSaga(100);
+        var testSagaException = new TestSagaBase(100);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withMethod(testSagaException::sumAsConsumer, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::sumAsConsumerWithException, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
         //do
         assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
             .registerToConsume(
-                testSagaModel.getBean()::sumAsConsumer,
-                testSagaModel.getBean()::diffForConsumer,
+                testSagaModel.getBean()::sumAsConsumerWithException,
+                testSagaModel.getBean()::diffForConsumerWithExceptionHandling,
                 5
             )
             .start()

@@ -35,7 +35,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
         public void shouldCreateWhenWithDefaultSettings() {
             //when
             setFixedTime();
-            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(100));
+            var testSagaModel = testSagaGenerator.generateFor(new TestSagaBase(100));
 
             //do
             distributionSagaService.create(testSagaModel.getName())
@@ -138,7 +138,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
         public void shouldCreateWhenWithCustomSettings() {
             //when
             setFixedTime();
-            var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(100));
+            var testSagaModel = testSagaGenerator.generateFor(new TestSagaBase(100));
 
             //do
             distributionSagaService.create(
@@ -209,7 +209,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
                 }
             }
             var testSaga = new TestSaga();
-            var testSagaModel = testSagaGenerator.generateDefaultFor(testSaga);
+            var testSagaModel = testSagaGenerator.generateFor(testSaga);
 
             //do
             distributionSagaService.createWithAffinity(testSagaModel.getName(), "afg", "aff")
@@ -343,7 +343,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
                 return i + delta;
             }
         }
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSaga(10));
+        var testSagaModel = testSagaGenerator.generateFor(new TestSaga(10));
 
         //do
         var resultOpt = distributionSagaService.create(testSagaModel.getName())
@@ -363,22 +363,10 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
     @Test
     void shouldNotRetryWhenNoRetryFor() {
         //when
-        class TestSagaNotRetry extends TestSagaBase {
-            public TestSagaNotRetry(int value) {
-                super(value);
-            }
-
-            @Override
-            public void sumAsConsumer(int input) {
-                super.sumAsConsumer(input);
-                throw new TestUserUncheckedException();
-            }
-        }
-
-        var testSagaNoRetryFor = new TestSagaNotRetry(100);
+        var testSagaNoRetryFor = new TestSagaBase(100);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaNoRetryFor)
             .withMethod(
-                testSagaNoRetryFor::sumAsConsumer,
+                testSagaNoRetryFor::sumAsConsumerWithException,
                 TestSagaGeneratorUtils.withNoRetryFor(TestUserUncheckedException.class)
             )
             .build()
@@ -386,7 +374,7 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
 
         //do
         distributionSagaService.create(testSagaModel.getName())
-            .registerToConsume(testSagaModel.getBean()::sumAsConsumer, 5)
+            .registerToConsume(testSagaModel.getBean()::sumAsConsumerWithException, 5)
             .start()
             .waitCompletion();
 

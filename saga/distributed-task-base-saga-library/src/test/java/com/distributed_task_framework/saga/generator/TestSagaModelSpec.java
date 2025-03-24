@@ -34,12 +34,31 @@ public class TestSagaModelSpec<T> {
     private final Map<SagaBiFunction<?, ?, ?>, SagaMethodSettings> biFunctionMethods;
     private final Map<SagaConsumer<?>, SagaMethodSettings> consumerMethods;
     private final Map<SagaBiConsumer<?, ?>, SagaMethodSettings> sagaBiConsumerMethods;
-    private final Map<SagaFunction<?, ?>, RunnableWithException> beforeExecution;
+    private final Map<SagaFunction<?, ?>, BeforeTaskExecutionHandler> beforeTaskExecution;
+    private final Map<SagaFunction<?, ?>, RunnableWithException> afterSagaMethodExecution;
 
     public static <T> TestSagaModelSpecBuilder<T> builder(T bean) {
         return new TestSagaModelSpecBuilder<>(bean);
     }
 
+    public TestSagaModelSpecBuilder<T> toBuilder(T bean) {
+        return new TestSagaModelSpecBuilder<>(
+            bean,
+            name,
+            sagaSettings,
+            withoutSettings,
+            disableRegisterAllMethods,
+            methodSettings,
+            functionMethods,
+            biFunctionMethods,
+            consumerMethods,
+            sagaBiConsumerMethods,
+            beforeTaskExecution,
+            afterSagaMethodExecution
+        );
+    }
+
+    @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class TestSagaModelSpecBuilder<T> {
         private final T bean;
@@ -47,19 +66,26 @@ public class TestSagaModelSpec<T> {
         String name;
         @Nullable
         SagaSettings sagaSettings;
-        boolean disableRegisterAllMethods = false;
         @Nullable
         Boolean withoutSettings;
+        boolean disableRegisterAllMethods = false;
         @Nullable
         SagaMethodSettings methodSettings;
-        private final Map<SagaBiFunction<?, ?, ?>, SagaMethodSettings> biFunctionMethods = Maps.newHashMap();
-        private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods = Maps.newHashMap();
-        private final Map<SagaConsumer<?>, SagaMethodSettings> consumerMethods = Maps.newHashMap();
-        private final Map<SagaBiConsumer<?, ?>, SagaMethodSettings> sagaBiConsumerMethods = Maps.newHashMap();
-        private final Map<SagaFunction<?, ?>, RunnableWithException> beforeExecution = Maps.newHashMap();
+        private final Map<SagaFunction<?, ?>, SagaMethodSettings> functionMethods;
+        private final Map<SagaBiFunction<?, ?, ?>, SagaMethodSettings> biFunctionMethods;
+        private final Map<SagaConsumer<?>, SagaMethodSettings> consumerMethods;
+        private final Map<SagaBiConsumer<?, ?>, SagaMethodSettings> sagaBiConsumerMethods;
+        private final Map<SagaFunction<?, ?>, BeforeTaskExecutionHandler> beforeTaskExecution;
+        private final Map<SagaFunction<?, ?>, RunnableWithException> afterSagaMethodExecution;
 
         private TestSagaModelSpecBuilder(T bean) {
             this.bean = bean;
+            this.functionMethods = Maps.newHashMap();
+            this.biFunctionMethods = Maps.newHashMap();
+            this.consumerMethods = Maps.newHashMap();
+            this.sagaBiConsumerMethods = Maps.newHashMap();
+            this.beforeTaskExecution = Maps.newHashMap();
+            this.afterSagaMethodExecution = Maps.newHashMap();
         }
 
         public TestSagaModelSpecBuilder<T> withName(String name) {
@@ -122,9 +148,21 @@ public class TestSagaModelSpec<T> {
             return this;
         }
 
-        public <U, V> TestSagaModelSpecBuilder<T> doBeforeExecutionSagaMethod(SagaFunction<U, V> methodName,
-                                                                              RunnableWithException runnable) {
-            beforeExecution.put(methodName, runnable);
+        public <U, V> TestSagaModelSpecBuilder<T> doBeforeTaskExecution(SagaFunction<U, V> method,
+                                                                        RunnableWithException runnable) {
+            beforeTaskExecution.put(method, new BeforeTaskExecutionHandler(runnable, false));
+            return this;
+        }
+
+        public <U, V> TestSagaModelSpecBuilder<T> doBeforeTaskExecutionOnSecondCall(SagaFunction<U, V> method,
+                                                                                    RunnableWithException runnable) {
+            beforeTaskExecution.put(method, new BeforeTaskExecutionHandler(runnable, true));
+            return this;
+        }
+
+        public <U, V> TestSagaModelSpecBuilder<T> doAfterSagaMethodExecution(SagaFunction<U, V> method,
+                                                                             RunnableWithException runnable) {
+            afterSagaMethodExecution.put(method, runnable);
             return this;
         }
 
@@ -140,8 +178,15 @@ public class TestSagaModelSpec<T> {
                 biFunctionMethods,
                 consumerMethods,
                 sagaBiConsumerMethods,
-                beforeExecution
+                beforeTaskExecution,
+                afterSagaMethodExecution
             );
         }
+    }
+
+    public record BeforeTaskExecutionHandler(
+        RunnableWithException runnable,
+        boolean isLastCall
+    ) {
     }
 }

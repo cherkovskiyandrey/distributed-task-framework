@@ -19,7 +19,7 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
     @Test
     void shouldThenConsume() {
         //when
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(0));
+        var testSagaModel = testSagaGenerator.generateFor(new TestSagaBase(0));
 
         //do
         distributionSagaService.create(testSagaModel.getName())
@@ -86,7 +86,7 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
     @Test
     void shouldThenRun() {
         //when
-        var testSagaModel = testSagaGenerator.generateDefaultFor(new TestSagaBase(10));
+        var testSagaModel = testSagaGenerator.generateFor(new TestSagaBase(10));
 
         //do
         var resultOpt = distributionSagaService.create(testSagaModel.getName())
@@ -106,28 +106,9 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
     @SneakyThrows
     @Test
     void shouldThenRunWhenWithRevert() {
-        @Getter
-        class TestSaga extends TestSagaBase {
-
-            public TestSaga(int value) {
-                super(value);
-            }
-
-            @Override
-            public int multiplyAsFunction(int input) {
-                super.multiplyAsFunction(input);
-                throw new TestUserUncheckedException();
-            }
-
-            @Override
-            public void divideForFunction(int input, @Nullable Integer output, @Nullable SagaExecutionException throwable) {
-                assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
-                super.divideForFunction(input, output, throwable);
-            }
-        }
-        var testSagaException = new TestSaga(10);
+        var testSagaException = new TestSagaBase(10);
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaException)
-            .withMethod(testSagaException::multiplyAsFunction, TestSagaGeneratorUtils.withoutRetry())
+            .withMethod(testSagaException::multiplyAsFunctionWithException, TestSagaGeneratorUtils.withoutRetry())
             .build()
         );
 
@@ -139,8 +120,8 @@ class SagaFlowBuilderWithoutInputImplIntegrationTest extends BaseSpringIntegrati
                 5
             )
             .thenRun(
-                testSagaModel.getBean()::multiplyAsFunction,
-                testSagaModel.getBean()::divideForFunction
+                testSagaModel.getBean()::multiplyAsFunctionWithException,
+                testSagaModel.getBean()::divideForFunctionWithExceptionHandling
             )
             .start()
             .waitCompletion()

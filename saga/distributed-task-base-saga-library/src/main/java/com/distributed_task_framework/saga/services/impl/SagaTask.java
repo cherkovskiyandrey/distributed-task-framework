@@ -158,7 +158,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
         boolean hasFailedAttempts = executionContext.getExecutionAttempt() > 1;
         if (hasFailedAttempts) {
             var serializedExceptionOpt = stateHolder.get();
-            if (serializedExceptionOpt.isPresent()) {
+            if (serializedExceptionOpt.isPresent() && sagaPipeline.getCurrentAction().hasRevert()) {
                 var serializedException = serializedExceptionOpt.get();
                 SagaAction currentSagaAction = sagaPipeline.getCurrentAction().toBuilder()
                     .exceptionType(serializedException.exceptionType().toCanonical())

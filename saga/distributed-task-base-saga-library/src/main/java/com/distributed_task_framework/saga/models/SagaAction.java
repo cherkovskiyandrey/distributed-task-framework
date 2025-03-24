@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.models;
 
 import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.annotation.Nullable;
 import lombok.Builder;
 import lombok.ToString;
@@ -29,4 +30,9 @@ public class SagaAction {
     byte[] serializedException;
     @Nullable
     SagaSchemaArguments revertOperationSagaSchemaArguments;
+
+    @JsonIgnore
+    public boolean hasRevert() {
+        return sagaRevertMethodTaskName != null;
+    }
 }
