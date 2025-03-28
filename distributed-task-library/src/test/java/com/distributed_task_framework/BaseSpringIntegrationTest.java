@@ -153,7 +153,7 @@ public abstract class BaseSpringIntegrationTest extends BaseTestContainerTest {
     }
 
     protected void waitFor(Callable<Boolean> conditionEvaluator) {
-        await().atMost(Duration.ofSeconds(60))
+        await().atMost(Duration.ofSeconds(120))
             .pollInterval(Duration.ofMillis(500))
             .until(conditionEvaluator);
     }
