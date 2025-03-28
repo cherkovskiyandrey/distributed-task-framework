@@ -466,7 +466,46 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             assertThat(testSaga.getValue()).isEqualTo(10);
         }
 
-        //todo: cancel not gracefully
+        @Test
+        @SneakyThrows
+        public void shouldNotRunRevertFlowWhenForceCanceled() {
+            //when
+            var testSaga = Mockito.spy(new TestSagaBase(10));
+            var barrier = new CyclicBarrier(2);
+            var locker = new CountDownLatch(1);
+            var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSaga)
+                .doAfterSagaMethodExecution(
+                    testSaga::multiplyAsFunction,
+                    () -> {
+                        barrier.await();
+                        locker.await();
+                    }
+                )
+                .build()
+            );
+            var sagaFlow = distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(
+                    testSagaModel.getBean()::sumAsFunction,
+                    testSagaModel.getBean()::diffForFunction,
+                    10
+                )
+                .thenRun(
+                    testSagaModel.getBean()::multiplyAsFunction,
+                    testSagaModel.getBean()::divideForFunction
+                )
+                .start();
+
+            //do
+            barrier.await();
+            sagaFlow.cancel(false);
+            waitFor(() -> sagaRepository.isCompleted(sagaFlow.trackId()).orElse(true));
+
+            //verify
+            verify(testSaga, never()).divideForFunction(anyInt(), any(), any());
+            verify(testSaga, never()).diffForFunction(anyInt(), any(), any());
+            assertThatThrownBy(sagaFlow::get).isInstanceOf(SagaNotFoundException.class);
+            assertThat(testSaga.getValue()).isEqualTo(400);
+        }
     }
 
     private static Stream<Arguments> sagaNotFoundExceptionSourceProvider() {
