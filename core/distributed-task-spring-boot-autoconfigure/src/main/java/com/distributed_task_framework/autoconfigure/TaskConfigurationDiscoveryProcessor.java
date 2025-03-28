@@ -253,7 +253,7 @@ public class TaskConfigurationDiscoveryProcessor {
             fixed.setMaxNumber(retryPolicy.number());
         }
         if (StringUtils.hasText(retryPolicy.maxInterval())) {
-            fixed.setDelay(Duration.parse(retryPolicy.maxInterval()));
+            fixed.setMaxInterval(Duration.parse(retryPolicy.maxInterval()));
         }
     }
 

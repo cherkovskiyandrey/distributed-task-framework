@@ -154,8 +154,8 @@ public class TestSagaModelSpec<T> {
             return this;
         }
 
-        public <U, V> TestSagaModelSpecBuilder<T> doBeforeTaskExecutionOnSecondCall(SagaFunction<U, V> method,
-                                                                                    RunnableWithException runnable) {
+        public <U, V> TestSagaModelSpecBuilder<T> doBeforeTaskExecutionOnLastCall(SagaFunction<U, V> method,
+                                                                                  RunnableWithException runnable) {
             beforeTaskExecution.put(method, new BeforeTaskExecutionHandler(runnable, true));
             return this;
         }

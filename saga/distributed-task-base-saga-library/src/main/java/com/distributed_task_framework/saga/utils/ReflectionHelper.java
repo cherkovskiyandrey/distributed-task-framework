@@ -29,7 +29,7 @@ public class ReflectionHelper {
         throw new IllegalStateException("Should never get here");
     }
 
-    public static void handleReflectionException(Exception ex) {
+    public static void handleReflectionException(Throwable ex) {
         if (ex instanceof NoSuchMethodException) {
             throw new IllegalStateException("Method not found: " + ex.getMessage());
         }
@@ -37,19 +37,8 @@ public class ReflectionHelper {
             throw new IllegalStateException("Could not access method or field: " + ex.getMessage());
         }
         if (ex instanceof InvocationTargetException invocationTargetException) {
-            handleInvocationTargetException(invocationTargetException);
+            handleReflectionException(invocationTargetException.getTargetException());
         }
-        if (ex instanceof RuntimeException runtimeException) {
-            throw runtimeException;
-        }
-        throw new UndeclaredThrowableException(ex);
-    }
-
-    public static void handleInvocationTargetException(InvocationTargetException ex) {
-        rethrowRuntimeException(ex.getTargetException());
-    }
-
-    public static void rethrowRuntimeException(@Nullable Throwable ex) {
         if (ex instanceof RuntimeException runtimeException) {
             throw runtimeException;
         }

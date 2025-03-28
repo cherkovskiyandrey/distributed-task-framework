@@ -396,7 +396,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             var locker = new CountDownLatch(1);
             var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSaga)
                 .withMethodSettings(TestSagaGeneratorUtils.withRetry(2))
-                .doBeforeTaskExecutionOnSecondCall(
+                .doBeforeTaskExecutionOnLastCall(
                     testSaga::multiplyAsFunctionWithException,
                     () -> {
                         barrier.await();
@@ -429,8 +429,6 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             assertThat(testSaga.getValue()).isEqualTo(10);
         }
 
-        //todo: fix!!!!
-        //todo: + spy SagaTaskFactory has to be reinit after each call!!
         @Test
         @SneakyThrows
         public void shouldRunRevertFlowFromCurPositionWhenGracefullyCanceledDuringExecutionFirstMethod() {
