@@ -13,6 +13,7 @@ import com.distributed_task_framework.service.impl.remote_commands.ScheduleComma
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -22,7 +23,6 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.apache.commons.fileupload.MultipartStream;
-import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.http.entity.ContentType;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.util.Lists;
@@ -36,7 +36,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import jakarta.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +43,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -51,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -226,6 +227,7 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
     }
 
     @Test
+//    @Disabled
     void shouldNotSendForeignCommands() {
         //when
         Collection<RemoteCommandEntity> firstBatch = createCommands(50, "foreign-test-app");
@@ -238,12 +240,14 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
 
         //verify
         verifyBatch(firstBatch);
-        waitFor(() -> EqualsBuilder.reflectionEquals(
-                Lists.newArrayList(remoteCommandRepository.findAll()).toArray(new RemoteCommandEntity[0]),
-                foreignBatch.toArray(new RemoteCommandEntity[0]),
-                "createdDateUtc",
-                "sendDateUtc"
-        ));
+        waitFor(() -> {
+            final Iterable<RemoteCommandEntity> all = remoteCommandRepository.findAll();
+
+            final List<RemoteCommandEntity> actual = StreamSupport.stream(all.spliterator(), false).map(e -> e.toBuilder().createdDateUtc(null).sendDateUtc(null).build()).toList();
+            final List<RemoteCommandEntity> expected = foreignBatch.stream().map(e -> e.toBuilder().createdDateUtc(null).sendDateUtc(null).build()).toList();
+
+            return Objects.equals(actual, expected);
+        });
     }
 
     @SneakyThrows
@@ -280,11 +284,14 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
 
         //verify
         waitFor(() -> Lists.newArrayList(remoteCommandRepository.findAll()).isEmpty());
-        waitFor(() -> EqualsBuilder.reflectionEquals(
-                Lists.newArrayList(dlcRepository.findAll()).toArray(new DlcEntity[0]),
-                commandMapper.mapToDlcList(batch).toArray(new DlcEntity[0]),
-                "createdDateUtc"
-        ));
+        waitFor(() -> {
+            final Iterable<DlcEntity> all = dlcRepository.findAll();
+
+            final List<DlcEntity> actual = StreamSupport.stream(all.spliterator(), false).map(e -> e.toBuilder().createdDateUtc(null).build()).toList();
+            final List<DlcEntity> expected = commandMapper.mapToDlcList(batch).stream().map(e -> e.toBuilder().createdDateUtc(null).build()).toList();
+
+            return Objects.equals(actual, expected);
+        });
     }
 
 

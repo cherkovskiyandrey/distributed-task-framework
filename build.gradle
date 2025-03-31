@@ -100,6 +100,34 @@ configure(libs) { project ->
             exceptionFormat = 'full'
         }
     }
+
+    publishing {
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/cherkovskiyandrey/distributed-task-framework")
+                credentials {
+                    username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                    password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+                }
+            }
+            mavenLocal()
+        }
+        publications {
+            gpr(MavenPublication) {
+                from(components.java)
+                var currentTag = grgit.tag.list().find {
+                    it.commit.id == grgit.head().getId()
+                }
+                version = currentTag != null ? currentTag : System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
+                        "-" +
+                        new Date().format('yyyyMMdd_HHmmss') +
+                        "-" +
+                        grgit.head().getId().substring(0, 8)
+            }
+        }
+    }
+
 }
 
 configure(apps) { project ->
