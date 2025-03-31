@@ -119,11 +119,19 @@ configure(libs) { project ->
                 var currentTag = grgit.tag.list().find {
                     it.commit.id == grgit.head().getId()
                 }
-                version = currentTag != null ? currentTag : System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
-                        "-" +
-                        new Date().format('yyyyMMdd_HHmmss') +
-                        "-" +
-                        grgit.head().getId().substring(0, 8)
+                if (currentTag != null) {
+                    var ver = currentTag.name
+                    if (ver.startsWith("v")) {
+                        ver = ver.substring(1)
+                    }
+                    version = ver
+                } else {
+                    version = System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
+                            "-" +
+                            new Date().format('yyyyMMdd_HHmmss') +
+                            "-" +
+                            grgit.head().getId().substring(0, 8)
+                }
             }
         }
     }
