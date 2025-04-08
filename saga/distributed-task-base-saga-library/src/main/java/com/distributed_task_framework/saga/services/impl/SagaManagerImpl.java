@@ -302,7 +302,9 @@ public class SagaManagerImpl implements SagaManager {
             .ifPresentOrElse(
                 //don't move shutdown sagas to DLS because it is explicit action
                 sagaEntity -> forceShutdown(List.of(sagaEntity), false),
-                () -> log.warn("forceShutdown(): saga=[{}] doesn't exists", sagaId)
+                () -> {
+                    throw sagaNotFoundException(sagaId).get();
+                }
             );
     }
 

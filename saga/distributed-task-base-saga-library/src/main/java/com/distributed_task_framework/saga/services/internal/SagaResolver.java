@@ -43,5 +43,11 @@ public interface SagaResolver {
      */
     <T extends Serializable> Method resolveAsMethod(T methodRef, Object anchorObject);
 
+    /**
+     * Resolve registered task definition by task name.
+     *
+     * @param taskName
+     * @return
+     */
     TaskDef<SagaPipeline> resolveByTaskName(String taskName);
 }

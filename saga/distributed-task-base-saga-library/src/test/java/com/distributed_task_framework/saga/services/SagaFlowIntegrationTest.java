@@ -37,7 +37,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-//todo
+
 public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
 
     @Nested
@@ -49,7 +49,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             //when
             var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithLocks());
             var sagaFlow = distributionSagaService.create(testSagaModel.getName())
-                .registerToConsume(testSagaModel.getBean()::method, 1)
+                .registerToConsume(testSagaModel.getBean()::methodAsConsumer, 1)
                 .start();
 
             //do
@@ -84,7 +84,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
         @Test
         public void shouldThrowSagaExecutionOnlyAfterRevert() {
             //when
-            var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithLockInRevert());
+            var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithExceptionAndLockInRevert());
             var sagaFlow = distributionSagaService.create(testSagaModel.getName())
                 .registerToConsume(
                     testSagaModel.getBean()::methodAsConsumer,
@@ -116,8 +116,8 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithLocks());
             var sagaFlow = distributionSagaService.create(testSagaModel.getName())
                 .registerToConsume(
-                    testSagaModel.getBean()::method,
-                    testSagaModel.getBean()::revertMethod,
+                    testSagaModel.getBean()::methodAsConsumer,
+                    testSagaModel.getBean()::revertMethodAsConsumer,
                     1
                 )
                 .start();
@@ -181,7 +181,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
         @SneakyThrows
         public void shouldThrowSagaExecutionOnlyAfterRevert() {
             //when
-            var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithLockInRevert());
+            var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithExceptionAndLockInRevert());
             var sagaFlow = distributionSagaService.create(testSagaModel.getName())
                 .registerToRun(
                     testSagaModel.getBean()::methodAsFunction,
@@ -225,6 +225,35 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             //verify
             assertThatThrownBy(sagaFlow::get).isInstanceOf(SagaCancellationException.class);
         }
+
+        @SneakyThrows
+        @Test
+        public void shouldThrowSagaCancellationExceptionOnlyAfterRevert() {
+            //when
+            var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithLocks());
+            var sagaFlow = distributionSagaService.create(testSagaModel.getName())
+                .registerToRun(
+                    testSagaModel.getBean()::methodAsFunction,
+                    testSagaModel.getBean()::revertMethodAsFunction,
+                    1
+                )
+                .start();
+
+            //do
+            testSagaModel.getBean().getCyclicBarrier().await();
+            sagaManager.cancel(sagaFlow.trackId());
+            testSagaModel.getBean().getSagaMethodLock().countDown();
+
+            //verify
+            assertThatThrownBy(() -> sagaFlow.get(Duration.ofSeconds(1)))
+                .isInstanceOf(TimeoutException.class);
+
+            //do
+            testSagaModel.getBean().getSagaRevertLock().countDown();
+
+            //verify
+            assertThatThrownBy(sagaFlow::get).isInstanceOf(SagaCancellationException.class);
+        }
     }
 
     @Nested
@@ -236,7 +265,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             //when
             var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithLocks());
             var sagaFlow = distributionSagaService.create(testSagaModel.getName())
-                .registerToConsume(testSagaModel.getBean()::method, 1)
+                .registerToConsume(testSagaModel.getBean()::methodAsConsumer, 1)
                 .start();
 
             //do
@@ -256,7 +285,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
         @Test
         public void shouldReturnTrueOnlyAfterRevert() {
             //when
-            var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithLockInRevert());
+            var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithExceptionAndLockInRevert());
             var sagaFlow = distributionSagaService.create(testSagaModel.getName())
                 .registerToConsume(
                     testSagaModel.getBean()::methodAsConsumer,
@@ -288,7 +317,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             //when
             var testSagaModel = testSagaGenerator.generateFor(new TestSagaWithLocks());
             var sagaFlow = distributionSagaService.create(testSagaModel.getName())
-                .registerToConsume(testSagaModel.getBean()::method, 1)
+                .registerToConsume(testSagaModel.getBean()::methodAsConsumer, 1)
                 .start();
 
             //do
@@ -299,7 +328,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
 
             //do
             sagaManager.cancel(sagaFlow.trackId());
-            testSagaModel.getBean().getSagaRevertLock().countDown();
+            testSagaModel.getBean().getSagaMethodLock().countDown();
 
             //verify
             assertThat(sagaFlow.isCanceled()).isTrue();
@@ -309,7 +338,6 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
         }
     }
 
-    //todo
     @Nested
     public class Cancel {
 
@@ -513,7 +541,9 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
             Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::waitCompletion),
             Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::get),
             Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::isCompleted),
-            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::isCanceled)
+            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) SagaFlow::isCanceled),
+            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) sagaFlow -> sagaFlow.cancel(true)),
+            Arguments.of((ConsumerWithException<SagaFlow<Integer>, Exception>) sagaFlow -> sagaFlow.cancel(false))
         );
     }
 
@@ -546,7 +576,7 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
     public void shouldThrowSagaNotFoundExceptionWhenExpired(ConsumerWithException<SagaFlow<Integer>, Exception> consumer) {
         //when
         var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(new TestSagaBase(10))
-            .withSagaSettings(withExpirationTimeout(Duration.ofSeconds(1)))
+            .withSagaSettings(withExpirationTimeout(Duration.ofMillis(1)))
             .build()
         );
         var sagaFlow = distributionSagaService.create(testSagaModel.getName())
@@ -567,20 +597,33 @@ public class SagaFlowIntegrationTest extends BaseSpringIntegrationTest {
         CountDownLatch sagaMethodLock = new CountDownLatch(1);
         CountDownLatch sagaRevertLock = new CountDownLatch(1);
 
-        public void method(int input) throws Exception {
+        public void methodAsConsumer(int input) throws Exception {
             cyclicBarrier.await();
             sagaMethodLock.await();
         }
 
         @Revert
-        public void revertMethod(int input, @Nullable SagaExecutionException throwable) throws Exception {
+        public void revertMethodAsConsumer(int input, @Nullable SagaExecutionException throwable) throws Exception {
+            sagaRevertLock.await();
+        }
+
+        public int methodAsFunction(int input) throws Exception {
+            cyclicBarrier.await();
+            sagaMethodLock.await();
+            return input;
+        }
+
+        @Revert
+        public void revertMethodAsFunction(int input,
+                                           @Nullable Integer parentOutput,
+                                           @Nullable SagaExecutionException throwable) throws Exception {
             sagaRevertLock.await();
         }
     }
 
     @Getter
     @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-    static class TestSagaWithLockInRevert {
+    static class TestSagaWithExceptionAndLockInRevert {
         CyclicBarrier cyclicBarrier = new CyclicBarrier(2);
         CountDownLatch sagaRevertLock = new CountDownLatch(1);
 
