@@ -5,6 +5,7 @@ plugins {
     id 'io.spring.dependency-management' version '1.1.4'
     id 'org.jreleaser' version '1.17.0'
     id "base"
+    id 'org.ajoberstar.grgit' version "5.2.2"
 }
 
 description = "The task processing framework"
@@ -80,6 +81,8 @@ configure(subprojects) { project ->
 
 configure(libs) { project_ ->
 
+    apply plugin: 'org.ajoberstar.grgit'
+
     bootJar {
         enabled = false
     }
@@ -119,11 +122,19 @@ configure(libs) { project_ ->
                 var currentTag = grgit.tag.list().find {
                     it.commit.id == grgit.head().getId()
                 }
-                version = currentTag != null ? currentTag : System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
-                        "-" +
-                        new Date().format('yyyyMMdd_HHmmss') +
-                        "-" +
-                        grgit.head().getId().substring(0, 8)
+                if (currentTag != null) {
+                    var ver = currentTag.name
+                    if (ver.startsWith("v")) {
+                        ver = ver.substring(1)
+                    }
+                    version = ver
+                } else {
+                    version = System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
+                            "-" +
+                            new Date().format('yyyyMMdd_HHmmss') +
+                            "-" +
+                            grgit.head().getId().substring(0, 8)
+                }
 
                 groupId = "io.github.cherkovskiyandrey"
 
