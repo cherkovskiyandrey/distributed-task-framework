@@ -132,6 +132,8 @@ Add liquibase init script to your service:
 databaseChangeLog:
   - include:
       file: db/changelog/distributed-task-framework/db.changelog-dtf-init.yaml
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-002-fix_vq_cdu_index.yaml
 ```
 If you use another DB migration framework, rely on the raw SQL scripts: [001_dtf_init.up.sql](distributed-task-library%2Fsrc%2Fmain%2Fresources%2Fdb%2Fchangelog%2Fdistributed-task-framework%2Fsql%2F001_dtf_init.up.sql) and
 [001_dtf_init.down.sql](distributed-task-library%2Fsrc%2Fmain%2Fresources%2Fdb%2Fchangelog%2Fdistributed-task-framework%2Fsql%2F001_dtf_init.down.sql)
