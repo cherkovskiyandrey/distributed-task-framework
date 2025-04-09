@@ -124,7 +124,7 @@ communication mean) to start task execution in another service.
 ### Spring Boot
 Add starter to your project
 ```groovy
-implementation 'com.distributed_task_framework:distributed-task-spring-boot-starter:<the most recent version>'
+implementation 'io.github.cherkovskiyandrey:distributed-task-spring-boot-starter:1.0.0'
 ```
 Add liquibase init script to your service:
 
