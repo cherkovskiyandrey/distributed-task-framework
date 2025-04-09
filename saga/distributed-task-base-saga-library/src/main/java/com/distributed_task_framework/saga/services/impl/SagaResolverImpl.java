@@ -9,6 +9,7 @@ import com.distributed_task_framework.saga.models.SagaOperand;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.utils.MethodSagaMethodFactory;
+import com.distributed_task_framework.saga.utils.ReflectionHelper;
 import com.distributed_task_framework.saga.utils.SerializableLambdaSagaMethodFactory;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.google.common.collect.Maps;
@@ -21,7 +22,6 @@ import java.io.Serializable;
 import java.lang.invoke.SerializedLambda;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -88,17 +88,13 @@ public class SagaResolverImpl implements SagaResolver {
     @Override
     public <T extends Serializable> Method resolveAsMethod(T methodRef, Object anchorObject) {
         var sagaMethod = lookupSagaMethod(methodRef);
-        for (var cls = anchorObject.getClass(); cls != null; cls = cls.getSuperclass()) {
-            var method = Arrays.stream(cls.getDeclaredMethods())
-                .filter(m -> Objects.equals(MethodSagaMethodFactory.of(m), sagaMethod))
-                .findFirst()
-                .orElse(null);
-            if (method != null) {
-                log.info("resolveAsMethod(): methodRef=[{}], anchorObject=[{}]", methodRef, anchorObject);
-                return method;
-            }
-        }
-        throw new SagaMethodNotFoundException("signature=[%s] in anchorObject=[%s]".formatted(sagaMethod, anchorObject));
+        return ReflectionHelper.allMethods(anchorObject.getClass())
+            .filter(m -> Objects.equals(MethodSagaMethodFactory.of(m), sagaMethod))
+            .findFirst()
+            .stream()
+            .peek(method -> log.info("resolveAsMethod(): methodRef=[{}], anchorObject=[{}]", methodRef, anchorObject))
+            .findAny()
+            .orElseThrow(() -> new SagaMethodNotFoundException("signature=[%s] in anchorObject=[%s]".formatted(sagaMethod, anchorObject)));
     }
 
     private SagaMethod lookupSagaMethod(Serializable operation) {

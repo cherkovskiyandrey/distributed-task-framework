@@ -7,13 +7,16 @@ import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.saga.utils.MethodSagaMethodFactory;
+import com.distributed_task_framework.saga.utils.ReflectionHelper;
 import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.mockito.MockMakers;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -31,11 +34,23 @@ import java.util.stream.Collectors;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TestSagaGenerator {
-    private static final Set<String> IGNORE_METHOD_NAMES = Set.of("equals", "hashCode", "toString");
+
+    private static final Set<String> IGNORE_METHOD_NAMES = Set.of(
+        "equals",
+        "hashCode",
+        "toString",
+        "wait",
+        "notify",
+        "getClass",
+        "notifyAll",
+        "finalize",
+        "clone"
+    );
     private final Set<String> registeredSagas = Sets.newHashSet();
     private final Set<String> registeredSagaMethods = Sets.newHashSet();
 
@@ -70,8 +85,13 @@ public class TestSagaGenerator {
             .build();
     }
 
+    @SneakyThrows
     @SuppressWarnings("unchecked")
     private <T> TestSagaModelSpec<T> registerAfterSagaMethodExecution(TestSagaModelSpec<T> testSagaModelSpec) {
+        if (testSagaModelSpec.getAfterSagaMethodExecution().isEmpty()) {
+            return testSagaModelSpec;
+        }
+
         var originalBean = testSagaModelSpec.getBean();
         var sagaMethodToMethod = Arrays.stream(testSagaModelSpec.getBean().getClass().getMethods())
             .map(method -> {
@@ -93,20 +113,26 @@ public class TestSagaGenerator {
 
         var bean = (T) Mockito.mock(
             testSagaModelSpec.getBean().getClass(),
-            (Answer<Object>) invocation -> {
-                var args = invocation.getArguments();
-                var originalMethod = invocation.getMethod();
-                var originalSagaMethod = MethodSagaMethodFactory.of(originalMethod);
+            withSettings()
+                .name(testSagaModelSpec.getBean().getClass().getName() + "Mock")
+                .mockMaker(MockMakers.INLINE)
+                .verboseLogging()
+                .defaultAnswer(
+                    (Answer<Object>) invocation -> {
+                        var args = invocation.getArguments();
+                        var originalMethod = invocation.getMethod();
+                        var originalSagaMethod = MethodSagaMethodFactory.of(originalMethod);
 
-                try {
-                    return sagaMethodToMethod.get(originalSagaMethod).invoke(originalBean, args);
-                } finally {
-                    var afterHandler = sagaMethodToHandler.get(originalSagaMethod);
-                    if (afterHandler != null) {
-                        afterHandler.execute();
+                        try {
+                            return sagaMethodToMethod.get(originalSagaMethod).invoke(originalBean, args);
+                        } finally {
+                            var afterHandler = sagaMethodToHandler.get(originalSagaMethod);
+                            if (afterHandler != null) {
+                                afterHandler.execute();
+                            }
+                        }
                     }
-                }
-            }
+                )
         );
 
         return testSagaModelSpec.toBuilder(bean).build();
@@ -159,32 +185,35 @@ public class TestSagaGenerator {
             return;
         }
 
-        for (var method : testSagaModelSpec.getBean().getClass().getMethods()) {
-            if (alreadyRegisteredMethods.contains(method)) {
-                continue;
-            }
-            if (IGNORE_METHOD_NAMES.contains(method.getName())) {
-                continue;
-            }
-            var name = String.join("-", method.getName(), RandomStringUtils.randomAlphabetic(10));
-            boolean isRevert = AnnotatedElementUtils.hasAnnotation(method, Revert.class);
-            if (isRevert) {
-                distributionSagaService.registerSagaRevertMethod(
-                    name,
-                    method,
-                    testSagaModelSpec.getBean(),
-                    generateSagaMethodSettings(null, testSagaModelSpec)
-                );
-            } else {
-                distributionSagaService.registerSagaMethod(
-                    name,
-                    method,
-                    testSagaModelSpec.getBean(),
-                    generateSagaMethodSettings(null, testSagaModelSpec)
-                );
-            }
-            registeredSagaMethods.add(name);
-        }
+        ReflectionHelper.allMethods(testSagaModelSpec.getBean().getClass())
+            .filter(method -> !alreadyRegisteredMethods.contains(method))
+            .filter(method -> !isIgnoredMethod(method))
+            .forEach(method -> {
+                    var name = String.join("-", method.getName(), RandomStringUtils.randomAlphabetic(10));
+                    boolean isRevert = AnnotatedElementUtils.hasAnnotation(method, Revert.class);
+                    if (isRevert) {
+                        distributionSagaService.registerSagaRevertMethod(
+                            name,
+                            method,
+                            testSagaModelSpec.getBean(),
+                            generateSagaMethodSettings(null, testSagaModelSpec)
+                        );
+                    } else {
+                        distributionSagaService.registerSagaMethod(
+                            name,
+                            method,
+                            testSagaModelSpec.getBean(),
+                            generateSagaMethodSettings(null, testSagaModelSpec)
+                        );
+                    }
+                    registeredSagaMethods.add(name);
+                }
+            );
+    }
+
+    private boolean isIgnoredMethod(Method method) {
+        return IGNORE_METHOD_NAMES.stream()
+            .anyMatch(methodName -> method.getName().contains(methodName));
     }
 
     private <U extends Serializable, T> Collection<Method> registerSagaMethodBase(Map<U, SagaMethodSettings> operationToSettings,

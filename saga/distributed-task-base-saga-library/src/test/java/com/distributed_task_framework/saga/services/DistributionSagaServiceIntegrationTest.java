@@ -2,8 +2,6 @@ package com.distributed_task_framework.saga.services;
 
 import com.distributed_task_framework.saga.BaseSpringIntegrationTest;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
-import com.distributed_task_framework.saga.exceptions.TestUserUncheckedException;
-import com.distributed_task_framework.saga.generator.TestSagaGeneratorUtils;
 import com.distributed_task_framework.saga.generator.TestSagaModelSpec;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import lombok.AccessLevel;
@@ -331,58 +329,4 @@ class DistributionSagaServiceIntegrationTest extends BaseSpringIntegrationTest {
             return sagaRepository.findAll().iterator().next().getSagaId();
         }
     }
-
-
-    //todo: move to groups
-    @SneakyThrows
-    @Test
-    void shouldExecuteWhenHiddenMethod() {
-        //when
-        record TestSaga(int delta) {
-            private int sum(int i) {
-                return i + delta;
-            }
-        }
-        var testSagaModel = testSagaGenerator.generateFor(new TestSaga(10));
-
-        //do
-        var resultOpt = distributionSagaService.create(testSagaModel.getName())
-            .registerToRun(testSagaModel.getBean()::sum, 10)
-            .start()
-            .get();
-
-        //verify
-        assertThat(resultOpt)
-            .isPresent()
-            .get()
-            .isEqualTo(20);
-    }
-
-    //todo: rewrite
-    @SneakyThrows
-    @Test
-    void shouldNotRetryWhenNoRetryFor() {
-        //when
-        var testSagaNoRetryFor = new TestSagaBase(100);
-        var testSagaModel = testSagaGenerator.generate(TestSagaModelSpec.builder(testSagaNoRetryFor)
-            .withMethod(
-                testSagaNoRetryFor::sumAsConsumerWithException,
-                TestSagaGeneratorUtils.withNoRetryFor(TestUserUncheckedException.class)
-            )
-            .build()
-        );
-
-        //do
-        distributionSagaService.create(testSagaModel.getName())
-            .registerToConsume(testSagaModel.getBean()::sumAsConsumerWithException, 5)
-            .start()
-            .waitCompletion();
-
-        //verify
-        assertThat(testSagaNoRetryFor.getValue()).isEqualTo(105);
-    }
-
-
-    //todo: serialisation of complex type
-
 }
