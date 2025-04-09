@@ -1,16 +1,20 @@
+import org.springframework.boot.gradle.plugin.SpringBootPlugin
+
 plugins {
     id 'org.springframework.boot' version '3.1.2'
     id 'io.spring.dependency-management' version '1.1.4'
-    id 'org.ajoberstar.grgit' version "5.2.2"
+    id 'org.jreleaser' version '1.17.0'
+    id "base"
 }
 
+description = "The task processing framework"
 
 var libs = subprojects.findAll { !it.name.contains('application') }
 var apps = subprojects.findAll { it.name.contains('application') }
 
 configure(subprojects) { project ->
-    group = 'com.distributed_task_framework'
-    version = '0.0.1-SNAPSHOT'
+    group = 'io.github.cherkovskiyandrey'
+    version = '1.0.0'
 
     ext {
         lombokVersion = '1.18.30'
@@ -29,6 +33,7 @@ configure(subprojects) { project ->
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'java-library'
     apply plugin: 'java'
+    apply plugin: 'base'
 
     repositories {
         mavenCentral()
@@ -68,13 +73,12 @@ configure(subprojects) { project ->
         toolchain {
             languageVersion = JavaLanguageVersion.of(17)
         }
+//        withJavadocJar()
         withSourcesJar()
     }
 }
 
-configure(libs) { project ->
-
-    apply plugin: 'org.ajoberstar.grgit'
+configure(libs) { project_ ->
 
     bootJar {
         enabled = false
@@ -90,7 +94,7 @@ configure(libs) { project ->
 
     dependencyManagement {
         imports {
-            mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+            mavenBom SpringBootPlugin.BOM_COORDINATES
         }
     }
 
@@ -104,18 +108,14 @@ configure(libs) { project ->
     publishing {
         repositories {
             maven {
-                name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/cherkovskiyandrey/distributed-task-framework")
-                credentials {
-                    username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-                    password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
-                }
+                setUrl(layout.buildDirectory.dir("staging-deploy"))
             }
             mavenLocal()
         }
         publications {
-            gpr(MavenPublication) {
-                from(components.java)
+            maven(MavenPublication) {
+                from components.java
+
                 var currentTag = grgit.tag.list().find {
                     it.commit.id == grgit.head().getId()
                 }
@@ -124,6 +124,86 @@ configure(libs) { project ->
                         new Date().format('yyyyMMdd_HHmmss') +
                         "-" +
                         grgit.head().getId().substring(0, 8)
+
+                groupId = "io.github.cherkovskiyandrey"
+
+                pom {
+                    name = "Distributed Task Framework"
+                    description = "The task processing framework"
+                    inceptionYear = '2022'
+                    url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
+                    issueManagement {
+                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework/issues"
+                    }
+
+                    scm {
+                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
+                        connection ="scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
+                        developerConnection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
+                    }
+
+                    licenses {
+                        license {
+                            name = "The Apache Software License, Version 2.0"
+                            url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                            distribution = "repo"
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = "cherkovskiyandrey"
+                            name = "Andrey Cherkovskiy"
+                            email = "andreycherkovskiy@gmail.com"
+                            url = "https://github.com/cherkovskiyandrey"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    jreleaser {
+        dryrun = false
+        //noinspection GroovyAssignabilityCheck
+        project {
+            authors = ['Andrey Cherkovskiy']
+            license = 'Apache-2.0'
+            //noinspection GroovyAssignabilityCheck
+            links {
+                homepage = 'https://github.com/cherkovskiyandrey/distributed-task-framework'
+            }
+            inceptionYear = '2022'
+        }
+        release {
+            //noinspection GroovyAssignabilityCheck
+            github {
+                skipRelease = true
+                skipTag = true
+                sign = true
+                branch = "main"
+                branchPush = "main"
+                overwrite = true
+            }
+        }
+        //noinspection GroovyAssignabilityCheck
+        signing {
+            active = 'ALWAYS'
+            armored = true
+            verify = true
+        }
+        deploy {
+            maven {
+                //noinspection GroovyAssignabilityCheck
+                mavenCentral {
+                    sonatype {
+                        active = 'ALWAYS'
+                        url = "https://central.sonatype.com/api/v1/publisher"
+                        stagingRepository(layout.buildDirectory.dir("staging-deploy").get().toString())
+                        setAuthorization("Basic")
+                        retryDelay = 60
+                    }
+                }
             }
         }
     }
@@ -138,12 +218,4 @@ configure(apps) { project ->
     jar {
         enabled = true
     }
-}
-
-task publish {
-    dependsOn libs.publish
-}
-
-task build {
-    dependsOn subprojects.build
 }
