@@ -39,4 +39,16 @@ public interface Task<T> {
         onFailure(failedExecutionContext);
         return false;
     }
+
+    /**
+     * Called when the task is executed again.
+     * By default, it uses the same logic as the {@link #execute(ExecutionContext)} method,
+     * but it can be overridden to provide custom re-execution logic.
+     *
+     * @param executionContext The context in which the task is re-executed.
+     * @throws Exception If an error occurs during task re-execution.
+     */
+    default void reExecute(ExecutionContext<T> executionContext) throws Exception {
+        execute(executionContext);
+    }
 }

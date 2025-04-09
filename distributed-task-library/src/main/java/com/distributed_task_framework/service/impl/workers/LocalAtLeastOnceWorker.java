@@ -360,7 +360,11 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                 .executionAttempt(taskEntity.getFailures() + 1)
                 .build();
 
-            task.execute(executionContext);
+            if (executionContext.getExecutionAttempt() == 1) {
+                task.execute(executionContext);
+            } else {
+                task.reExecute(executionContext);
+            }
         }
 
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);

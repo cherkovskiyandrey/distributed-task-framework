@@ -518,6 +518,27 @@ public abstract class AbstractLocalWorkerIntegrationTests extends BaseLocalWorke
         verifyLocalTaskIsFinished(taskEntity);
     }
 
+    @SuppressWarnings("unchecked")
+    @SneakyThrows
+    @Test
+    void shouldReExecuteTaskWhenAttemptsMoreThanOnce() {
+        //when
+        TaskDef<String> taskDef = TaskDef.privateTaskDef("test", String.class);
+        TaskSettings taskSettings = defaultTaskSettings.toBuilder().build();
+        Task<String> mockedTask = (Task<String>) Mockito.mock(Task.class);
+        when(mockedTask.getDef()).thenReturn(taskDef);
+
+        RegisteredTask<String> registeredTask = RegisteredTask.of(mockedTask, taskSettings);
+        TaskEntity taskEntity = saveNewTaskEntity(1);
+
+        //do
+        getTaskWorker().execute(taskEntity, registeredTask);
+
+        //verify
+        verify(mockedTask).reExecute(any(ExecutionContext.class));
+        verifyLocalTaskIsFinished(taskEntity);
+    }
+
     @Value
     @Builder
     @Jacksonized
