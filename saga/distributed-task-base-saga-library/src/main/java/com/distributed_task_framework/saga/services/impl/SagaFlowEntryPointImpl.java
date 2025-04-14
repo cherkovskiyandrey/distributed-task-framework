@@ -24,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.Objects;
-import java.util.function.Consumer;
 
 @Slf4j
 @Value

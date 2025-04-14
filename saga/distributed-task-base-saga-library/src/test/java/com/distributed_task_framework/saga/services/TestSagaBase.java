@@ -114,6 +114,13 @@ class TestSagaBase {
         assertThat(throwable).hasCauseInstanceOf(TestUserUncheckedException.class);
         divideForFunction(parentOutput, output, throwable);
     }
+
+    @Revert
+    public void divideForFunctionWithException(int parentOutput,
+                                               @Nullable Integer output,
+                                               @Nullable SagaExecutionException throwable) {
+        throw new TestUserUncheckedException();
+    }
     // ---------------------------------------
 
     public int multiplyAsFunctionWithRootInput(int parentOutput, int rootInput) {

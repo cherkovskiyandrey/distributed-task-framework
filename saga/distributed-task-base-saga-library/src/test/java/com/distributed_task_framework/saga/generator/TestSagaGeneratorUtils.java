@@ -54,4 +54,10 @@ public class TestSagaGeneratorUtils {
             .expirationTimeout(duration)
             .build();
     }
+
+    public static SagaSettings withStopOnFailedAnyRevert(boolean stopOnFailedAnyRevert) {
+        return SagaSettings.DEFAULT.toBuilder()
+            .stopOnFailedAnyRevert(stopOnFailedAnyRevert)
+            .build();
+    }
 }

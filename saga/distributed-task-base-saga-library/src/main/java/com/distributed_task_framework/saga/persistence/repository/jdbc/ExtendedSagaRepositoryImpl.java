@@ -41,6 +41,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
             created_date_utc,
             completed_date_utc,
             available_after_completion_timeout_sec,
+            stop_on_failed_any_revert,
             expiration_date_utc,
             root_task_id,
             exception_type,
@@ -52,6 +53,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
             :createdDateUtc,
             :completedDateUtc,
             :availableAfterCompletionTimeoutSec,
+            :stopOnFailedAnyRevert,
             :expirationDateUtc,
             :rootTaskId,
             :exceptionType,
@@ -64,6 +66,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
                 created_date_utc = excluded.created_date_utc,
                 completed_date_utc = excluded.completed_date_utc,
                 available_after_completion_timeout_sec = excluded.available_after_completion_timeout_sec,
+                stop_on_failed_any_revert = excluded.stop_on_failed_any_revert,
                 expiration_date_utc = excluded.expiration_date_utc,
                 root_task_id = excluded.root_task_id,
                 exception_type = excluded.exception_type,
@@ -91,6 +94,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
             completed_date_utc,
             expiration_date_utc,
             canceled,
+            stop_on_failed_any_revert,
             root_task_id
         FROM _____dtf_saga
         WHERE saga_id = :sagaId::uuid
@@ -204,6 +208,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
         mapSqlParameterSource.addValue(SagaEntity.Fields.createdDateUtc, sagaEntity.getCreatedDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(SagaEntity.Fields.completedDateUtc, sagaEntity.getCompletedDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(SagaEntity.Fields.availableAfterCompletionTimeoutSec, sagaEntity.getAvailableAfterCompletionTimeoutSec(), Types.BIGINT);
+        mapSqlParameterSource.addValue(SagaEntity.Fields.stopOnFailedAnyRevert, sagaEntity.isStopOnFailedAnyRevert(), Types.BOOLEAN);
         mapSqlParameterSource.addValue(SagaEntity.Fields.expirationDateUtc, sagaEntity.getExpirationDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(SagaEntity.Fields.rootTaskId, sagaEntity.getRootTaskId(), Types.BINARY);
         mapSqlParameterSource.addValue(SagaEntity.Fields.exceptionType, sagaEntity.getExceptionType(), Types.VARCHAR);

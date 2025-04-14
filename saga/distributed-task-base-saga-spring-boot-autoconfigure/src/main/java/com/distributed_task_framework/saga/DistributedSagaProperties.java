@@ -151,5 +151,10 @@ public class DistributedSagaProperties {
          * After timeout expired, the whole saga will be canceled.
          */
         Duration expirationTimeout;
+
+        /**
+         * If any revert operation fail, then stop execute reverting chain and complete saga.
+         */
+        Boolean stopOnFailedAnyRevert;
     }
 }

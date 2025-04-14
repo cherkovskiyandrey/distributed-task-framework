@@ -30,6 +30,7 @@ public class ShortSagaEntity {
     LocalDateTime completedDateUtc;
     LocalDateTime expirationDateUtc;
     boolean canceled;
+    boolean stopOnFailedAnyRevert;
     @ToString.Exclude
     byte[] rootTaskId;
 }

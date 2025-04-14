@@ -25,6 +25,10 @@ public class Saga {
      */
     LocalDateTime expirationDateUtc;
     /**
+     * Means should stop reverting chain when all attempts exceeded.
+     */
+    boolean stopOnFailedAnyRevert;
+    /**
      * Flag means this saga is canceled gracefully or hard.
      */
     boolean canceled;

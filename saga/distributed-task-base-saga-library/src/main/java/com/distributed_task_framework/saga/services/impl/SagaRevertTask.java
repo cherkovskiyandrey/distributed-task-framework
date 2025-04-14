@@ -4,6 +4,7 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
+import com.distributed_task_framework.saga.models.Saga;
 import com.distributed_task_framework.saga.models.SagaAction;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
@@ -107,11 +108,18 @@ public class SagaRevertTask implements Task<SagaPipeline> {
             );
         }
 
-        scheduleNextRevertIfRequired(sagaPipeline, executionContext);
+        scheduleNextRevertIfRequired(saga, sagaPipeline, executionContext);
     }
 
     @Override
     public boolean onFailureWithResult(FailedExecutionContext<SagaPipeline> failedExecutionContext) throws Exception {
+        var sagaId = failedExecutionContext.getInputMessageOrThrow().getSagaId();
+        var sagaOpt = sagaManager.getIfExists(sagaId);
+        if (sagaOpt.isEmpty()) {
+            log.warn("execute(): sagaId=[{}] doesn't exists, stop execution.", sagaId);
+            return true;
+        }
+
         Throwable throwable = failedExecutionContext.getError();
         boolean isNoRetryException = ExceptionUtils.throwableOfType(throwable, SagaInternalException.class) != null;
         boolean isLastAttempt = failedExecutionContext.isLastAttempt() || isNoRetryException;
@@ -124,15 +132,20 @@ public class SagaRevertTask implements Task<SagaPipeline> {
         );
 
         if (isLastAttempt) {
-            scheduleNextRevertIfRequired(failedExecutionContext.getInputMessageOrThrow(), failedExecutionContext);
+            scheduleNextRevertIfRequired(
+                sagaOpt.get(),
+                failedExecutionContext.getInputMessageOrThrow(),
+                failedExecutionContext
+            );
         }
 
         return isLastAttempt;
     }
 
-    private void scheduleNextRevertIfRequired(SagaPipeline sagaPipeline,
+    private void scheduleNextRevertIfRequired(Saga saga,
+                                              SagaPipeline sagaPipeline,
                                               ExecutionContext<SagaPipeline> executionContext) throws Exception {
-        if (!sagaPipeline.hasNext()) {
+        if (!sagaPipeline.hasNext() || saga.isStopOnFailedAnyRevert()) {
             log.info(
                 "scheduleNextRevertIfRequired(): revert chain has been completed for sagaPipelineContext with id=[{}]",
                 sagaPipeline.getSagaId()

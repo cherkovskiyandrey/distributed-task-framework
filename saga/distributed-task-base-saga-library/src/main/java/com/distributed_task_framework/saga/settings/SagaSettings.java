@@ -23,4 +23,11 @@ public class SagaSettings {
      */
     @Builder.Default
     Duration expirationTimeout = Duration.ofHours(1);
+
+    /**
+     * If any revert operation fail, then stop execute reverting chain and complete saga.
+     *
+     */
+    @Builder.Default
+    boolean stopOnFailedAnyRevert = false;
 }

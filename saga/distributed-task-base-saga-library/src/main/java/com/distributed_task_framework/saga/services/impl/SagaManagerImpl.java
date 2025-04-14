@@ -170,6 +170,7 @@ public class SagaManagerImpl implements SagaManager {
             .createdDateUtc(now)
             .expirationDateUtc(expiredDateUtc)
             .availableAfterCompletionTimeoutSec(sagaSettings.getAvailableAfterCompletionTimeout().toSeconds())
+            .stopOnFailedAnyRevert(sagaSettings.isStopOnFailedAnyRevert())
             .build();
         sagaRepository.saveOrUpdate(sagaEntity);
     }

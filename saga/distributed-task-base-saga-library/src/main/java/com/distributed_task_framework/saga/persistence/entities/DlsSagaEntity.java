@@ -28,6 +28,7 @@ public class DlsSagaEntity {
     String name;
     LocalDateTime createdDateUtc;
     long availableAfterCompletionTimeoutSec;
+    boolean stopOnFailedAnyRevert;
     LocalDateTime expirationDateUtc;
     @ToString.Exclude
     byte[] rootTaskId;
