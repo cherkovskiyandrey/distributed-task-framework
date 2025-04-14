@@ -6,6 +6,7 @@ plugins {
     id 'org.jreleaser' version '1.17.0'
     id "base"
     id 'org.ajoberstar.grgit' version "5.2.2"
+    id 'io.freefair.lombok' version '8.6'
 }
 
 description = "The task processing framework"
@@ -18,7 +19,7 @@ configure(subprojects) { project ->
     version = '1.0.0'
 
     ext {
-        lombokVersion = '1.18.30'
+        lombokVersion = '1.18.38'
         mapstructVersion = '1.5.5.Final'
         lombokMapstructBindingVersion = '0.2.0'
         springDataJdbcVersion = '3.1.2'
@@ -149,7 +150,7 @@ configure(libs) { project_ ->
 
                     scm {
                         url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
-                        connection ="scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
+                        connection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
                         developerConnection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
                     }
 
@@ -219,6 +220,31 @@ configure(libs) { project_ ->
         }
     }
 
+    tasks.register('delombok') {
+        group = 'lombok'
+
+        ext.delombokTarget = file("$buildDir/delomboked")
+
+        doLast {
+            ant.taskdef(
+                    name: 'delombok',
+                    classname: 'lombok.delombok.ant.Tasks$Delombok',
+                    classpath: sourceSets.main.compileClasspath.asPath
+            )
+            ant.mkdir(dir: delombokTarget)
+            ant.delombok(
+                    verbose: false,
+                    encoding: 'UTF-8',
+                    to: delombokTarget,
+                    from: sourceSets.main.java.srcDirs.first().absolutePath
+            ) {
+                format(value: 'generateDelombokComment:skip')
+                format(value: 'generated:generate')
+                format(value: 'javaLangAsFQN:skip')
+            }
+        }
+    }
+
 }
 
 configure(apps) { project ->
@@ -229,4 +255,17 @@ configure(apps) { project ->
     jar {
         enabled = true
     }
+}
+
+tasks.register('sourcesJar', Jar) {
+    dependsOn delombok
+
+    from delombok.delombokTarget
+    archiveClassifier = 'sources'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    dependsOn delombok
+
+    source = fileTree(delombok.delombokTarget)
 }
