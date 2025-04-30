@@ -1,6 +1,6 @@
-package com.distributed_task_framework.saga.mappers;
+package com.distributed_task_framework.saga.autoconfigure.mappers;
 
-import com.distributed_task_framework.saga.DistributedSagaProperties;
+import com.distributed_task_framework.saga.autoconfigure.DistributedSagaProperties;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;

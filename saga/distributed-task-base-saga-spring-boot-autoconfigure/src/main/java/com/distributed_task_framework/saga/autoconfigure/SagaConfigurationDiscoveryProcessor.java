@@ -1,16 +1,18 @@
-package com.distributed_task_framework.saga;
+package com.distributed_task_framework.saga.autoconfigure;
 
-import com.distributed_task_framework.saga.annotations.SagaMethod;
-import com.distributed_task_framework.saga.annotations.SagaRevertMethod;
-import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMapper;
-import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMerger;
-import com.distributed_task_framework.saga.mappers.SagaPropertiesMapper;
-import com.distributed_task_framework.saga.mappers.SagaPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
+import com.distributed_task_framework.saga.autoconfigure.annotations.SagaRevertMethod;
+import com.distributed_task_framework.saga.utils.ReflectionHelper;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMapper;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMapper;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.utils.SagaNamingUtils;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.settings.TaskSettings;
-import com.distributed_task_framework.utils.ReflectionHelper;
+import com.google.common.collect.Maps;
 import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,7 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
     SagaMethodPropertiesMerger sagaMethodPropertiesMerger;
     SagaPropertiesMapper sagaPropertiesMapper;
     SagaPropertiesMerger sagaPropertiesMerger;
+    Map<Object, ReflectionHelper.ProxyObject> beansToProxyObject = Maps.newIdentityHashMap();
 
     @PostConstruct
     public void init() {
@@ -54,15 +57,18 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
 
     private void registerSagaMethodIfExists(Object bean) {
         Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
-            .filter(method -> ReflectionHelper.findAnnotation(method, SagaMethod.class).isPresent())
+            .filter(method -> com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaMethod.class).isPresent())
             .forEach(method -> {
+                //todo: use interface like SagaMethodPrefix to distinct the different instances with the same class
                 var taskName = SagaNamingUtils.taskNameFor(method);
                 var sagaMethodSettings = buildSagaMethodSettings(method);
+                var proxyObject = beansToProxyObject.computeIfAbsent(bean, k -> ReflectionHelper.unwrapSpringBean(bean));
 
                 distributionSagaService.registerSagaMethod(
                     taskName,
                     method,
-                    bean,
+                    proxyObject.targetObject(),
+                    proxyObject.proxyWrappers(),
                     sagaMethodSettings
                 );
             });
@@ -70,15 +76,18 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
 
     private void registerSagaRevertMethodIfExists(Object bean) {
         Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
-            .filter(method -> ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).isPresent())
+            .filter(method -> com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).isPresent())
             .forEach(method -> {
+                //todo: use interface like SagaMethodPrefix to distinct the different instances with the same class
                 var revertTaskName = SagaNamingUtils.taskNameFor(method);
                 var sagaMethodSettings = buildSagaMethodSettings(method);
+                var proxyObject = beansToProxyObject.computeIfAbsent(bean, k -> ReflectionHelper.unwrapSpringBean(bean));
 
                 distributionSagaService.registerSagaRevertMethod(
                     revertTaskName,
                     method,
-                    bean,
+                    proxyObject.targetObject(),
+                    proxyObject.proxyWrappers(),
                     sagaMethodSettings
                 );
             });
@@ -160,7 +169,7 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
     }
 
     private void fillExecutionGuarantees(Method method, DistributedSagaProperties.SagaMethodProperties sagaMethodProperties) {
-        ReflectionHelper.findAnnotation(method, Transactional.class)
+        com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, Transactional.class)
             .ifPresent(executionGuarantees ->
                 sagaMethodProperties.setExecutionGuarantees(TaskSettings.ExecutionGuarantees.EXACTLY_ONCE)
             );

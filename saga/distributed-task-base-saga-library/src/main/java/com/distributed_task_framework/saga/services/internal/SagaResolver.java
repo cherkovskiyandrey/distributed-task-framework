@@ -3,9 +3,11 @@ package com.distributed_task_framework.saga.services.internal;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.models.SagaOperand;
 import com.distributed_task_framework.saga.models.SagaPipeline;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.io.Serializable;
 import java.lang.reflect.Method;
+import java.util.Collection;
 
 public interface SagaResolver {
 
@@ -25,6 +27,14 @@ public interface SagaResolver {
     void unregisterOperand(String name);
 
     /**
+     * Return all names for registered operands.
+     *
+     * @return
+     */
+    @VisibleForTesting
+    Collection<String> getAllRegisteredOperandNames();
+
+    /**
      * Resolve operation to corresponding SagaOperand if saga element has been registered.
      *
      * @param operation
@@ -37,11 +47,10 @@ public interface SagaResolver {
      * Resolve operation to corresponding Method
      *
      * @param methodRef
-     * @param anchorObject
      * @return
      * @param <T>
      */
-    <T extends Serializable> Method resolveAsMethod(T methodRef, Object anchorObject);
+    <T extends Serializable> Method findMethodInObject(T methodRef, Object anchorObject);
 
     /**
      * Resolve registered task definition by task name.

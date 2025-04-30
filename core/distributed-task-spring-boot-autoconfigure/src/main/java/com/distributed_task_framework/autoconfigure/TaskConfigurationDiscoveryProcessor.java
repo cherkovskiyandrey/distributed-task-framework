@@ -17,7 +17,7 @@ import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.utils.ReflectionHelper;
+import com.distributed_task_framework.autoconfigure.utils.ReflectionHelper;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

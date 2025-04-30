@@ -1,7 +1,6 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.saga.exceptions.SagaMethodDuplicateException;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.mappers.SettingsMapper;
 import com.distributed_task_framework.saga.models.SagaOperand;
@@ -14,7 +13,6 @@ import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -22,16 +20,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaRegisterServiceImpl implements SagaRegisterService {
-    private final Map<String, Method> registeredSagaMethodNames = Maps.newConcurrentMap();
-    private final Set<Method> registeredSagaMethods = Sets.newConcurrentHashSet();
     private final Map<String, SagaSettings> registeredSagaSettings = Maps.newConcurrentMap();
     private final AtomicReference<SagaSettings> defaultSagaSettings = new AtomicReference<>(SagaSettings.DEFAULT);
 
@@ -64,17 +60,29 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
     }
 
     @Override
-    public void registerSagaMethod(String name, Method method, Object object, SagaMethodSettings sagaMethodSettings) {
+    public void registerSagaMethod(String name,
+                                   Method method,
+                                   Object object,
+                                   Collection<Object> proxyWrappers,
+                                   SagaMethodSettings sagaMethodSettings) {
         log.info(
-            "registerSagaMethod(): name=[{}], method=[{}], object=[{}], SagaMethodSettings=[{}]",
+            "registerSagaMethod(): name=[{}], method=[{}], object=[{}], proxyObjects=[{}], sagaMethodSettings=[{}]",
             name,
             method,
-            object,
+            System.identityHashCode(object),
+            proxyWrappers.stream().map(System::identityHashCode).toList(),
             sagaMethodSettings
         );
 
-        internalRegisterMethod(name, method);
         var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
+        var sagaOperand = SagaOperand.builder()
+            .method(method)
+            .targetObject(object)
+            .proxyWrappers(proxyWrappers)
+            .taskDef(taskDef)
+            .build();
+        sagaResolver.registerOperand(name, sagaOperand);
+
         SagaTask sagaTask = sagaTaskFactory.sagaTask(
             taskDef,
             makeAccessible(method, object),
@@ -83,35 +91,42 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
         );
         TaskSettings taskSettings = settingsMapper.map(sagaMethodSettings);
         distributedTaskService.registerTask(sagaTask, taskSettings);
-        sagaResolver.registerOperand(name, new SagaOperand(method, taskDef));
     }
 
     @Override
     public <T, R> void registerSagaMethod(String name,
                                           SagaFunction<T, R> methodRef,
                                           Object object,
+                                          Collection<Object> proxyWrappers,
                                           SagaMethodSettings sagaMethodSettings) {
-        Method method = sagaResolver.resolveAsMethod(methodRef, object);
-        registerSagaMethod(
-            name,
-            method,
-            object,
-            sagaMethodSettings
-        );
+        Method method = sagaResolver.findMethodInObject(methodRef, object);
+        registerSagaMethod(name, method, object, proxyWrappers, sagaMethodSettings);
     }
 
     @Override
-    public void registerSagaRevertMethod(String name, Method method, Object object, SagaMethodSettings sagaMethodSettings) {
+    public void registerSagaRevertMethod(String name,
+                                         Method method,
+                                         Object object,
+                                         Collection<Object> proxyWrappers,
+                                         SagaMethodSettings sagaMethodSettings) {
         log.info(
-            "registerSagaRevertMethod(): name=[{}], method=[{}], object=[{}], SagaMethodSettings=[{}]",
+            "registerSagaRevertMethod(): name=[{}], method=[{}], object=[{}], proxyObjects=[{}], sagaMethodSettings=[{}]",
             name,
             method,
-            object,
+            System.identityHashCode(object),
+            proxyWrappers.stream().map(System::identityHashCode).toList(),
             sagaMethodSettings
         );
 
-        internalRegisterMethod(name, method);
         var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
+        var sagaOperand = SagaOperand.builder()
+            .method(method)
+            .targetObject(object)
+            .proxyWrappers(proxyWrappers)
+            .taskDef(taskDef)
+            .build();
+        sagaResolver.registerOperand(name, sagaOperand);
+
         SagaRevertTask sagaRevertTask = sagaTaskFactory.sagaRevertTask(
             taskDef,
             makeAccessible(method, object),
@@ -119,43 +134,15 @@ public class SagaRegisterServiceImpl implements SagaRegisterService {
         );
         TaskSettings taskSettings = settingsMapper.map(sagaMethodSettings);
         distributedTaskService.registerTask(sagaRevertTask, taskSettings);
-        sagaResolver.registerOperand(name, new SagaOperand(method, taskDef));
-
-        log.info(
-            "registerSagaRevertElement(): name=[{}], method=[{}], object=[{}], sagaElementSettings=[{}]",
-            name,
-            method,
-            object,
-            sagaMethodSettings
-        );
     }
 
     @Override
     public void unregisterSagaMethod(String name) {
         log.info("unregisterSagaMethod(): name=[{}]", name);
-
-        internalUnregisterMethod(name);
         sagaResolver.unregisterOperand(name);
 
         var taskDef = TaskDef.privateTaskDef(name, SagaPipeline.class);
         distributedTaskService.unregisterTask(taskDef);
-    }
-
-    private void internalRegisterMethod(String name, Method method) {
-        if (registeredSagaMethodNames.putIfAbsent(name, method) != null) {
-            throw new SagaMethodDuplicateException(name);
-        }
-        if (!registeredSagaMethods.add(method)) {
-            registeredSagaMethodNames.remove(name);
-            throw new SagaMethodDuplicateException(method);
-        }
-    }
-
-    private void internalUnregisterMethod(String name) {
-        var method = registeredSagaMethodNames.remove(name);
-        if (method != null) {
-            registeredSagaMethods.remove(method);
-        }
     }
 
     private Method makeAccessible(Method method, Object object) {

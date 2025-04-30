@@ -7,7 +7,6 @@ import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.saga.utils.MethodSagaMethodFactory;
-import com.distributed_task_framework.saga.utils.ReflectionHelper;
 import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
@@ -20,11 +19,13 @@ import org.mockito.MockMakers;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.util.ReflectionUtils;
 
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -104,7 +105,7 @@ public class TestSagaGenerator {
 
         var sagaMethodToHandler = testSagaModelSpec.getAfterSagaMethodExecution().entrySet().stream()
             .map(entry -> {
-                    var method = sagaResolver.resolveAsMethod(entry.getKey(), testSagaModelSpec.getBean());
+                    var method = sagaResolver.findMethodInObject(entry.getKey(), testSagaModelSpec.getBean());
                     var sagaMethod = MethodSagaMethodFactory.of(method);
                     return Pair.of(sagaMethod, entry.getValue());
                 }
@@ -140,7 +141,7 @@ public class TestSagaGenerator {
 
     private <T> void registerBeforeExecutionHooks(TestSagaModelSpec<T> testSagaModelSpec) {
         testSagaModelSpec.getBeforeTaskExecution().forEach((sagaFunction, hook) -> {
-                var method = sagaResolver.resolveAsMethod(sagaFunction, testSagaModelSpec.getBean());
+                var method = sagaResolver.findMethodInObject(sagaFunction, testSagaModelSpec.getBean());
                 when(sagaTaskFactory.sagaTask(
                     argThat(taskDef -> taskDef.getTaskName().contains(method.getName() + "-")),
                     any(Method.class),
@@ -184,8 +185,7 @@ public class TestSagaGenerator {
         if (testSagaModelSpec.isDisableRegisterAllMethods()) {
             return;
         }
-
-        ReflectionHelper.allMethods(testSagaModelSpec.getBean().getClass())
+        Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(testSagaModelSpec.getBean().getClass()))
             .filter(method -> !alreadyRegisteredMethods.contains(method))
             .filter(method -> !isIgnoredMethod(method))
             .forEach(method -> {
@@ -196,6 +196,7 @@ public class TestSagaGenerator {
                             name,
                             method,
                             testSagaModelSpec.getBean(),
+                            List.of(),
                             generateSagaMethodSettings(null, testSagaModelSpec)
                         );
                     } else {
@@ -203,6 +204,7 @@ public class TestSagaGenerator {
                             name,
                             method,
                             testSagaModelSpec.getBean(),
+                            List.of(),
                             generateSagaMethodSettings(null, testSagaModelSpec)
                         );
                     }
@@ -220,14 +222,15 @@ public class TestSagaGenerator {
                                                                                   TestSagaModelSpec<T> testSagaModelSpec) {
         Set<Method> alreadyRegisteredMethods = Sets.newHashSet();
         for (var methodRef : operationToSettings.entrySet()) {
-            var method = sagaResolver.resolveAsMethod(methodRef.getKey(), testSagaModelSpec.getBean());
+            var method = sagaResolver.findMethodInObject(methodRef.getKey(), testSagaModelSpec.getBean());
             var name = String.join("-", method.getName(), RandomStringUtils.randomAlphabetic(10));
-            boolean isRevert = method.getAnnotation(Revert.class) != null;
+            boolean isRevert = AnnotatedElementUtils.hasAnnotation(method, Revert.class);
             if (isRevert) {
                 distributionSagaService.registerSagaRevertMethod(
                     name,
                     method,
                     testSagaModelSpec.getBean(),
+                    List.of(),
                     generateSagaMethodSettings(methodRef.getValue(), testSagaModelSpec)
                 );
             } else {
@@ -235,6 +238,7 @@ public class TestSagaGenerator {
                     name,
                     method,
                     testSagaModelSpec.getBean(),
+                    List.of(),
                     generateSagaMethodSettings(methodRef.getValue(), testSagaModelSpec)
                 );
             }

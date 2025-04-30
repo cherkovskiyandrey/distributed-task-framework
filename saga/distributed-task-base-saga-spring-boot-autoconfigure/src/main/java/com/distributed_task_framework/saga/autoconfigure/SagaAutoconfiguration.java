@@ -1,14 +1,14 @@
-package com.distributed_task_framework.saga;
+package com.distributed_task_framework.saga.autoconfigure;
 
 
 import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
-import com.distributed_task_framework.saga.mappers.SagaCommonPropertiesMapper;
-import com.distributed_task_framework.saga.mappers.SagaCommonPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMapper;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMerger;
 import com.distributed_task_framework.saga.mappers.SagaMapper;
-import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMapper;
-import com.distributed_task_framework.saga.mappers.SagaMethodPropertiesMerger;
-import com.distributed_task_framework.saga.mappers.SagaPropertiesMapper;
-import com.distributed_task_framework.saga.mappers.SagaPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMapper;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMapper;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMerger;
 import com.distributed_task_framework.saga.mappers.SettingsMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;

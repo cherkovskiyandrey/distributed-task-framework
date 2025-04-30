@@ -1,7 +1,7 @@
-package com.distributed_task_framework.saga.mappers;
+package com.distributed_task_framework.saga.autoconfigure.mappers;
 
 import com.distributed_task_framework.autoconfigure.mapper.RetrySettingsMerger;
-import com.distributed_task_framework.saga.DistributedSagaProperties.SagaMethodProperties;
+import com.distributed_task_framework.saga.autoconfigure.DistributedSagaProperties.SagaMethodProperties;
 import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
 import org.mapstruct.Mapper;

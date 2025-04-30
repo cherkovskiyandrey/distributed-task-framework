@@ -1,12 +1,20 @@
 package com.distributed_task_framework.saga.utils;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import lombok.experimental.UtilityClass;
 import org.springframework.lang.Nullable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
+import java.util.Queue;
+import java.util.Set;
 import java.util.Spliterator;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -15,15 +23,50 @@ import java.util.stream.StreamSupport;
 @UtilityClass
 public class ReflectionHelper {
 
+    /**
+     * Find all methods in the hierarchy of provided class for provided overridden method.
+     *
+     * @param method      overridden method in the last class of hierarchy
+     * @param targetClass the last class in the hierarchy to begin searching from
+     * @return
+     */
+    public List<Method> findAllMethodsForLastOverride(Method method, Class<?> targetClass) {
+        return allMethods(targetClass).filter(m -> isMethodOverrideFor(method, m)).toList();
+    }
+
+    private boolean isMethodOverrideFor(Method overrideMethod, Method method) {
+        return Objects.equals(overrideMethod.getName(), method.getName())
+            && Arrays.equals(overrideMethod.getParameterTypes(), method.getParameterTypes())
+            && (
+            Objects.equals(overrideMethod.getReturnType(), method.getReturnType())
+                //check covariant types
+                || method.getReturnType().isAssignableFrom(overrideMethod.getReturnType())
+        );
+    }
+
+    /**
+     * Return stream of all methods (included abstract, included methods in the interfaces) in the hierarchy.
+     *
+     * @param cls
+     * @return
+     */
     public static Stream<Method> allMethods(Class<?> cls) {
 
         class SpliteratorMethods implements Spliterator<Method> {
+            private final Queue<Class<?>> currentInterfaces;
+            private final Set<Class<?>> visitedClasses;
             private Class<?> currentClass;
-            private int methodIdx;
+            private Class<?> currentInterface;
+            private int classMethodIdx;
+            private int interfaceMethodIdx;
 
             public SpliteratorMethods(Class<?> currentClass) {
                 this.currentClass = Objects.requireNonNull(currentClass);
-                this.methodIdx = 0;
+                this.visitedClasses = Sets.newHashSet();
+                this.currentInterface = null;
+                this.currentInterfaces = new ArrayDeque<>();
+                this.classMethodIdx = 0;
+                this.interfaceMethodIdx = -1;
             }
 
             @Override
@@ -31,16 +74,57 @@ public class ReflectionHelper {
                 if (currentClass == null) {
                     return false;
                 }
-                if (currentClass.getDeclaredMethods().length <= methodIdx) {
-                    currentClass = currentClass.getSuperclass();
-                    methodIdx = 0;
+
+                if (currentClass.getDeclaredMethods().length <= classMethodIdx) {
+                    classMethodIdx = -1;
+                    currentInterfaces.addAll(filterVisited(currentClass.getInterfaces()));
                 }
-                if (currentClass == null) {
+
+                if (currentInterface != null && currentInterface.getDeclaredMethods().length <= interfaceMethodIdx) {
+                    currentInterfaces.poll();
+                    interfaceMethodIdx = -1;
+                }
+
+                Class<?> clsOrInterface;
+                int idx;
+                if (classMethodIdx > -1) {
+                    clsOrInterface = currentClass;
+                    idx = classMethodIdx++;
+                } else {
+                    if (interfaceMethodIdx == -1) {
+                        interfaceMethodIdx = 0;
+                        currentInterface = currentInterfaces.peek();
+                        if (currentInterface != null) {
+                            currentInterfaces.addAll(filterVisited(currentInterface.getInterfaces()));
+                        }
+                    }
+
+                    if (currentInterface == null) {
+                        interfaceMethodIdx = -1;
+                        classMethodIdx = 0;
+                        currentClass = currentClass.getSuperclass() == Object.class ? null : currentClass.getSuperclass();
+                        clsOrInterface = currentClass;
+                        idx = classMethodIdx++;
+                    } else {
+                        clsOrInterface = currentInterface;
+                        idx = interfaceMethodIdx++;
+                    }
+                }
+
+                if (clsOrInterface == null) {
                     return false;
                 }
 
-                action.accept(currentClass.getDeclaredMethods()[methodIdx++]);
+                action.accept(clsOrInterface.getDeclaredMethods()[idx]);
                 return true;
+            }
+
+            private Collection<Class<?>> filterVisited(Class<?>[] interfaces) {
+                var newInterfaces = Sets.newHashSet(Sets.difference(Sets.newHashSet(interfaces), visitedClasses));
+                visitedClasses.addAll(newInterfaces);
+                return Lists.newArrayList(interfaces).stream()
+                    .filter(newInterfaces::contains)
+                    .toList();
             }
 
             @Override

@@ -1,7 +1,7 @@
 package com.distributed_task_framework.saga.test_service.services.impl;
 
-import com.distributed_task_framework.saga.annotations.SagaMethod;
-import com.distributed_task_framework.saga.annotations.SagaRevertMethod;
+import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
+import com.distributed_task_framework.saga.autoconfigure.annotations.SagaRevertMethod;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.DistributionSagaService;

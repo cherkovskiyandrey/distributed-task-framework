@@ -1,4 +1,4 @@
-package com.distributed_task_framework.utils;
+package com.distributed_task_framework.autoconfigure.utils;
 
 import com.distributed_task_framework.task.Task;
 import lombok.experimental.UtilityClass;

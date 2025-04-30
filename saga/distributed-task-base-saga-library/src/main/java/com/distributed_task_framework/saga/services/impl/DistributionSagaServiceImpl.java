@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -65,24 +66,30 @@ public class DistributionSagaServiceImpl implements DistributionSagaService {
     }
 
     @Override
-    public void registerSagaMethod(String name, Method method, Object object, SagaMethodSettings sagaMethodSettings) {
-        sagaRegisterService.registerSagaMethod(name, method, object, sagaMethodSettings);
+    public void registerSagaMethod(String name,
+                                   Method method,
+                                   Object object,
+                                   Collection<Object> proxyWrappers,
+                                   SagaMethodSettings sagaMethodSettings) {
+        sagaRegisterService.registerSagaMethod(name, method, object, proxyWrappers, sagaMethodSettings);
     }
 
     @Override
     public <T, R> void registerSagaMethod(String name,
                                           SagaFunction<T, R> methodRef,
                                           Object object,
+                                          Collection<Object> proxyWrappers,
                                           SagaMethodSettings sagaMethodSettings) {
-        sagaRegisterService.registerSagaMethod(name, methodRef, object, sagaMethodSettings);
+        sagaRegisterService.registerSagaMethod(name, methodRef, object, proxyWrappers, sagaMethodSettings);
     }
 
     @Override
     public void registerSagaRevertMethod(String name,
                                          Method method,
                                          Object object,
+                                         Collection<Object> proxyWrappers,
                                          SagaMethodSettings sagaMethodSettings) {
-        sagaRegisterService.registerSagaRevertMethod(name, method, object, sagaMethodSettings);
+        sagaRegisterService.registerSagaRevertMethod(name, method, object, proxyWrappers, sagaMethodSettings);
     }
 
     @Override

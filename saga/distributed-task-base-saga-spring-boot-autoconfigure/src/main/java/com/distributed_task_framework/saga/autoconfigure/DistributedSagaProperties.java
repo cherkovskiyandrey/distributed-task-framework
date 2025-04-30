@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga;
+package com.distributed_task_framework.saga.autoconfigure;
 
 import com.distributed_task_framework.autoconfigure.DistributedTaskProperties;
 import com.distributed_task_framework.model.ExecutionContext;

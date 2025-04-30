@@ -1,6 +1,6 @@
 package com.distributed_task_framework.saga.test_service.services.impl
 
-import com.distributed_task_framework.saga.annotations.SagaMethod
+import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod
 import com.distributed_task_framework.saga.services.DistributionSagaService
 import com.distributed_task_framework.saga.test_service.models.RemoteOneKotlinDto
 import com.distributed_task_framework.saga.test_service.models.SagaRevertableKotlinDto

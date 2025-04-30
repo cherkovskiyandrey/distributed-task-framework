@@ -74,6 +74,8 @@ public abstract class BaseSpringIntegrationTest {
     SagaManager sagaManager;
     @Autowired
     SagaTaskFactory sagaTaskFactory;
+    @Autowired
+    SagaResolver sagaResolver;
 
     @SneakyThrows
     @BeforeEach
