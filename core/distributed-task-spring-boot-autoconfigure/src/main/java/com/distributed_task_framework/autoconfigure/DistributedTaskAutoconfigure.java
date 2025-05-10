@@ -1,7 +1,7 @@
 package com.distributed_task_framework.autoconfigure;
 
 import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
-import com.distributed_task_framework.listener.StartBackgroundJobsListener;
+import com.distributed_task_framework.autoconfigure.listener.StartBackgroundJobsListener;
 import com.distributed_task_framework.autoconfigure.mapper.CommonSettingsMerger;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;

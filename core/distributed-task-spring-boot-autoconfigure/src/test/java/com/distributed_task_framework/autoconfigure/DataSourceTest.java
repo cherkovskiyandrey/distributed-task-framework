@@ -1,7 +1,7 @@
 package com.distributed_task_framework.autoconfigure;
 
 import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
-import com.distributed_task_framework.listener.StartBackgroundJobsListener;
+import com.distributed_task_framework.autoconfigure.listener.StartBackgroundJobsListener;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
 import com.distributed_task_framework.persistence.repository.jdbc.TaskStatRepositoryImpl;
 import org.junit.jupiter.api.Test;
