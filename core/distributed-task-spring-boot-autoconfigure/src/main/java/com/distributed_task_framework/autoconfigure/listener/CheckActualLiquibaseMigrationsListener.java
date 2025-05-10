@@ -25,12 +25,20 @@ public class CheckActualLiquibaseMigrationsListener implements ApplicationListen
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
-        var springLiquibase = event.getApplicationContext().getBean(SpringLiquibase.class);
-        var knownMigrationFileNames = knownMigrationFileNames(event);
-        log.debug("Known Liquibase migrations: {}", knownMigrationFileNames);
+        Set<String> knownMigrationFileNames;
+        Set<String> deployedMigrationFileNames;
+        try {
+            var springLiquibase = event.getApplicationContext().getBean(SpringLiquibase.class);
+            knownMigrationFileNames = knownMigrationFileNames(event);
+            log.debug("Known Liquibase migrations: {}", knownMigrationFileNames);
 
-        var deployedMigrationFileNames = deployedMigrationFileNames(springLiquibase);
-        log.debug("Deployed Liquibase migrations: {}", deployedMigrationFileNames);
+            deployedMigrationFileNames = deployedMigrationFileNames(springLiquibase);
+            log.debug("Deployed Liquibase migrations: {}", deployedMigrationFileNames);
+
+        } catch (Exception e) {
+            log.warn("Unable to check liquibase migrations. Skipping...", e);
+            return;
+        }
 
         knownMigrationFileNames.removeAll(deployedMigrationFileNames);
         if (!knownMigrationFileNames.isEmpty()) {
