@@ -144,6 +144,11 @@ databaseChangeLog:
 If you use another DB migration framework, rely on the raw SQL scripts: [001_dtf_init.up.sql](distributed-task-library%2Fsrc%2Fmain%2Fresources%2Fdb%2Fchangelog%2Fdistributed-task-framework%2Fsql%2F001_dtf_init.up.sql) and
 [001_dtf_init.down.sql](distributed-task-library%2Fsrc%2Fmain%2Fresources%2Fdb%2Fchangelog%2Fdistributed-task-framework%2Fsql%2F001_dtf_init.down.sql) and others in the `./resources/db/changelog/distributed-task-framework/sql` 
 
+For your convenience, we have checks for all known migrations in place. Currently, 
+only scripts deployed by Liquibase are being checked. You can disable this by 
+setting the `distributed-task.liquibase.check-migrations` parameter to `false` in your 
+`application.yml` or `application.properties` file. By default, this parameter is set to `true`.
+
 Give application name and enable DTF in `application.yml`:
 
 ```yaml
