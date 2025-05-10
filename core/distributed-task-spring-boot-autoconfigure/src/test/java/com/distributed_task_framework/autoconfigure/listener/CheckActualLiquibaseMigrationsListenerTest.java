@@ -1,6 +1,6 @@
-package com.distributed_task_framework.autoconfigure;
+package com.distributed_task_framework.autoconfigure.listener;
 
-import com.distributed_task_framework.autoconfigure.listener.CheckActualLiquibaseMigrationsListener;
+import com.distributed_task_framework.autoconfigure.DistributedTaskLiquibaseAutoConfiguration;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
