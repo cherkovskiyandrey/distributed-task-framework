@@ -8,13 +8,17 @@
       "name": "distributed-task",
       "description": "DTF settings.",
       "type": "com.distributed_task_framework.autoconfigure.DistributedTaskProperties"
+    },
+    {
+      "name": "distributed-task.liquibase",
+      "description": "Settings if liquibase is present on classpath."
     }
   ],
   "properties": [
     {
       "name": "distributed-task.enabled",
       "type": "java.lang.Boolean",
-      "description": "If true, DTF will not be started.",
+      "description": "If false, DTF will not be started.",
       "defaultValue": "false"
     },
     {
@@ -192,8 +196,13 @@
     {
       "name": "distributed-task.task-properties-group.default-properties.timeout",
       "defaultValue": "0"
+    },
+    {
+      "name": "distributed-task.liquibase.check-migrations",
+      "type": "java.lang.Boolean",
+      "description": "Check if all needed migrations are deployed to database.",
+      "defaultValue": "true"
     }
-
   ],
   "hints": [
     {

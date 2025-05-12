@@ -5,6 +5,7 @@ import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
 import com.distributed_task_framework.persistence.repository.RegisteredTaskRepository;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -17,7 +18,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class TaskRegistryServiceImpl implements TaskRegistryService {
+public class TaskRegistryServiceImpl implements TaskRegistryService, BackgroundJob {
     ConcurrentMap<TaskDef<?>, RegisteredTask<?>> registeredTasks = Maps.newConcurrentMap();
     CommonSettings commonSettings;
     RegisteredTaskRepository registeredTaskRepository;
@@ -68,8 +68,8 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         log.info("init(): nodeId=[{}]", clusterProvider.nodeId());
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::publishOrUpdateTasksInCluster),

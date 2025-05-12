@@ -5,6 +5,7 @@ import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
@@ -24,7 +25,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class WorkerManagerImpl implements WorkerManager {
+public class WorkerManagerImpl implements WorkerManager, BackgroundJob {
     private record ActiveTask(
         TaskEntity taskEntity,
         Future<Void> future,
@@ -121,8 +121,8 @@ public class WorkerManagerImpl implements WorkerManager {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         workerManagerExecutorService.submit(ExecutorUtils.wrapRepeatableRunnable(this::manageLoop));
     }
 

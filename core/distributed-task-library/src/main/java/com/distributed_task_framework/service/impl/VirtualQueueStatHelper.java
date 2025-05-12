@@ -7,6 +7,7 @@ import com.distributed_task_framework.model.PlannedTask;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.PlannerGroups;
 import com.distributed_task_framework.service.internal.PlannerService;
@@ -25,7 +26,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.Nullable;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -35,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.ReflectionUtils;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,7 +48,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class VirtualQueueStatHelper {
+public class VirtualQueueStatHelper implements BackgroundJob {
     @Getter
     @RequiredArgsConstructor
     public enum NodeLoading {
@@ -116,8 +115,8 @@ public class VirtualQueueStatHelper {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         watchdogExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::calculateAggregatedStat),
             commonSettings.getStatSettings().getCalcInitialDelayMs(),

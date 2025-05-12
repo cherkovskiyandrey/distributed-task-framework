@@ -21,6 +21,7 @@ import com.distributed_task_framework.persistence.repository.RemoteCommandReposi
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
@@ -81,10 +82,12 @@ import lombok.experimental.FieldDefaults;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.auditing.DateTimeProvider;
@@ -125,6 +128,17 @@ import static org.mockito.Mockito.doReturn;
 @EnableTransactionManagement
 @EnableCaching
 public class BaseTestConfiguration {
+
+    @Bean
+    public ApplicationListener<ApplicationStartedEvent> startBackgroundJobsListener() {
+        return event -> {
+            var backgroundJobs = event.getApplicationContext()
+                .getBeansOfType(BackgroundJob.class)
+                .values();
+            backgroundJobs.forEach(BackgroundJob::start);
+        };
+    }
+
     @Bean
     public TestClock distributedTaskInternalClock() {
         return new TestClock();

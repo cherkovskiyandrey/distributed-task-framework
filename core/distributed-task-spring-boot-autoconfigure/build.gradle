@@ -24,12 +24,16 @@ dependencies {
     api libs.spring.boot.starter.validation
     api libs.spring.boot.starter.actuator
     implementation libs.caffeine
+    compileOnly libs.liquibase
 
     annotationProcessor libs.spring.boot.configuration.processor
 
     testImplementation (libs.spring.boot.starter.test) {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
+    testImplementation libs.liquibase
+    testImplementation libs.testcontainers.postgresql
+    testImplementation libs.postgresql
 }
 
 tasks.register('generateAdoc') {
