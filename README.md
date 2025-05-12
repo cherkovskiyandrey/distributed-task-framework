@@ -147,14 +147,6 @@ only scripts deployed by Liquibase are being checked. You can disable this by
 setting the `distributed-task.liquibase.check-migrations` parameter to `false` in your 
 `application.yml` or `application.properties` file. By default, this parameter is set to `true`.
 
-## Configuration
-
-### Common configuration
-
-Give application name and enable DTF in `application.yml`:
-
-``` 
-
 Give application name and enable DTF in `application.yml`:
 
 ```yaml
