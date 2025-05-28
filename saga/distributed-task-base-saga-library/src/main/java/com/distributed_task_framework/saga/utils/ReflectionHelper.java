@@ -46,6 +46,7 @@ public class ReflectionHelper {
 
     /**
      * Return stream of all methods (included abstract, included methods in the interfaces) in the hierarchy.
+     * Direction from current class up to hierarchy.
      *
      * @param cls
      * @return
@@ -81,7 +82,6 @@ public class ReflectionHelper {
                 }
 
                 if (currentInterface != null && currentInterface.getDeclaredMethods().length <= interfaceMethodIdx) {
-                    currentInterfaces.poll();
                     interfaceMethodIdx = -1;
                 }
 
@@ -93,7 +93,7 @@ public class ReflectionHelper {
                 } else {
                     if (interfaceMethodIdx == -1) {
                         interfaceMethodIdx = 0;
-                        currentInterface = currentInterfaces.peek();
+                        currentInterface = currentInterfaces.poll();
                         if (currentInterface != null) {
                             currentInterfaces.addAll(filterVisited(currentInterface.getInterfaces()));
                         }

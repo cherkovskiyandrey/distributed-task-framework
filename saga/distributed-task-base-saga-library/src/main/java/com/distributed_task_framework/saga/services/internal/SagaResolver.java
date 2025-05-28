@@ -37,7 +37,7 @@ public interface SagaResolver {
     /**
      * Resolve operation to corresponding SagaOperand if saga element has been registered.
      *
-     * @param operation
+     * @param operation any lambda from package with class {@link com.distributed_task_framework.saga.functions.SagaFunction}
      * @param <T>
      * @return
      */
@@ -47,8 +47,8 @@ public interface SagaResolver {
      * Resolve operation to corresponding Method
      *
      * @param methodRef
-     * @return
      * @param <T>
+     * @return
      */
     <T extends Serializable> Method findMethodInObject(T methodRef, Object anchorObject);
 

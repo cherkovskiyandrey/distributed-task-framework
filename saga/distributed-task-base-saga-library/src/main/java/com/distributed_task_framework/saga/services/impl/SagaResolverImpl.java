@@ -1,9 +1,6 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.saga.utils.MethodSagaMethodFactory;
-import com.distributed_task_framework.saga.utils.ReflectionHelper;
-import com.distributed_task_framework.saga.utils.SerializableLambdaSagaMethodFactory;
 import com.distributed_task_framework.saga.exceptions.SagaMethodDuplicateException;
 import com.distributed_task_framework.saga.exceptions.SagaMethodNotFoundException;
 import com.distributed_task_framework.saga.exceptions.SagaMethodResolvingException;
@@ -13,6 +10,9 @@ import com.distributed_task_framework.saga.models.SagaMethod;
 import com.distributed_task_framework.saga.models.SagaOperand;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
+import com.distributed_task_framework.saga.utils.MethodSagaMethodFactory;
+import com.distributed_task_framework.saga.utils.ReflectionHelper;
+import com.distributed_task_framework.saga.utils.SerializableLambdaSagaMethodFactory;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -23,18 +23,15 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.ReflectionUtils;
 
 import java.io.Serializable;
 import java.lang.invoke.SerializedLambda;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -49,8 +46,6 @@ public class SagaResolverImpl implements SagaResolver {
         Maps.newIdentityHashMap(),
         Maps::newHashMap
     );
-    //todo: check for 2 beans of same type
-    ConcurrentMap<String, SagaOperand> lambdaToSagaOperandCache = Maps.newConcurrentMap();
     TaskRegistryService taskRegistryService;
 
     @Override
@@ -80,13 +75,7 @@ public class SagaResolverImpl implements SagaResolver {
 
             nameToSagaOperand.put(name, sagaOperand);
 
-            var overrideSagaMethods = ReflectionHelper.findAllMethodsForLastOverride(
-                    sagaOperand.getMethod(),
-                    sagaOperand.getTargetObject().getClass()
-                ).stream()
-                .map(MethodSagaMethodFactory::of)
-                .toList();
-
+            var overrideSagaMethods = findAllOverrideSagaMethods(sagaOperand);
             objects.forEach(object ->
                 overrideSagaMethods
                     .forEach(sm -> targetObjectAndSagaMethodToName.put(object, sm, name))
@@ -114,12 +103,7 @@ public class SagaResolverImpl implements SagaResolver {
                 .addAll(sagaOperand.getProxyWrappers())
                 .build();
 
-            var overrideSagaMethods = ReflectionHelper.findAllMethodsForLastOverride(
-                    sagaOperand.getMethod(),
-                    sagaOperand.getTargetObject().getClass()
-                ).stream()
-                .map(MethodSagaMethodFactory::of)
-                .toList();
+            var overrideSagaMethods = findAllOverrideSagaMethods(sagaOperand);
             objects.forEach(object ->
                 overrideSagaMethods
                     .forEach(sm -> targetObjectAndSagaMethodToName.remove(object, sm))
@@ -127,11 +111,6 @@ public class SagaResolverImpl implements SagaResolver {
         } finally {
             writeLock.unlock();
         }
-
-        lambdaToSagaOperandCache.entrySet().stream()
-            .filter(entry -> Objects.equals(entry.getValue(), sagaOperand))
-            .map(Map.Entry::getKey)
-            .forEach(lambdaToSagaOperandCache::remove);
     }
 
     @Override
@@ -147,24 +126,7 @@ public class SagaResolverImpl implements SagaResolver {
 
     @Override
     public <T extends Serializable> SagaOperand resolveAsOperand(T operation) {
-        return asKey(operation)
-            .map(
-                cacheKey -> {
-                    var operand = lambdaToSagaOperandCache.computeIfAbsent(cacheKey, k -> resolveAsOperandBase(operation));
-                    log.info("resolveAsOperand(): use cache => operation=[{}] => operand=[{}]", operation, operand);
-                    return operand;
-                }
-            )
-            .orElseGet(() -> {
-                    var operand = resolveAsOperandBase(operation);
-                    log.info("resolveAsOperand(): operation=[{}] => operand=[{}]", operation, operand);
-                    return operand;
-                }
-            );
-    }
-
-    private SagaOperand resolveAsOperandBase(Serializable operation) {
-        log.info("resolveAsOperandBase(): resolving operation=[{}]", operation);
+        log.info("resolveAsOperand(): resolving operation=[{}]", operation);
         var methodReference = parseMethodReference(operation);
         var readLock = readWriteLock.readLock();
         readLock.lock();
@@ -184,6 +146,15 @@ public class SagaResolverImpl implements SagaResolver {
         } finally {
             readLock.unlock();
         }
+    }
+
+    private List<SagaMethod> findAllOverrideSagaMethods(SagaOperand sagaOperand) {
+        return ReflectionHelper.findAllMethodsForLastOverride(
+                sagaOperand.getMethod(),
+                sagaOperand.getTargetObject().getClass()
+            ).stream()
+            .map(MethodSagaMethodFactory::of)
+            .toList();
     }
 
     @Override
@@ -219,13 +190,6 @@ public class SagaResolverImpl implements SagaResolver {
         } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
             throw new SagaMethodResolvingException(e);
         }
-    }
-
-    private Optional<String> asKey(Object operation) {
-        var operationAsString = operation.toString();
-        return operationAsString.contains("$Lambda$") ?
-            Optional.of(operationAsString.substring(0, operationAsString.indexOf("/"))) :
-            Optional.empty();
     }
 
     @Override

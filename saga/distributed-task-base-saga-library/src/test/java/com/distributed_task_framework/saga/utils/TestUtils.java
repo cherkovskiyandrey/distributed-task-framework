@@ -11,6 +11,13 @@ import java.util.Objects;
 @UtilityClass
 public class TestUtils {
 
+    public Method findFirstMethod(Class<?> cls, String name) {
+        return ReflectionHelper.allMethods(cls)
+            .filter(m -> Objects.equals(m.getName(), name))
+            .findFirst()
+            .orElseThrow(() -> new MethodNotFoundException(name));
+    }
+
     public Method findMethod(Class<?> cls, String name, Class<?> returnType, Collection<Class<?>> parameters) {
         return ReflectionHelper.allMethods(cls)
             .filter(m -> Objects.equals(m.getName(), name)

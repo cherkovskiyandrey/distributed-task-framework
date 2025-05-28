@@ -3,8 +3,10 @@ package com.distributed_task_framework.saga;
 import com.distributed_task_framework.Postgresql16Initializer;
 import com.distributed_task_framework.TestClock;
 import com.distributed_task_framework.saga.generator.TestSagaGenerator;
+import com.distributed_task_framework.saga.generator.TestSagaResolvingGenerator;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
+import com.distributed_task_framework.saga.services.impl.SagaResolverImpl;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
@@ -71,11 +73,13 @@ public abstract class BaseSpringIntegrationTest {
     @Autowired
     TestSagaGenerator testSagaGenerator;
     @Autowired
+    TestSagaResolvingGenerator testSagaResolvingGenerator;
+    @Autowired
     SagaManager sagaManager;
     @Autowired
     SagaTaskFactory sagaTaskFactory;
     @Autowired
-    SagaResolver sagaResolver;
+    SagaResolverImpl sagaResolver;
 
     @SneakyThrows
     @BeforeEach
@@ -111,6 +115,11 @@ public abstract class BaseSpringIntegrationTest {
                 sagaResolver,
                 sagaTaskFactory
             );
+        }
+
+        @Bean
+        public TestSagaResolvingGenerator testSagaResolvingGenerator(SagaResolver sagaResolver) {
+            return new TestSagaResolvingGenerator(sagaResolver);
         }
     }
 }

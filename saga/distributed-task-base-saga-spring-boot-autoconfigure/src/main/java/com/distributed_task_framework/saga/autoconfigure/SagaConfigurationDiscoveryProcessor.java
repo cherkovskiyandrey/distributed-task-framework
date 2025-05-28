@@ -2,11 +2,11 @@ package com.distributed_task_framework.saga.autoconfigure;
 
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaRevertMethod;
-import com.distributed_task_framework.saga.utils.ReflectionHelper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.utils.ReflectionHelper;
 import com.distributed_task_framework.saga.autoconfigure.utils.SagaNamingUtils;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
@@ -40,7 +40,7 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
     SagaMethodPropertiesMerger sagaMethodPropertiesMerger;
     SagaPropertiesMapper sagaPropertiesMapper;
     SagaPropertiesMerger sagaPropertiesMerger;
-    Map<Object, ReflectionHelper.ProxyObject> beansToProxyObject = Maps.newIdentityHashMap();
+    Map<Object, com.distributed_task_framework.saga.autoconfigure.utils.ReflectionHelper.ProxyObject> beansToProxyObject = Maps.newIdentityHashMap();
 
     @PostConstruct
     public void init() {
