@@ -48,6 +48,10 @@ class ReflectionHelperTest {
         public ReturnType foo() {
             return null;
         }
+
+        private ReturnType privateFoo() {
+            return null;
+        }
     }
 
     static class B extends A implements DI {
@@ -60,12 +64,20 @@ class ReflectionHelperTest {
         public ReturnType foo(ArgumentType arg) {
             return DI.super.foo(arg);
         }
+
+        private ReturnType privateFoo() {
+            return null;
+        }
     }
 
     static class C extends B {
         @Override
         public ExtendedReturnType foo(ArgumentType arg) {
             return (ExtendedReturnType) super.foo(arg);
+        }
+
+        private ReturnType privateFoo() {
+            return null;
         }
     }
 
@@ -82,18 +94,30 @@ class ReflectionHelperTest {
                 C.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
-                ExtendedReturnType.class.getTypeName()
+                ReturnType.class.getTypeName()
             ),
             new SagaMethod(
                 C.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
+                ExtendedReturnType.class.getTypeName()
+            ),
+            new SagaMethod(
+                C.class.getTypeName(),
+                "privateFoo",
+                List.of(),
                 ReturnType.class.getTypeName()
             ),
             new SagaMethod(
                 B.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
+                ReturnType.class.getTypeName()
+            ),
+            new SagaMethod(
+                B.class.getTypeName(),
+                "privateFoo",
+                List.of(),
                 ReturnType.class.getTypeName()
             ),
             new SagaMethod(
@@ -135,6 +159,12 @@ class ReflectionHelperTest {
             new SagaMethod(
                 A.class.getTypeName(),
                 "foo",
+                List.of(),
+                ReturnType.class.getTypeName()
+            ),
+            new SagaMethod(
+                A.class.getTypeName(),
+                "privateFoo",
                 List.of(),
                 ReturnType.class.getTypeName()
             )
