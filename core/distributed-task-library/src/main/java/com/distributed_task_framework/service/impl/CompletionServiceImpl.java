@@ -3,6 +3,7 @@ package com.distributed_task_framework.service.impl;
 import com.distributed_task_framework.exception.InvalidOperationException;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -11,7 +12,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -34,7 +34,7 @@ import java.util.function.Function;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class CompletionServiceImpl implements CompletionService {
+public class CompletionServiceImpl implements CompletionService, BackgroundJob {
     CommonSettings commonSettings;
     TaskExtendedRepository taskExtendedRepository;
     WorkerContextManager workerContextManager;
@@ -60,8 +60,8 @@ public class CompletionServiceImpl implements CompletionService {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         scheduledExecutorService.scheduleWithFixedDelay(
                 ExecutorUtils.wrapRepeatableRunnable(this::handle),
                 commonSettings.getCompletionSettings().getHandlerInitialDelay().toMillis(),

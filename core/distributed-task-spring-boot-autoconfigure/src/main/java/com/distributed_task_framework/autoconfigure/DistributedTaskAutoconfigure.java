@@ -1,6 +1,7 @@
 package com.distributed_task_framework.autoconfigure;
 
 import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
+import com.distributed_task_framework.autoconfigure.listener.StartBackgroundJobsListener;
 import com.distributed_task_framework.autoconfigure.mapper.CommonSettingsMerger;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
@@ -157,6 +158,11 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 @EnableCaching
 @ComponentScan(basePackageClasses = CommonSettingsMerger.class)
 public class DistributedTaskAutoconfigure {
+
+    @Bean
+    public StartBackgroundJobsListener startBackgroundJobsListener() {
+        return new StartBackgroundJobsListener();
+    }
 
     @Bean
     @ConditionalOnMissingBean

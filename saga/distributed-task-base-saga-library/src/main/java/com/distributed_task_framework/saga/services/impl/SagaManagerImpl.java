@@ -13,12 +13,12 @@ import com.distributed_task_framework.saga.persistence.repository.SagaRepository
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.fasterxml.jackson.databind.JavaType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -43,7 +43,7 @@ import java.util.function.Supplier;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class SagaManagerImpl implements SagaManager {
+public class SagaManagerImpl implements SagaManager, BackgroundJob {
     DistributedTaskService distributedTaskService;
     SagaRepository sagaRepository;
     DlsSagaContextRepository dlsSagaContextRepository;
@@ -81,8 +81,8 @@ public class SagaManagerImpl implements SagaManager {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::handleDeprecatedSagas),
             sagaCommonSettings.getDeprecatedSagaScanInitialDelay().toMillis(),

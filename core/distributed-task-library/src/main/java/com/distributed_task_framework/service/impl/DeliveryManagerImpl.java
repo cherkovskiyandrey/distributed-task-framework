@@ -1,7 +1,18 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.controller.dto.CommandListDto;
 import com.distributed_task_framework.mapper.CommandMapper;
+import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
+import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
+import com.distributed_task_framework.persistence.repository.DlcRepository;
+import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
+import com.distributed_task_framework.persistence.repository.RemoteTaskWorkerRepository;
+import com.distributed_task_framework.remote_commands.RemoteCommand;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.TaskSerializer;
+import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.service.internal.DeliveryManager;
+import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
@@ -10,6 +21,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -28,19 +40,7 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientException;
 import reactor.netty.http.client.HttpClient;
-import com.distributed_task_framework.controller.dto.CommandListDto;
-import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
-import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
-import com.distributed_task_framework.persistence.repository.DlcRepository;
-import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
-import com.distributed_task_framework.persistence.repository.RemoteTaskWorkerRepository;
-import com.distributed_task_framework.remote_commands.RemoteCommand;
-import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.DeliveryManager;
-import com.distributed_task_framework.settings.CommonSettings;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -63,7 +63,7 @@ import static com.distributed_task_framework.remote_commands.RemoteCommand.NAME_
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
-public class DeliveryManagerImpl implements DeliveryManager {
+public class DeliveryManagerImpl implements DeliveryManager, BackgroundJob {
     CommonSettings.DeliveryManagerSettings commandDeliverySettings;
     RemoteTaskWorkerRepository remoteTaskWorkerRepository;
     RemoteCommandRepository remoteCommandRepository;
@@ -132,8 +132,8 @@ public class DeliveryManagerImpl implements DeliveryManager {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         watchdogExecutorService.scheduleWithFixedDelay(
                 ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
                 commandDeliverySettings.getWatchdogInitialDelayMs(),

@@ -3,6 +3,7 @@ package com.distributed_task_framework.service.impl;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.persistence.entity.PlannerEntity;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.PlannerService;
@@ -13,7 +14,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PROTECTED)
-public abstract class AbstractPlannerImpl implements PlannerService {
+public abstract class AbstractPlannerImpl implements PlannerService, BackgroundJob {
     CommonSettings commonSettings;
     PlannerRepository plannerRepository;
     PlatformTransactionManager transactionManager;
@@ -110,8 +110,8 @@ public abstract class AbstractPlannerImpl implements PlannerService {
     protected void afterStartLoop() {
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         watchdogExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
             commonSettings.getPlannerSettings().getWatchdogInitialDelayMs(),

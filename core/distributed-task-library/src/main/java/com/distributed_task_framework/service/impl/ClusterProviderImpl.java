@@ -7,6 +7,7 @@ import com.distributed_task_framework.persistence.entity.CapabilityEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.repository.CapabilityRepository;
 import com.distributed_task_framework.persistence.repository.NodeStateRepository;
+import com.distributed_task_framework.service.BackgroundJob;
 import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -15,7 +16,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.sun.management.OperatingSystemMXBean;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class ClusterProviderImpl implements ClusterProvider {
+public class ClusterProviderImpl implements ClusterProvider, BackgroundJob {
     public static final double CPU_LOADING_UNDEFINED = -1.D;
     public static final double MIN_CPU_LOADING = 0.D;
 
@@ -110,8 +110,8 @@ public class ClusterProviderImpl implements ClusterProvider {
         return result;
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         log.info("init(): nodeId=[{}]", nodeId);
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
