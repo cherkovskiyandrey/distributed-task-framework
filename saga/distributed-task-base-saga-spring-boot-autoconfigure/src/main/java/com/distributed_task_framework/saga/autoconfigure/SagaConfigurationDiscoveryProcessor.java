@@ -2,6 +2,8 @@ package com.distributed_task_framework.saga.autoconfigure;
 
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaRevertMethod;
+import com.distributed_task_framework.saga.autoconfigure.annotations.SagaSpecific;
+import com.distributed_task_framework.saga.autoconfigure.exceptions.SagaBeanInitException;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMapper;
@@ -13,11 +15,13 @@ import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Maps;
+import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
@@ -50,18 +54,25 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
     @SuppressWarnings("NullableProblems")
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        registerSagaMethodIfExists(bean);
-        registerSagaRevertMethodIfExists(bean);
+        if (!isIgnoredAsSagaBean(bean)) {
+            registerSagaMethodIfExists(bean);
+            registerSagaRevertMethodIfExists(bean);
+        }
         return bean;
     }
 
+    private boolean isIgnoredAsSagaBean(Object bean) {
+        return bean instanceof SagaSpecific sagaSpecific && sagaSpecific.ignore();
+    }
+
+    //todo: integration tests with SagaSpecific and several beans
     private void registerSagaMethodIfExists(Object bean) {
         Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
             .filter(method -> com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaMethod.class).isPresent())
             .forEach(method -> {
-                //todo: use interface like SagaMethodPrefix to distinct the different instances with the same class
-                var taskName = SagaNamingUtils.taskNameFor(method);
-                var sagaMethodSettings = buildSagaMethodSettings(method);
+                var suffix = buildSuffix(bean);
+                var taskName = SagaNamingUtils.taskNameFor(method, suffix);
+                var sagaMethodSettings = buildSagaMethodSettings(method, suffix);
                 var proxyObject = beansToProxyObject.computeIfAbsent(bean, k -> ReflectionHelper.unwrapSpringBean(bean));
 
                 distributionSagaService.registerSagaMethod(
@@ -78,9 +89,9 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
         Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
             .filter(method -> com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).isPresent())
             .forEach(method -> {
-                //todo: use interface like SagaMethodPrefix to distinct the different instances with the same class
-                var revertTaskName = SagaNamingUtils.taskNameFor(method);
-                var sagaMethodSettings = buildSagaMethodSettings(method);
+                var suffix = buildSuffix(bean);
+                var revertTaskName = SagaNamingUtils.taskNameFor(method, suffix);
+                var sagaMethodSettings = buildSagaMethodSettings(method, suffix);
                 var proxyObject = beansToProxyObject.computeIfAbsent(bean, k -> ReflectionHelper.unwrapSpringBean(bean));
 
                 distributionSagaService.registerSagaRevertMethod(
@@ -91,6 +102,21 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
                     sagaMethodSettings
                 );
             });
+    }
+
+    private String buildSuffix(Object bean) {
+        String suffix = "";
+        if (bean instanceof SagaSpecific sagaSpecific) {
+            if (sagaSpecific.ignore()) {
+                log.info("buildSuffix(): bean={} is marked as saga ignored", bean);
+            } else {
+                suffix = sagaSpecific.suffix();
+                if (StringUtils.isBlank(suffix)) {
+                    throw new SagaBeanInitException("empty saga prefix for bean=[%s]".formatted(bean));
+                }
+            }
+        }
+        return suffix;
     }
 
     //Right ordering:
@@ -131,7 +157,7 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
     //2. sagaMethodDefaultConfProperties
     //3. sagaMethodCustomCodeProperties
     //4. sagaMethodCustomConfProperties
-    private SagaMethodSettings buildSagaMethodSettings(Method method) {
+    private SagaMethodSettings buildSagaMethodSettings(Method method, @Nullable String suffix) {
         var sagaMethodPropertiesGroup = Optional.ofNullable(distributedSagaProperties.getSagaMethodPropertiesGroup());
 
         var sagaMethodDefaultCodeProperties = sagaMethodPropertiesMapper.map(SagaMethodSettings.DEFAULT);
@@ -142,7 +168,7 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
             .orElse(null);
         var sagaMethodCustomConfProperties = sagaMethodPropertiesGroup
             .map(DistributedSagaProperties.SagaMethodPropertiesGroup::getSagaMethodProperties)
-            .map(sagaMethodProperties -> sagaMethodProperties.get(SagaNamingUtils.sagaMethodNameFor(method)))
+            .map(sagaMethodProperties -> sagaMethodProperties.get(SagaNamingUtils.sagaMethodNameFor(method, suffix)))
             .orElse(null);
 
         var sagaMethodDefaultProperties = sagaMethodPropertiesMerger.merge(

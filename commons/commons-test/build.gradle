@@ -16,4 +16,5 @@ dependencies {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
     testFixturesApi(libs.testcontainers.postgresql)
+    testFixturesApi(libs.postgresql)
 }

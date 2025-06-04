@@ -19,27 +19,22 @@ public class SagaNamingUtils {
     private static final String TASK_NAME_DELIMITER = "_";
     private static final String VERSION_PREFIX = "v";
 
-    public String taskNameFor(Method method) {
-        return generateName(method, TASK_PREFIX, TASK_REVERT_PREFIX);
+    public String taskNameFor(Method method, @Nullable String suffix) {
+        return generateName(method, TASK_PREFIX, TASK_REVERT_PREFIX, suffix);
     }
 
-    public String taskNameFor(SagaMethod sagaMethodAnnotation) {
-        return generateName(sagaMethodAnnotation, TASK_PREFIX);
+    public String sagaMethodNameFor(Method method, @Nullable String suffix) {
+        return generateName(method, null, null, suffix);
     }
 
-    public String taskNameFor(SagaRevertMethod sagaRevertMethod) {
-        return generateRevertName(sagaRevertMethod, TASK_REVERT_PREFIX);
-    }
-
-    public String sagaMethodNameFor(Method method) {
-        return generateName(method, null, null);
-    }
-
-    private String generateName(Method method, @Nullable String taskPrefix, @Nullable String revertTaskPrefix) {
+    private String generateName(Method method,
+                                @Nullable String taskPrefix,
+                                @Nullable String revertTaskPrefix,
+                                @Nullable String suffix) {
         return ReflectionHelper.findAnnotation(method, SagaMethod.class)
-            .map(sagaMethod -> generateName(sagaMethod, taskPrefix))
+            .map(sagaMethod -> generateName(sagaMethod, taskPrefix, suffix))
             .or(() -> ReflectionHelper.findAnnotation(method, SagaRevertMethod.class)
-                .map(sagaRevertMethod -> generateRevertName(sagaRevertMethod, revertTaskPrefix))
+                .map(sagaRevertMethod -> generateRevertName(sagaRevertMethod, revertTaskPrefix, suffix))
             )
             .orElseThrow(() -> new SagaMethodNotFoundException(
                     "Method=[%s] isn't marked neither [%s], neither [%s]".formatted(
@@ -51,20 +46,24 @@ public class SagaNamingUtils {
             );
     }
 
-    private String generateName(SagaMethod sagaMethodAnnotation, @Nullable String taskPrefix) {
+    private String generateName(SagaMethod sagaMethodAnnotation,
+                                @Nullable String taskPrefix,
+                                @Nullable String suffix) {
         String name = sagaMethodAnnotation.name();
         int version = sagaMethodAnnotation.version();
 
-        return Stream.of(taskPrefix, name, v(version))
+        return Stream.of(taskPrefix, name, suffix, v(version))
             .filter(Objects::nonNull)
             .collect(Collectors.joining(TASK_NAME_DELIMITER));
     }
 
-    private String generateRevertName(SagaRevertMethod sagaRevertMethodAnnotation, @Nullable String revertTaskPrefix) {
+    private String generateRevertName(SagaRevertMethod sagaRevertMethodAnnotation,
+                                      @Nullable String revertTaskPrefix,
+                                      @Nullable String suffix) {
         String name = sagaRevertMethodAnnotation.name();
         int version = sagaRevertMethodAnnotation.version();
 
-        return Stream.of(revertTaskPrefix, name, v(version))
+        return Stream.of(revertTaskPrefix, name, suffix, v(version))
             .filter(Objects::nonNull)
             .collect(Collectors.joining(TASK_NAME_DELIMITER));
     }

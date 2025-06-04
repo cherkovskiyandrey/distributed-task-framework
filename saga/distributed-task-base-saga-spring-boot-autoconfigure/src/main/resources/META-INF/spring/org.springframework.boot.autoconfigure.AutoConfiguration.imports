@@ -1,1 +1,1 @@
-com.distributed_task_framework.saga.SagaAutoconfiguration
+com.distributed_task_framework.saga.autoconfigure.SagaAutoconfiguration

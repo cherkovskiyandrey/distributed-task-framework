@@ -12,6 +12,9 @@ dependencies {
 
     annotationProcessor libs.spring.boot.configuration.processor
 
+    // For integration tests
+    testImplementation testFixtures(project(':commons-test'))
+
     testImplementation(libs.spring.boot.starter.test) {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }

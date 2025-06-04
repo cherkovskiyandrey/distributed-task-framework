@@ -1,9 +1,9 @@
 package com.distributed_task_framework.saga.autoconfigure.utils;
 
+import com.google.common.collect.Lists;
 import lombok.experimental.UtilityClass;
 import org.springframework.aop.framework.Advised;
 import org.springframework.aop.support.AopUtils;
-import org.springframework.util.Assert;
 
 import java.util.Collection;
 
@@ -16,26 +16,32 @@ public class ReflectionHelper {
     ) {
     }
 
-    //todo
+    /**
+     * Unwrap any spring bean (JDK dynamic proxy or CGLIB proxy) recursively.
+     *
+     * @param bean
+     * @return ProxyObject
+     * @throws IllegalStateException if target object can't be resolved
+     */
     public ProxyObject unwrapSpringBean(Object bean) {
-        throw new UnsupportedOperationException("todo: implement");
-    }
+        var objectSequence = Lists.newArrayList();
 
-
-    //todo
-    @SuppressWarnings("unchecked")
-    public static <T> T getUltimateTargetObject(Object candidate) {
-        Assert.notNull(candidate, "Candidate must not be null");
         try {
-            if (AopUtils.isAopProxy(candidate) && candidate instanceof Advised advised) {
-                Object target = advised.getTargetSource().getTarget();
-                if (target != null) {
-                    return (T) getUltimateTargetObject(target);
+            while (bean != null) {
+                objectSequence.add(bean);
+                if (AopUtils.isAopProxy(bean) && bean instanceof Advised advised) {
+                    bean = advised.getTargetSource().getTarget();
+                } else {
+                    break;
                 }
             }
         } catch (Throwable ex) {
             throw new IllegalStateException("Failed to unwrap proxied object", ex);
         }
-        return (T) candidate;
+
+        return new ProxyObject(
+            objectSequence.get(objectSequence.size() - 1),
+            Lists.newArrayList(objectSequence.subList(0, objectSequence.size() - 1))
+        );
     }
 }
