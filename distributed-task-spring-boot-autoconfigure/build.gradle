@@ -30,6 +30,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
+    testRuntimeOnly("com.fasterxml.jackson.module:jackson-module-kotlin")
 }
 
 tasks.register('generateAdoc') {
