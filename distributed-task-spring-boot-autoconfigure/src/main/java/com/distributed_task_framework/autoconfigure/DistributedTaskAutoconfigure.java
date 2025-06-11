@@ -384,6 +384,7 @@ public class DistributedTaskAutoconfigure {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         objectMapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, true);
         objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.findAndRegisterModules();
         return objectMapper;
     }
 
