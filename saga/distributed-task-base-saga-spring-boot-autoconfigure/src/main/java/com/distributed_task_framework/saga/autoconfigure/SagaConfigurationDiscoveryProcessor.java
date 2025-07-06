@@ -33,11 +33,24 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
+    private static final Set<String> IGNORE_METHOD_NAMES = Set.of(
+        "equals",
+        "hashCode",
+        "toString",
+        "wait",
+        "notify",
+        "getClass",
+        "notifyAll",
+        "finalize",
+        "clone"
+    );
+
     DistributionSagaService distributionSagaService;
     DistributedSagaProperties distributedSagaProperties;
     SagaMethodPropertiesMapper sagaMethodPropertiesMapper;
@@ -54,20 +67,14 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
     @SuppressWarnings("NullableProblems")
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        if (!isIgnoredAsSagaBean(bean)) {
-            registerSagaMethodIfExists(bean);
-            registerSagaRevertMethodIfExists(bean);
-        }
+        registerSagaMethodIfExists(bean);
+        registerSagaRevertMethodIfExists(bean);
         return bean;
     }
 
-    private boolean isIgnoredAsSagaBean(Object bean) {
-        return bean instanceof SagaSpecific sagaSpecific && sagaSpecific.ignore();
-    }
-
-    //todo: integration tests with SagaSpecific and several beans
     private void registerSagaMethodIfExists(Object bean) {
         Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
+            .filter(this::isNotIgnoredMethod)
             .filter(method -> com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaMethod.class).isPresent())
             .forEach(method -> {
                 var suffix = buildSuffix(bean);
@@ -87,6 +94,7 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
 
     private void registerSagaRevertMethodIfExists(Object bean) {
         Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
+            .filter(this::isNotIgnoredMethod)
             .filter(method -> com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).isPresent())
             .forEach(method -> {
                 var suffix = buildSuffix(bean);
@@ -104,16 +112,17 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
             });
     }
 
+    private boolean isNotIgnoredMethod(Method method) {
+        return IGNORE_METHOD_NAMES.stream()
+            .noneMatch(methodName -> method.getName().contains(methodName));
+    }
+
     private String buildSuffix(Object bean) {
-        String suffix = "";
+        String suffix = null;
         if (bean instanceof SagaSpecific sagaSpecific) {
-            if (sagaSpecific.ignore()) {
-                log.info("buildSuffix(): bean={} is marked as saga ignored", bean);
-            } else {
-                suffix = sagaSpecific.suffix();
-                if (StringUtils.isBlank(suffix)) {
-                    throw new SagaBeanInitException("empty saga prefix for bean=[%s]".formatted(bean));
-                }
+            suffix = sagaSpecific.suffix();
+            if (StringUtils.isBlank(suffix)) {
+                throw new SagaBeanInitException("empty saga prefix for bean=[%s]".formatted(bean));
             }
         }
         return suffix;

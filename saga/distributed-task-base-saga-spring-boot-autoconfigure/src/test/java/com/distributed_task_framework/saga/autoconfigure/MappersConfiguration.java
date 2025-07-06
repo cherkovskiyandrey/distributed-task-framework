@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.autoconfigure.utils;
+package com.distributed_task_framework.saga.autoconfigure;
 
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMapper;
 import org.springframework.context.annotation.ComponentScan;

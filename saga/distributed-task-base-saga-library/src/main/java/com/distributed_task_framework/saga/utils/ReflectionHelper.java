@@ -58,64 +58,55 @@ public class ReflectionHelper {
             private final Set<Class<?>> visitedClasses;
             private Class<?> currentClass;
             private Class<?> currentInterface;
-            private int classMethodIdx;
-            private int interfaceMethodIdx;
+            private int currentIdx;
 
             public SpliteratorMethods(Class<?> currentClass) {
-                this.currentClass = Objects.requireNonNull(currentClass);
                 this.visitedClasses = Sets.newHashSet();
-                this.currentInterface = null;
                 this.currentInterfaces = new ArrayDeque<>();
-                this.classMethodIdx = 0;
-                this.interfaceMethodIdx = -1;
+                this.currentClass = currentClass;
             }
 
             @Override
             public boolean tryAdvance(Consumer<? super Method> action) {
-                if (currentClass == null) {
-                    return false;
-                }
+                Class<?> currentType = null;
+                int idx = -1;
 
-                if (currentClass.getDeclaredMethods().length <= classMethodIdx) {
-                    classMethodIdx = -1;
-                    currentInterfaces.addAll(filterVisited(currentClass.getInterfaces()));
-                }
-
-                if (currentInterface != null && currentInterface.getDeclaredMethods().length <= interfaceMethodIdx) {
-                    interfaceMethodIdx = -1;
-                }
-
-                Class<?> clsOrInterface;
-                int idx;
-                if (classMethodIdx > -1) {
-                    clsOrInterface = currentClass;
-                    idx = classMethodIdx++;
-                } else {
-                    if (interfaceMethodIdx == -1) {
-                        interfaceMethodIdx = 0;
+                do {
+                    if (currentInterface == null && !currentInterfaces.isEmpty()) {
                         currentInterface = currentInterfaces.poll();
-                        if (currentInterface != null) {
-                            currentInterfaces.addAll(filterVisited(currentInterface.getInterfaces()));
+                        currentInterfaces.addAll(filterVisited(currentInterface.getInterfaces()));
+
+                    } else if (currentInterface != null) {
+                        if (currentInterface.getDeclaredMethods().length <= currentIdx) {
+                            currentIdx = 0;
+                            currentInterface = null;
+                            continue;
                         }
-                    }
+                        currentType = currentInterface;
+                        idx = currentIdx++;
+                        break;
 
-                    if (currentInterface == null) {
-                        interfaceMethodIdx = -1;
-                        classMethodIdx = 0;
-                        currentClass = currentClass.getSuperclass() == Object.class ? null : currentClass.getSuperclass();
-                        clsOrInterface = currentClass;
-                        idx = classMethodIdx++;
+                    } else if (currentClass != null) {
+                        if (currentClass.getDeclaredMethods().length <= currentIdx) {
+                            currentIdx = 0;
+                            currentInterfaces.addAll(filterVisited(currentClass.getInterfaces()));
+                            currentClass = currentClass.getSuperclass() == Object.class ? null : currentClass.getSuperclass();
+                            continue;
+                        }
+                        currentType = currentClass;
+                        idx = currentIdx++;
+                        break;
+
                     } else {
-                        clsOrInterface = currentInterface;
-                        idx = interfaceMethodIdx++;
+                        break;
                     }
-                }
+                } while (true);
 
-                if (clsOrInterface == null) {
+                if (currentType == null) {
                     return false;
                 }
 
-                action.accept(clsOrInterface.getDeclaredMethods()[idx]);
+                action.accept(currentType.getDeclaredMethods()[idx]);
                 return true;
             }
 
