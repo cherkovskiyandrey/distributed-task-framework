@@ -10,7 +10,9 @@ import java.util.UUID;
 @Value
 @Builder(toBuilder = true)
 public class SagaCommonSettings {
-    public static final SagaCommonSettings DEFAULT = SagaCommonSettings.builder().build();
+    public static SagaCommonSettings buildDefault() {
+        return SagaCommonSettings.builder().build();
+    }
 
     /**
      * Cache expiration for internal purpose.

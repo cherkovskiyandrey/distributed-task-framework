@@ -1,7 +1,7 @@
-package com.distributed_task_framework.saga.autoconfigure.services.impl;
+package com.distributed_task_framework.saga.autoconfigure.test_data.services.impl;
 
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaSpecific;
-import com.distributed_task_framework.saga.autoconfigure.services.SagaSpecificTestService;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.SagaSpecificTestService;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 
 public class SagaSpecificTestServiceImpl extends InternalSagaBaseTestServiceImpl implements SagaSpecificTestService, SagaSpecific {

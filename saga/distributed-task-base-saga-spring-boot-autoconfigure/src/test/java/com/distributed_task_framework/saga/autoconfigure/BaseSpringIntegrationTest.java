@@ -1,9 +1,10 @@
 package com.distributed_task_framework.saga.autoconfigure;
 
 import com.distributed_task_framework.Postgresql16Initializer;
-import com.distributed_task_framework.saga.autoconfigure.services.ExternalSagaTestService;
-import com.distributed_task_framework.saga.autoconfigure.services.InternalSagaTestService;
-import com.distributed_task_framework.saga.autoconfigure.services.SagaSpecificTestService;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.ExternalSagaTestService;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.InternalSagaTestService;
+import com.distributed_task_framework.saga.autoconfigure.services.SagaPropertiesProcessor;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.SagaSpecificTestService;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
 import lombok.AccessLevel;
@@ -39,6 +40,8 @@ public abstract class BaseSpringIntegrationTest {
     DistributedTaskTestUtil distributedTaskTestUtil;
     @Autowired
     DistributionSagaService distributionSagaService;
+    @Autowired
+    SagaPropertiesProcessor sagaPropertiesProcessor;
     @Autowired
     ExternalSagaTestService externalSagaTestService;
     @Autowired

@@ -1,8 +1,8 @@
-package com.distributed_task_framework.saga.autoconfigure.services.impl;
+package com.distributed_task_framework.saga.autoconfigure.test_data.services.impl;
 
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaRevertMethod;
-import com.distributed_task_framework.saga.autoconfigure.services.InternalSagaBaseTestService;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.InternalSagaBaseTestService;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import lombok.RequiredArgsConstructor;
@@ -24,13 +24,13 @@ public class InternalSagaBaseTestServiceImpl implements InternalSagaBaseTestServ
     }
 
     @SagaMethod(name = "internal-sum")
-    public String forward(String val) {
+    private String forward(String val) {
         value += ("+" + val);
         throw new RuntimeException();
     }
 
     @SagaRevertMethod(name = "internal-diff")
-    public void backward(String val, @Nullable String output, @Nullable SagaExecutionException sagaExecutionException) {
+    private void backward(String val, @Nullable String output, @Nullable SagaExecutionException sagaExecutionException) {
         value += ("-" + val);
     }
 

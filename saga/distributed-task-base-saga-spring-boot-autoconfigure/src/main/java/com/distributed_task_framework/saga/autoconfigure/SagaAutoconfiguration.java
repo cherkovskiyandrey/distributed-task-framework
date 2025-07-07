@@ -4,11 +4,13 @@ package com.distributed_task_framework.saga.autoconfigure;
 import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMerger;
-import com.distributed_task_framework.saga.mappers.SagaMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.services.SagaPropertiesProcessor;
+import com.distributed_task_framework.saga.autoconfigure.services.impl.SagaPropertiesProcessorImpl;
+import com.distributed_task_framework.saga.mappers.SagaMapper;
 import com.distributed_task_framework.saga.mappers.SettingsMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
@@ -100,33 +102,27 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaCommonSettings sagaCommonSettings(SagaCommonPropertiesMapper sagaCommonPropertiesMapper,
-                                                 SagaCommonPropertiesMerger sagaCommonPropertiesMerger,
-                                                 DistributedSagaProperties distributedSagaProperties) {
-        var sagaCommonConfProperties = sagaCommonPropertiesMapper.map(SagaCommonSettings.DEFAULT.toBuilder().build());
-        var sagsCommonProperties = sagaCommonPropertiesMerger.merge(
-            sagaCommonConfProperties,
-            distributedSagaProperties.getCommon()
+    public SagaPropertiesProcessor sagaPropertiesProcessor(SagaCommonPropertiesMapper sagaCommonPropertiesMapper,
+                                                           SagaCommonPropertiesMerger sagaCommonPropertiesMerger,
+                                                           SagaPropertiesMapper sagaPropertiesMapper,
+                                                           SagaPropertiesMerger sagaPropertiesMerger,
+                                                           SagaMethodPropertiesMapper sagaMethodPropertiesMapper,
+                                                           SagaMethodPropertiesMerger sagaMethodPropertiesMerger) {
+        return new SagaPropertiesProcessorImpl(
+            sagaCommonPropertiesMapper,
+            sagaCommonPropertiesMerger,
+            sagaPropertiesMapper,
+            sagaPropertiesMerger,
+            sagaMethodPropertiesMapper,
+            sagaMethodPropertiesMerger
         );
-        return sagaCommonPropertiesMapper.map(sagsCommonProperties);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaConfigurationDiscoveryProcessor sagaConfigurationDiscoveryProcessor(DistributionSagaService distributionSagaService,
-                                                                                   DistributedSagaProperties distributedSagaProperties,
-                                                                                   SagaMethodPropertiesMapper sagaMethodPropertiesMapper,
-                                                                                   SagaMethodPropertiesMerger sagaMethodPropertiesMerger,
-                                                                                   SagaPropertiesMapper sagaPropertiesMapper,
-                                                                                   SagaPropertiesMerger sagaPropertiesMerger) {
-        return new SagaConfigurationDiscoveryProcessor(
-            distributionSagaService,
-            distributedSagaProperties,
-            sagaMethodPropertiesMapper,
-            sagaMethodPropertiesMerger,
-            sagaPropertiesMapper,
-            sagaPropertiesMerger
-        );
+    public SagaCommonSettings sagaCommonSettings(SagaPropertiesProcessor sagaPropertiesProcessor,
+                                                 DistributedSagaProperties distributedSagaProperties) {
+        return sagaPropertiesProcessor.buildSagaCommonSettings(distributedSagaProperties.getCommon());
     }
 
     @Bean
@@ -220,6 +216,18 @@ public class SagaAutoconfiguration {
             distributedTaskService,
             sagaManager,
             sagaHelper
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SagaConfigurationDiscoveryProcessor sagaConfigurationDiscoveryProcessor(DistributionSagaService distributionSagaService,
+                                                                                   DistributedSagaProperties distributedSagaProperties,
+                                                                                   SagaPropertiesProcessor sagaPropertiesProcessor) {
+        return new SagaConfigurationDiscoveryProcessor(
+            distributionSagaService,
+            distributedSagaProperties,
+            sagaPropertiesProcessor
         );
     }
 }

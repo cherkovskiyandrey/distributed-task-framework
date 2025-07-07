@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.autoconfigure.services;
+package com.distributed_task_framework.saga.autoconfigure.test_data.services;
 
 public interface InternalSagaTestService extends InternalSagaBaseTestService {
 }

@@ -2,44 +2,11 @@ package com.distributed_task_framework.saga.services;
 
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
-import com.distributed_task_framework.saga.settings.SagaSettings;
 
 import java.lang.reflect.Method;
 import java.util.Collection;
 
-public interface SagaRegisterService {
-
-    /**
-     * Register saga settings by name.
-     *
-     * @param name
-     * @param sagaSettings
-     */
-    void registerSagaSettings(String name, SagaSettings sagaSettings);
-
-    /**
-     * Register default saga settings, which will be returned for unregistered sagas.
-     *
-     * @param sagaSettings
-     */
-    void registerDefaultSagaSettings(SagaSettings sagaSettings);
-
-    /**
-     * Return saga settings. If settings was registered - return it,
-     * otherwise if default saga settings was registered - return it,
-     * otherwise return {@link SagaSettings#DEFAULT}
-     *
-     * @param name
-     * @return
-     */
-    SagaSettings getSagaSettings(String name);
-
-    /**
-     * Unregister saga settings by name.
-     *
-     * @param name
-     */
-    void unregisterSagaSettings(String name);
+public interface SagaRegisterService extends SagaRegisterSettingsService {
 
     /**
      * Register new saga method on the provided method in the object with settings.

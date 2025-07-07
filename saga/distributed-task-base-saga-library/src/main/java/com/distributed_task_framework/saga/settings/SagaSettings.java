@@ -10,6 +10,10 @@ import java.time.Duration;
 public class SagaSettings {
     public static final SagaSettings DEFAULT = SagaSettings.builder().build();
 
+    public static SagaSettings buildDefault() {
+        return SagaSettings.builder().build();
+    }
+
     /**
      * Time between completion of saga and removing of its result from db.
      * In other words: time interval during saga result is available.
@@ -26,7 +30,6 @@ public class SagaSettings {
 
     /**
      * If any revert operation fail, then stop execute reverting chain and complete saga.
-     *
      */
     @Builder.Default
     boolean stopOnFailedAnyRevert = false;

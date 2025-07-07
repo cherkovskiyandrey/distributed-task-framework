@@ -1,8 +1,8 @@
-package com.distributed_task_framework.saga.autoconfigure.services.impl;
+package com.distributed_task_framework.saga.autoconfigure.test_data.services.impl;
 
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaRevertMethod;
-import com.distributed_task_framework.saga.autoconfigure.services.ExternalSagaTestService;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.ExternalSagaTestService;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.stereotype.Service;

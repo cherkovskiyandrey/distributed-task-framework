@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.autoconfigure.services;
+package com.distributed_task_framework.saga.autoconfigure.test_data.services;
 
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import jakarta.annotation.Nullable;

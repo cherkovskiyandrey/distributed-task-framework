@@ -74,7 +74,7 @@ public class BaseTestConfiguration {
 
     @Bean
     public SagaCommonSettings sagaCommonSettings() {
-        return SagaCommonSettings.DEFAULT.toBuilder()
+        return SagaCommonSettings.buildDefault().toBuilder()
             .deprecatedSagaScanInitialDelay(Duration.ofMillis(500))
             .deprecatedSagaScanFixedDelay(Duration.ofMillis(500))
             .build();

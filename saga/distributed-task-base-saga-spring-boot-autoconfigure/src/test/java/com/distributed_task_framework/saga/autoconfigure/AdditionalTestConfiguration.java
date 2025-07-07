@@ -1,8 +1,8 @@
 package com.distributed_task_framework.saga.autoconfigure;
 
-import com.distributed_task_framework.saga.autoconfigure.services.SagaSpecificTestService;
-import com.distributed_task_framework.saga.autoconfigure.services.impl.ExternalSagaTestServiceImpl;
-import com.distributed_task_framework.saga.autoconfigure.services.impl.SagaSpecificTestServiceImpl;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.SagaSpecificTestService;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.impl.ExternalSagaTestServiceImpl;
+import com.distributed_task_framework.saga.autoconfigure.test_data.services.impl.SagaSpecificTestServiceImpl;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
