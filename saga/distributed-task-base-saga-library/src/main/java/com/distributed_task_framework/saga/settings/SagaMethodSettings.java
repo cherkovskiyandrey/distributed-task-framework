@@ -15,7 +15,10 @@ import java.util.List;
 @Value
 @Builder(toBuilder = true)
 public class SagaMethodSettings {
-    public static final SagaMethodSettings DEFAULT = SagaMethodSettings.builder().build();
+
+    public static SagaMethodSettings buildDefault() {
+        return SagaMethodSettings.builder().build();
+    }
 
     /**
      * Execution guarantees.

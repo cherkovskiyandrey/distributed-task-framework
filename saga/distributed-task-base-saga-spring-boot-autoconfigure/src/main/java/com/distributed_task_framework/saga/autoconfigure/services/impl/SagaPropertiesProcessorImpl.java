@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.autoconfigure.services.impl;
 
 import com.distributed_task_framework.saga.autoconfigure.DistributedSagaProperties;
+import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMapper;
@@ -21,6 +22,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -91,7 +93,7 @@ public class SagaPropertiesProcessorImpl implements SagaPropertiesProcessor {
                                                       @Nullable DistributedSagaProperties.SagaMethodPropertiesGroup sagaMethodPropertiesGroup) {
         var sagaMethodPropertiesGroupOpt = Optional.ofNullable(sagaMethodPropertiesGroup);
 
-        var sagaMethodDefaultCodeProperties = sagaMethodPropertiesMapper.map(SagaMethodSettings.DEFAULT);
+        var sagaMethodDefaultCodeProperties = sagaMethodPropertiesMapper.map(SagaMethodSettings.buildDefault());
         var sagaMethodCustomCodeProperties = fillCustomProperties(method);
 
         var sagaMethodDefaultConfProperties = sagaMethodPropertiesGroupOpt
@@ -122,6 +124,7 @@ public class SagaPropertiesProcessorImpl implements SagaPropertiesProcessor {
     private DistributedSagaProperties.SagaMethodProperties fillCustomProperties(Method method) {
         var taskProperties = new DistributedSagaProperties.SagaMethodProperties();
         fillExecutionGuarantees(method, taskProperties);
+        fillNoRetryFor(method, taskProperties);
         return taskProperties;
     }
 
@@ -130,5 +133,10 @@ public class SagaPropertiesProcessorImpl implements SagaPropertiesProcessor {
             .ifPresent(executionGuarantees ->
                 sagaMethodProperties.setExecutionGuarantees(TaskSettings.ExecutionGuarantees.EXACTLY_ONCE)
             );
+    }
+
+    private void fillNoRetryFor(Method method, DistributedSagaProperties.SagaMethodProperties taskProperties) {
+        com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaMethod.class)
+            .ifPresent(sagaMethod -> taskProperties.getNoRetryFor().addAll(Arrays.asList(sagaMethod.noRetryFor())));
     }
 }

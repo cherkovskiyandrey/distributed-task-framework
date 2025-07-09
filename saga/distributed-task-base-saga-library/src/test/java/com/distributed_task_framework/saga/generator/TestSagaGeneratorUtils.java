@@ -14,7 +14,7 @@ import java.time.Duration;
 public class TestSagaGeneratorUtils {
 
     public SagaMethodSettings withoutRetry() {
-        return SagaMethodSettings.DEFAULT.toBuilder()
+        return SagaMethodSettings.buildDefault().toBuilder()
             .retry(Retry.builder()
                 .retryMode(RetryMode.OFF)
                 .build()
@@ -23,7 +23,7 @@ public class TestSagaGeneratorUtils {
     }
 
     public SagaMethodSettings withRetry(int retry) {
-        return SagaMethodSettings.DEFAULT.toBuilder()
+        return SagaMethodSettings.buildDefault().toBuilder()
             .retry(Retry.builder()
                 .retryMode(RetryMode.FIXED)
                 .fixed(Fixed.builder()
@@ -38,7 +38,7 @@ public class TestSagaGeneratorUtils {
 
     @SafeVarargs
     public SagaMethodSettings withNoRetryFor(Class<? extends Throwable>... exceptions) {
-        return SagaMethodSettings.DEFAULT.toBuilder()
+        return SagaMethodSettings.buildDefault().toBuilder()
             .noRetryFor(Lists.newArrayList(exceptions))
             .build();
     }
