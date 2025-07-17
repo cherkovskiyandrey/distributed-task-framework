@@ -1,11 +1,8 @@
-package com.distributed_task_framework.autoconfigure.listener;
+package com.distributed_task_framework.autoconfigure.validation;
 
 import liquibase.integration.spring.SpringLiquibase;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.SingleColumnRowMapper;
 
@@ -17,19 +14,15 @@ import java.util.Set;
 import java.util.jar.JarFile;
 
 @Slf4j
-@RequiredArgsConstructor
-public class CheckActualLiquibaseMigrationsListener implements ApplicationListener<ContextRefreshedEvent> {
-
+public class ActualLiquibaseMigrationsChecker {
     private static final String SELECT_FILENAMES_QUERY = "SELECT filename FROM %s";
     private static final String LIQUIBASE_SCRIPTS_PATH = "db/changelog/distributed-task-framework";
 
-    @Override
-    public void onApplicationEvent(ContextRefreshedEvent event) {
+    public void check(SpringLiquibase springLiquibase) {
         Set<String> knownMigrationFileNames;
         Set<String> deployedMigrationFileNames;
         try {
-            var springLiquibase = event.getApplicationContext().getBean(SpringLiquibase.class);
-            knownMigrationFileNames = knownMigrationFileNames(event);
+            knownMigrationFileNames = knownMigrationFileNames(springLiquibase);
             log.debug("Known Liquibase migrations: {}", knownMigrationFileNames);
 
             deployedMigrationFileNames = deployedMigrationFileNames(springLiquibase);
@@ -46,8 +39,8 @@ public class CheckActualLiquibaseMigrationsListener implements ApplicationListen
         }
     }
 
-    private Set<String> knownMigrationFileNames(ContextRefreshedEvent event) {
-        var fileNames = Optional.ofNullable(event.getApplicationContext().getClassLoader())
+    private Set<String> knownMigrationFileNames(SpringLiquibase springLiquibase) {
+        var fileNames = Optional.ofNullable(springLiquibase.getClass().getClassLoader())
             .map(classLoader -> classLoader.getResource(LIQUIBASE_SCRIPTS_PATH))
             .map(resource -> {
                 var jarPath = parseJarFileName(resource);

@@ -1,6 +1,6 @@
 package com.distributed_task_framework.autoconfigure;
 
-import com.distributed_task_framework.autoconfigure.listener.CheckActualLiquibaseMigrationsListener;
+import com.distributed_task_framework.autoconfigure.validation.CheckActualLiquibaseMigrationsListener;
 import liquibase.integration.spring.SpringLiquibase;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
