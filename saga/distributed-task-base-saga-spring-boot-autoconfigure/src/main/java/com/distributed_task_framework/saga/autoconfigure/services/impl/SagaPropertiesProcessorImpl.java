@@ -15,6 +15,7 @@ import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -137,6 +138,6 @@ public class SagaPropertiesProcessorImpl implements SagaPropertiesProcessor {
 
     private void fillNoRetryFor(Method method, DistributedSagaProperties.SagaMethodProperties taskProperties) {
         com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaMethod.class)
-            .ifPresent(sagaMethod -> taskProperties.getNoRetryFor().addAll(Arrays.asList(sagaMethod.noRetryFor())));
+            .ifPresent(sagaMethod -> taskProperties.setNoRetryFor(Lists.newArrayList(sagaMethod.noRetryFor())));
     }
 }

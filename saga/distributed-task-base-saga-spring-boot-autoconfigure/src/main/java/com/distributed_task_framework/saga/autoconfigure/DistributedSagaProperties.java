@@ -109,9 +109,12 @@ public class DistributedSagaProperties {
         /**
          * List of exceptions saga retry logic not used for.
          * Usually unrecoverable exception where retry doesn't matter.
+         * 1. Default is not set in config at all. In this case field equals null - means not set.
+         * And value will be used from low precedence configs.
+         * 2. If is set in code as empty list or not empty - means override all low precedence values.
          */
         @Builder.Default
-        List<Class<? extends Throwable>> noRetryFor = Lists.newArrayList();
+        List<Class<? extends Throwable>> noRetryFor = null;
     }
 
     @Validated

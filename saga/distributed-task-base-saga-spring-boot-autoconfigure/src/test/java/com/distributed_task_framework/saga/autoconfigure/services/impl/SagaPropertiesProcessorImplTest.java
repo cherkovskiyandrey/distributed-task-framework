@@ -3,6 +3,7 @@ package com.distributed_task_framework.saga.autoconfigure.services.impl;
 import com.distributed_task_framework.saga.autoconfigure.BaseSpringIntegrationTest;
 import com.distributed_task_framework.saga.autoconfigure.DistributedSagaProperties;
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
+import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.services.SagaRegisterSettingsService;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
@@ -195,7 +196,6 @@ class SagaPropertiesProcessorImplTest extends BaseSpringIntegrationTest {
             @SagaMethod(name = "sagaMethodWithIgnoreException", noRetryFor = SagaExecutionException.class)
             public void sagaMethodWithIgnoreException() {
             }
-
         }
 
         @Test
@@ -275,6 +275,70 @@ class SagaPropertiesProcessorImplTest extends BaseSpringIntegrationTest {
             );
         }
 
-        //todo
+        @Test
+        @SneakyThrows
+        void shouldUseSuffixWhenBuildSagaMethodSettings() {
+            //when & do
+            var sagaMethodSettings = sagaPropertiesProcessor.buildSagaMethodSettings(
+                TestSaga.class.getMethod("sagaMethod"),
+                "suffix",
+                DistributedSagaProperties.SagaMethodPropertiesGroup.builder()
+                    .sagaMethodProperties(Map.of(
+                            "sagaMethod",
+                            DistributedSagaProperties.SagaMethodProperties.builder()
+                                .maxParallelInCluster(999)
+                                .build(),
+                            "sagaMethod_suffix",
+                            DistributedSagaProperties.SagaMethodProperties.builder()
+                                .maxParallelInCluster(1000)
+                                .build()
+                        )
+                    )
+                    .build()
+            );
+
+            //verify
+            assertThat(sagaMethodSettings).isEqualTo(SagaMethodSettings.buildDefault().toBuilder()
+                .maxParallelInCluster(1000)
+                .build()
+            );
+        }
+
+        @Test
+        @SneakyThrows
+        void shouldOverriderPropertiesInRightOrderWhenBuildSagaMethodSettings() {
+            //when & do
+            var sagaMethodSettings = sagaPropertiesProcessor.buildSagaMethodSettings(
+                TestSaga.class.getMethod("sagaMethodWithIgnoreException"),
+                null,
+                DistributedSagaProperties.SagaMethodPropertiesGroup.builder()
+                    .defaultSagaMethodProperties(
+                        DistributedSagaProperties.SagaMethodProperties.builder()
+                            // check default overriding
+                            .executionGuarantees(TaskSettings.ExecutionGuarantees.EXACTLY_ONCE)
+                            // check custom overriding in code has high preceding over default in config
+                            .noRetryFor(List.of(SagaCancellationException.class))
+                            // check custom overriding for method in config has high preceding over default in config
+                            .maxParallelInCluster(888)
+                            .build()
+                    )
+                    .sagaMethodProperties(Map.of(
+                            "sagaMethodWithIgnoreException",
+                            DistributedSagaProperties.SagaMethodProperties.builder()
+                                .maxParallelInCluster(999)
+                                .build()
+                        )
+                    )
+                    .build()
+            );
+
+            //verify
+            assertThat(sagaMethodSettings).isEqualTo(SagaMethodSettings.buildDefault().toBuilder()
+                .executionGuarantees(TaskSettings.ExecutionGuarantees.EXACTLY_ONCE)
+                .noRetryFor(List.of(SagaExecutionException.class))
+                .maxParallelInCluster(999)
+                .build()
+            );
+        }
     }
 }
