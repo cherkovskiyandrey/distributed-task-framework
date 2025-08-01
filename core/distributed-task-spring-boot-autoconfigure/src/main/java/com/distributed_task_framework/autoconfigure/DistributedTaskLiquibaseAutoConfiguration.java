@@ -1,6 +1,7 @@
 package com.distributed_task_framework.autoconfigure;
 
-import com.distributed_task_framework.autoconfigure.validation.CheckActualLiquibaseMigrationsListener;
+import com.distributed_task_framework.autoconfigure.validation.ActualLiquibaseMigrationsChecker;
+import com.distributed_task_framework.autoconfigure.validation.ActualLiquibaseMigrationsCheckerDatabaseInitializerDetector;
 import liquibase.integration.spring.SpringLiquibase;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -17,16 +18,24 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.lang.NonNull;
 
 @Slf4j
-@AutoConfiguration(after = {LiquibaseAutoConfiguration.class})
+@AutoConfiguration(
+    after = {LiquibaseAutoConfiguration.class},
+    before = {DistributedTaskAutoconfigure.class}
+)
 @ConditionalOnClass(JdbcTemplate.class)
 @ConditionalOnBean(SpringLiquibase.class)
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "true")
 public class DistributedTaskLiquibaseAutoConfiguration {
 
     @Bean
+    public ActualLiquibaseMigrationsCheckerDatabaseInitializerDetector actualLiquibaseMigrationsCheckerDatabaseInitializerDetector() {
+        return new ActualLiquibaseMigrationsCheckerDatabaseInitializerDetector();
+    }
+
+    @Bean
     @Conditional(CheckMigrationsCondition.class)
-    public CheckActualLiquibaseMigrationsListener actualLiquibaseMigrationsChecker() {
-        return new CheckActualLiquibaseMigrationsListener();
+    public ActualLiquibaseMigrationsChecker actualLiquibaseMigrationsChecker(SpringLiquibase liquibase) {
+        return new ActualLiquibaseMigrationsChecker(liquibase);
     }
 
     static class CheckMigrationsCondition implements Condition {
