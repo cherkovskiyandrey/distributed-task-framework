@@ -1,8 +1,10 @@
 package com.distributed_task_framework.autoconfigure.validation;
 
 import liquibase.integration.spring.SpringLiquibase;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.SingleColumnRowMapper;
 
@@ -14,11 +16,15 @@ import java.util.Set;
 import java.util.jar.JarFile;
 
 @Slf4j
-public class ActualLiquibaseMigrationsChecker {
+@RequiredArgsConstructor
+public class ActualLiquibaseMigrationsChecker implements InitializingBean {
     private static final String SELECT_FILENAMES_QUERY = "SELECT filename FROM %s";
     private static final String LIQUIBASE_SCRIPTS_PATH = "db/changelog/distributed-task-framework";
 
-    public void check(SpringLiquibase springLiquibase) {
+    private final SpringLiquibase springLiquibase;
+
+    @Override
+    public void afterPropertiesSet() {
         Set<String> knownMigrationFileNames;
         Set<String> deployedMigrationFileNames;
         try {

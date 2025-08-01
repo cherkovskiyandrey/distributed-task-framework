@@ -1,4 +1,4 @@
-package com.distributed_task_framework.autoconfigure.listener;
+package com.distributed_task_framework.autoconfigure.validation;
 
 import com.distributed_task_framework.autoconfigure.DistributedTaskLiquibaseAutoConfiguration;
 import org.junit.jupiter.api.Nested;
@@ -11,7 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class CheckActualLiquibaseMigrationsListenerTest {
+public class ActualLiquibaseMigrationsCheckerTest {
     private final ApplicationContextRunner baseContextRunner = new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(
             DistributedTaskLiquibaseAutoConfiguration.class,
@@ -28,7 +28,7 @@ public class CheckActualLiquibaseMigrationsListenerTest {
         );
 
     @Nested
-    class ListenerNotLoaded {
+    class CheckerNotLoaded {
         private final ApplicationContextRunner contextRunner = baseContextRunner;
 
         @Test
@@ -37,7 +37,7 @@ public class CheckActualLiquibaseMigrationsListenerTest {
                 .withClassLoader(new FilteredClassLoader(JdbcTemplate.class))
                 .run(context -> {
                     assertThat(context)
-                        .doesNotHaveBean(CheckActualLiquibaseMigrationsListener.class);
+                        .doesNotHaveBean(ActualLiquibaseMigrationsChecker.class);
                 });
         }
 
@@ -46,7 +46,7 @@ public class CheckActualLiquibaseMigrationsListenerTest {
             contextRunner
                 .withPropertyValues("spring.liquibase.enabled=false")
                 .run(context -> assertThat(context)
-                    .doesNotHaveBean(CheckActualLiquibaseMigrationsListener.class));
+                    .doesNotHaveBean(ActualLiquibaseMigrationsChecker.class));
         }
 
         @Test
@@ -54,7 +54,7 @@ public class CheckActualLiquibaseMigrationsListenerTest {
             contextRunner
                 .withPropertyValues("distributed-task.enabled=false")
                 .run(context -> assertThat(context)
-                    .doesNotHaveBean(CheckActualLiquibaseMigrationsListener.class));
+                    .doesNotHaveBean(ActualLiquibaseMigrationsChecker.class));
         }
 
         @Test
@@ -62,13 +62,13 @@ public class CheckActualLiquibaseMigrationsListenerTest {
             contextRunner
                 .withPropertyValues("distributed-task.liquibase.check-migrations=false")
                 .run(context -> assertThat(context)
-                    .doesNotHaveBean(CheckActualLiquibaseMigrationsListener.class)
+                    .doesNotHaveBean(ActualLiquibaseMigrationsChecker.class)
                 );
         }
     }
 
     @Nested
-    class ListenerSuccessfulLoaded {
+    class CheckerSuccessfulLoaded {
 
         @Test
         void whenAllMigrationsAreApplied() {
@@ -79,7 +79,7 @@ public class CheckActualLiquibaseMigrationsListenerTest {
     }
 
     @Nested
-    class ListenerFailed {
+    class CheckerFailed {
         @Test
         void withoutAllDeployedScripts() {
             baseContextRunner
@@ -89,7 +89,7 @@ public class CheckActualLiquibaseMigrationsListenerTest {
                 .run(context -> assertThat(context)
                     .hasFailed()
                     .getFailure()
-                    .isInstanceOf(IllegalStateException.class)
+                    .hasCauseInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Followed migrations are not deployed")
                 );
         }
