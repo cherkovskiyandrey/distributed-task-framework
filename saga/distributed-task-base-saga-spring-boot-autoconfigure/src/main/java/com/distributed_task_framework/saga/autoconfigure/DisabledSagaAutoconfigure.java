@@ -22,11 +22,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-//todo: like DisabledDistributedTaskAutoconfigure
 @Slf4j
 @AutoConfiguration
 @ConditionalOnClass(DistributionSagaService.class)
-@ConditionalOnExpression("#{environment['distributed-task.enabled'] != 'true' || environment['distributed-task.saga.enabled'] != 'true'}")
+@ConditionalOnExpression("'${distributed-task.enabled}' != 'true' || '${distributed-task.saga.enabled}' != 'true'")
 public class DisabledSagaAutoconfigure {
 
     @Bean
