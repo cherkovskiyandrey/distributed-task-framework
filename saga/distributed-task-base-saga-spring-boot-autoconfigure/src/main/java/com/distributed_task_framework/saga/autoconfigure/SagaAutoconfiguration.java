@@ -15,7 +15,6 @@ import com.distributed_task_framework.saga.mappers.SettingsMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
-import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
 import com.distributed_task_framework.saga.services.SagaRegisterService;
 import com.distributed_task_framework.saga.services.impl.DistributionSagaServiceImpl;
 import com.distributed_task_framework.saga.services.impl.SagaHelper;
@@ -33,6 +32,7 @@ import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -43,7 +43,6 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -54,8 +53,8 @@ import java.util.concurrent.TimeUnit;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
-@Configuration
-@ConditionalOnClass(SagaFlowEntryPoint.class)
+@AutoConfiguration
+@ConditionalOnClass(DistributionSagaService.class)
 @ConditionalOnProperty(
     prefix = "distributed-task",
     name = {

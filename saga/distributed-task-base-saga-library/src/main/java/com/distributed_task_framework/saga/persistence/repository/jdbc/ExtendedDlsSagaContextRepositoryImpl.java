@@ -40,7 +40,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             :sagaId::uuid,
             :name,
             :createdDateUtc,
-            :availableAfterCompletionTimeoutSec,          
+            :availableAfterCompletionTimeoutSec,
             :expirationDateUtc,
             :rootTaskId,
             :lastPipelineContext

@@ -90,6 +90,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -136,7 +137,7 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Slf4j
-@Configuration
+@AutoConfiguration
 @ConditionalOnClass(DistributedTaskService.class)
 @EnableConfigurationProperties({
     DistributedTaskProperties.class

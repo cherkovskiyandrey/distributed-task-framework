@@ -17,9 +17,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @AutoConfiguration
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "false", matchIfMissing = true)
-@Slf4j
 public class DisabledDistributedTaskAutoconfigure {
     public static final TaskId DUMMY_TASK_ID = new TaskId(
         "stub",

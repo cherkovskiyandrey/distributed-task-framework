@@ -61,6 +61,7 @@ caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "c
 
 # Serialisations
 jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
+jackson-datatype-jdk8 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jdk8" }
 
 # Tools
 apache-commons-io = { module = "commons-io:commons-io", version.ref = "apache-commons-io" }
