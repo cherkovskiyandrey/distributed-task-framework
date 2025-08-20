@@ -77,4 +77,21 @@ public class CheckActualLiquibaseMigrationsListenerTest {
                     .hasNotFailed());
         }
     }
+
+    @Nested
+    class ListenerFailed {
+        @Test
+        void withoutAllDeployedScripts() {
+            baseContextRunner
+                .withPropertyValues(
+                    "spring.liquibase.change-log=classpath:/db/test-changelog/not-full-changelog.yaml"
+                )
+                .run(context -> assertThat(context)
+                    .hasFailed()
+                    .getFailure()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Followed migrations are not deployed")
+                );
+        }
+    }
 }
