@@ -25,6 +25,7 @@ dependencies {
     api libs.spring.boot.starter.actuator
     api libs.jackson.datatype.jdk8
     api libs.jackson.module.kotlin
+    compileOnly libs.liquibase
 
     implementation project(':common-spring-utils')
 
@@ -34,6 +35,9 @@ dependencies {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
     testRuntimeOnly("com.fasterxml.jackson.module:jackson-module-kotlin")
+    testImplementation libs.liquibase
+    testImplementation libs.postgresql
+    testImplementation libs.testcontainers.postgresql
 }
 
 tasks.register('generateAdoc') {
