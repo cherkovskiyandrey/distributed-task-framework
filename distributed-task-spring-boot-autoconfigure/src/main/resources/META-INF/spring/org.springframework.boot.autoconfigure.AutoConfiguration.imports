@@ -1,2 +1,3 @@
 com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure
 com.distributed_task_framework.autoconfigure.DisabledDistributedTaskAutoconfigure
+com.distributed_task_framework.autoconfigure.DistributedTaskLiquibaseAutoConfiguration
