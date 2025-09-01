@@ -34,7 +34,7 @@ public class CpuIntensiveExampleTask implements Task<Void> {
         signaller.getCyclicBarrierRef().get().await();
         long currentTime = System.currentTimeMillis();
         do {
-            int[] array = new int[SIZE]; // 4 Mb
+            int[] array = new int[SIZE];
             for (int i = 0; i < SIZE; ++i) {
                 array[i] = SIZE - i;
             }

@@ -1,0 +1,37 @@
+distributed-task:
+  enabled: true
+  common:
+    app-name: test-app
+    registry:
+      update-initial-delay-ms: 0
+      update-fixed-delay-ms: 100
+      max-inactivity-interval-ms: 1000
+      cache-expiration-ms: 100
+    planner:
+      watchdog-initial-delay-ms: 0
+      watchdog-fixed-delay-ms: 500
+      max-parallel-tasks-in-cluster-default: 10
+      batch-size: 10
+      polling-delay:
+        0: 10
+        1: 10
+      new-batch-size: 100
+      deleted-batch-size: 100
+    worker-manager:
+      max-parallel-tasks-in-node: 10
+      manage-delay:
+        0: 10
+        1: 10
+
+#  task-properties-group:
+#    default-properties:
+#      execution-guarantees: AT_LEAST_ONCE
+#      dlt-enabled: true
+#      retry:
+#        backoff:
+#          initial-delay: PT10S
+#          delay-period: PT10S
+#          max-retries: 1000
+#          max-delay: PT5M
+#      max-parallel-in-cluster: 200
+#      timeout: PT5M

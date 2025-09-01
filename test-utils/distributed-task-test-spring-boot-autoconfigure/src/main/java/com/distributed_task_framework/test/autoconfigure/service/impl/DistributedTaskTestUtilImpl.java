@@ -56,6 +56,7 @@ public class DistributedTaskTestUtilImpl implements DistributedTaskTestUtil {
         Set<TaskId> activeTaskIds = cancelTasks(attemptsToCancel);
         waitForTasksCompletion(activeTaskIds, attemptsToCancel, duration);
         doPostProcessing(duration);
+        log.info("reinitAndWait(): end");
     }
 
     private void waitForTasksCompletion(Set<TaskId> activeTaskIds, int attemptsToCancel, Duration duration) throws InterruptedException {

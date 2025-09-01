@@ -12,4 +12,19 @@ dependencies {
     implementation libs.micrometer.registry.prometheus
 
     runtimeOnly libs.postgresql
+
+    // tests
+    testImplementation project(':distributed-task-test-spring-boot-starter')
+    testImplementation testFixtures(project(':commons-test'))
+
+    testImplementation libs.liquibase
+    testImplementation libs.spring.boot.starter
+    testImplementation libs.postgresql
+    testImplementation libs.spring.boot.starter.data.jdbc
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation libs.testcontainers.postgresql
+    testImplementation libs.testcontainers.junit.jupiter
+    testImplementation libs.org.awaitility
 }
