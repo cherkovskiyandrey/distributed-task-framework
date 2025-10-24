@@ -88,8 +88,8 @@ class ReflectionHelperTest {
         var realMethods = ReflectionHelper.allMethods(C.class);
 
         //verify
-        var sagaMethods = realMethods.map(MethodSagaMethodFactory::of);
-        assertThat(sagaMethods).containsExactly(
+        var sagaMethods = realMethods.map(MethodSagaMethodFactory::of).toList();
+        assertThat(sagaMethods.subList(0, 3)).containsExactlyInAnyOrder(
             new SagaMethod(
                 C.class.getTypeName(),
                 "foo",
@@ -107,7 +107,10 @@ class ReflectionHelperTest {
                 "privateFoo",
                 List.of(),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(3, 6)).containsExactlyInAnyOrder(
             new SagaMethod(
                 B.class.getTypeName(),
                 "foo",
@@ -125,7 +128,10 @@ class ReflectionHelperTest {
                 "boo",
                 List.of(),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(6, 8)).containsExactlyInAnyOrder(
             new SagaMethod(
                 DI.class.getTypeName(),
                 "foo",
@@ -137,25 +143,37 @@ class ReflectionHelperTest {
                 "boo",
                 List.of(),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(8, 9)).containsExactlyInAnyOrder(
             new SagaMethod(
                 BI.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(9, 10)).containsExactlyInAnyOrder(
             new SagaMethod(
                 CI.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(10, 11)).containsExactlyInAnyOrder(
             new SagaMethod(
                 AI.class.getTypeName(),
                 "foo",
                 List.of(),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(11, 13)).containsExactlyInAnyOrder(
             new SagaMethod(
                 A.class.getTypeName(),
                 "foo",
@@ -181,8 +199,8 @@ class ReflectionHelperTest {
         var allRealOverrideMethods = ReflectionHelper.findAllMethodsForLastOverride(lastOverrideMethod, C.class);
 
         //verify
-        var sagaMethods = allRealOverrideMethods.stream().map(MethodSagaMethodFactory::of);
-        assertThat(sagaMethods).containsExactly(
+        var sagaMethods = allRealOverrideMethods.stream().map(MethodSagaMethodFactory::of).toList();
+        assertThat(sagaMethods.subList(0, 2)).containsExactlyInAnyOrder(
             new SagaMethod(
                 C.class.getTypeName(),
                 "foo",
@@ -194,25 +212,37 @@ class ReflectionHelperTest {
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(2, 3)).containsExactlyInAnyOrder(
             new SagaMethod(
                 B.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(3, 4)).containsExactlyInAnyOrder(
             new SagaMethod(
                 DI.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(4, 5)).containsExactlyInAnyOrder(
             new SagaMethod(
                 BI.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
                 ReturnType.class.getTypeName()
-            ),
+            )
+        );
+
+        assertThat(sagaMethods.subList(5, 6)).containsExactlyInAnyOrder(
             new SagaMethod(
                 CI.class.getTypeName(),
                 "foo",

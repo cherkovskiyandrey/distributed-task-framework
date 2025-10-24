@@ -2,11 +2,14 @@ package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.model.Capabilities;
+import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
 import com.distributed_task_framework.model.NodeLoading;
 import com.distributed_task_framework.persistence.entity.CapabilityEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.repository.CapabilityRepository;
 import com.distributed_task_framework.persistence.repository.NodeStateRepository;
+import com.distributed_task_framework.utils.DistributedTaskCache;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -22,8 +25,6 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.ReflectionUtils;
@@ -41,7 +42,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -53,13 +53,16 @@ public class ClusterProviderImpl implements ClusterProvider {
     public static final double CPU_LOADING_UNDEFINED = -1.D;
     public static final double MIN_CPU_LOADING = 0.D;
 
+    private static final String CLUSTER_NODES_AND_CAPABILITIES_CACHE = "clusterNodesAndCapabilitiesCache";
+    private static final String CLUSTER_NODES_AND_CAPABILITIES_KEY = "clusterNodesAndCapabilitiesKey";
+
     UUID nodeId;
     CommonSettings commonSettings;
     CapabilityRegisterProvider capabilityRegisterProvider;
     NodeStateRepository nodeStateRepository;
     CapabilityRepository capabilityRepository;
     PlatformTransactionManager transactionManager;
-    CacheManager cacheManager;
+    DistributedTaskCache<Map<NodeStateEntity, List<CapabilityEntity>>> nodesWithCapabilityCache;
     NodeStateMapper nodeStateMapper;
     ScheduledExecutorService scheduledExecutorService;
     OperatingSystemMXBean operatingSystemMXBean;
@@ -71,7 +74,7 @@ public class ClusterProviderImpl implements ClusterProvider {
     public ClusterProviderImpl(CommonSettings commonSettings,
                                CapabilityRegisterProvider capabilityRegisterProvider,
                                PlatformTransactionManager transactionManager,
-                               CacheManager cacheManager,
+                               DistributedTaskCacheManager cacheManager,
                                NodeStateMapper nodeStateMapper,
                                NodeStateRepository nodeStateRepository,
                                CapabilityRepository capabilityRepository,
@@ -81,7 +84,12 @@ public class ClusterProviderImpl implements ClusterProvider {
         this.commonSettings = commonSettings;
         this.capabilityRegisterProvider = capabilityRegisterProvider;
         this.transactionManager = transactionManager;
-        this.cacheManager = cacheManager;
+        this.nodesWithCapabilityCache = cacheManager.getOrCreateCache(
+            CLUSTER_NODES_AND_CAPABILITIES_CACHE,
+            DistributedTaskCacheSettings.builder()
+                .expireAfterWrite(Duration.ofMillis(commonSettings.getRegistrySettings().getCacheExpirationMs()))
+                .build()
+        );
         this.nodeStateMapper = nodeStateMapper;
         this.nodeStateRepository = nodeStateRepository;
         this.capabilityRepository = capabilityRepository;
@@ -280,10 +288,16 @@ public class ClusterProviderImpl implements ClusterProvider {
 
     //We use one cache for node and it's capabilities in order to atomically see node state
     private Map<NodeStateEntity, List<CapabilityEntity>> nodesWithCapabilities() {
-        return getOrCalculateValue(
-            "clusterNodesAndCapabilities",
-            nodeStateRepository::getAllWithCapabilities
-        );
+        return nodesWithCapabilityCache.get(CLUSTER_NODES_AND_CAPABILITIES_KEY)
+            .orElseGet(() ->
+                //in order to avoid deadlock between acquiring transaction and calculating of new value
+                new TransactionTemplate(transactionManager).execute(status ->
+                    nodesWithCapabilityCache.get(
+                        CLUSTER_NODES_AND_CAPABILITIES_KEY,
+                        nodeStateRepository::getAllWithCapabilities
+                    )
+                )
+            );
     }
 
     @Override
@@ -293,25 +307,5 @@ public class ClusterProviderImpl implements ClusterProvider {
         Map<UUID, EnumSet<Capabilities>> clusterCapabilities = clusterCapabilities();
         return clusterCapabilities.entrySet().stream()
             .allMatch(entry -> entry.getValue().containsAll(searchedCapabilities));
-    }
-
-    private Cache getCommonCache() {
-        return Objects.requireNonNull(cacheManager.getCache("commonRegistryCacheManager"));
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getOrCalculateValue(String key, Callable<T> calculator) {
-        var wrapper = getCommonCache().get(key);
-        if (wrapper != null && wrapper.get() != null) {
-            return (T) wrapper.get();
-        }
-
-        //in order to avoid deadlock between acquiring transaction and calculating of new value
-        return new TransactionTemplate(transactionManager).execute(status ->
-            getCommonCache().get(
-                key,
-                calculator
-            )
-        );
     }
 }

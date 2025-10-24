@@ -1,6 +1,5 @@
 package com.distributed_task_framework.test.autoconfigure;
 
-import com.distributed_task_framework.Postgresql16Initializer;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -13,6 +12,8 @@ import com.distributed_task_framework.test.autoconfigure.tasks.IOExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.InfinitiveWorkflowGenerationExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.RetryExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.SimpleCronCustomizedTask;
+import com.distributed_task_framework.utils.Postgresql16Initializer;
+import com.distributed_task_framework.utils.Signaller;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -47,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 )
 @ComponentScan(basePackageClasses = DefaultTask.class)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-class TestDistributedTaskAutoconfigurationTest {
+class IntegrationTest {
     @Autowired
     TaskRepository taskRepository;
     @Autowired

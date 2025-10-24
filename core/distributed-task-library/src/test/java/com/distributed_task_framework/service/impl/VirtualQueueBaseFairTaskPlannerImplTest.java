@@ -1,18 +1,18 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.BaseSpringIntegrationTest;
+import com.distributed_task_framework.TaskPopulateAndVerify;
 import com.distributed_task_framework.model.Capabilities;
 import com.distributed_task_framework.model.NodeLoading;
 import com.distributed_task_framework.model.TaskDef;
-import com.distributed_task_framework.BaseSpringIntegrationTest;
-import com.distributed_task_framework.TaskPopulateAndVerify;
 import com.distributed_task_framework.persistence.entity.PartitionEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
-import com.distributed_task_framework.utils.ExecutorUtils;
 import com.distributed_task_framework.service.internal.MetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import jakarta.annotation.Nullable;
@@ -47,9 +47,8 @@ import java.util.stream.Collectors;
 
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithAffinityGroupAndTaskNameAndCreatedDate;
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithCreatedDateAndWithoutAffinity;
-import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithWorkerAndCreatedDateAndWithoutAffinity;
-import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withCreatedDateAndWithoutAffinity;
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withWorkerAndWithoutAffinity;
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withoutAffinity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -174,7 +173,7 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         log.info("shouldPlanOrphanedTasks(): begging of population");
         UUID lostNodeId = UUID.randomUUID();
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-            Range.closedOpen(0, 1), oneWithWorkerAndCreatedDateAndWithoutAffinity(lostNodeId, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 1), withWorkerAndWithoutAffinity(lostNodeId, 1))
         );
         var unplannedTasks = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, unplannedPopulationSpecs);
         log.info("shouldPlanOrphanedTasks(): finished population");
@@ -195,7 +194,7 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         registerPartition(List.of(TASK_0, TASK_1));
 
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-            Range.closedOpen(0, 2), withCreatedDateAndWithoutAffinity(2, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 2), withoutAffinity(2))
         );
         var unplannedTasks = taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, unplannedPopulationSpecs);
 
@@ -235,7 +234,7 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         taskPopulateAndVerify.populate(0, 2, VirtualQueue.READY, alreadyPlannedPopulationSpecs);
 
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-            Range.closedOpen(0, 2), withCreatedDateAndWithoutAffinity(2, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 2), withoutAffinity(2))
         );
         taskPopulateAndVerify.populate(0, 200, VirtualQueue.READY, unplannedPopulationSpecs);
         log.info("shouldApplyRestrictionsWhenPlan(): finished population");
@@ -271,7 +270,7 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         taskPopulateAndVerify.populate(0, 3, VirtualQueue.READY, alreadyPlannedPopulationSpecs);
 
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-            Range.closedOpen(0, 2), withCreatedDateAndWithoutAffinity(2, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 2), withoutAffinity(2))
         );
         taskPopulateAndVerify.populate(0, 200, VirtualQueue.READY, unplannedPopulationSpecs);
         log.info("shouldApplyRestrictionsWhenPlan(): finished population");
@@ -480,7 +479,7 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
         );
 
         var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-            Range.closedOpen(0, 3), withCreatedDateAndWithoutAffinity(3, LocalDateTime.now(clock)))
+            Range.closedOpen(0, 3), withoutAffinity(3))
         );
         var unplannedTasks = taskPopulateAndVerify.populate(
             0,

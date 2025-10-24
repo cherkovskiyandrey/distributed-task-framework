@@ -1,6 +1,6 @@
 dependencies {
-    api libs.spring.boot.starter.cache
     api libs.jackson.datatype.jsr310
+    api project(':common-utils')
 
     implementation libs.spring.boot.starter.webflux
     implementation libs.spring.boot.starter.actuator
@@ -8,7 +8,7 @@ dependencies {
     implementation libs.cron.utils
 
     // For integration tests
-    testImplementation testFixtures(project(':commons-test'))
+    testImplementation testFixtures(project(':common-spring-utils'))
 
     testImplementation libs.spring.boot.starter
     testImplementation libs.liquibase

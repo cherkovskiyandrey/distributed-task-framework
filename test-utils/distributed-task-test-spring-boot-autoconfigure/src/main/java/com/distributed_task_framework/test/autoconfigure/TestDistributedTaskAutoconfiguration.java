@@ -64,7 +64,7 @@ import java.util.stream.Collectors;
  *         application-test.yaml.
  *     </li>
  *     <li>
- *         There is an useful utility bean {@link DistributedTaskTestUtil} to provide method to reinit dtf.
+ *         There is a useful utility bean {@link DistributedTaskTestUtil} to provide method to reinit dtf.
  *         Should be used before run any test in order to cancel current tasks and get rid of potential
  *         side effect from previous tests.
  *     </li>

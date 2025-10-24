@@ -54,7 +54,7 @@ public class TaskPopulateAndVerify {
         @Nullable
         UUID assignedWorker;
         @Nullable
-        LocalDateTime fixedCreatedDate;
+        LocalDateTime begingCreatedDate;
         @Nullable
         String fixedAffinityGroup;
         @Nullable
@@ -77,7 +77,7 @@ public class TaskPopulateAndVerify {
         @Nullable
         UUID fixedWorker;
         @Nullable
-        LocalDateTime fixedCreatedDate;
+        LocalDateTime beginCreatedDate;
         @Nullable
         String fixedAffinityGroup;
         @Nullable
@@ -216,22 +216,6 @@ public class TaskPopulateAndVerify {
             );
         }
 
-        public static GenerationSpec withWorkerAndWithoutAffinity(int taskNameNumber, UUID fixedWorker) {
-            return GenerationSpec.of(
-                false,
-                taskNameNumber,
-                true,
-                false,
-                false,
-                fixedWorker,
-                null,
-                null,
-                null,
-                null,
-                null
-            );
-        }
-
         public static GenerationSpec oneWithTaskNameAndWithoutAffinity(String taskName) {
             return GenerationSpec.of(
                 false,
@@ -248,7 +232,7 @@ public class TaskPopulateAndVerify {
             );
         }
 
-        public static GenerationSpec oneWithCreatedDateAndWithoutAffinity(LocalDateTime fixedCreatedDate) {
+        public static GenerationSpec oneWithCreatedDateAndWithoutAffinity(LocalDateTime beginCreatedDate) {
             return GenerationSpec.of(
                 false,
                 1,
@@ -256,24 +240,7 @@ public class TaskPopulateAndVerify {
                 false,
                 false,
                 null,
-                fixedCreatedDate,
-                null,
-                null,
-                null,
-                null
-            );
-        }
-
-        public static GenerationSpec withCreatedDateAndWithoutAffinity(int taskNumber,
-                                                                       LocalDateTime fixedCreatedDate) {
-            return GenerationSpec.of(
-                false,
-                taskNumber,
-                false,
-                false,
-                false,
-                null,
-                fixedCreatedDate,
+                beginCreatedDate,
                 null,
                 null,
                 null,
@@ -297,26 +264,9 @@ public class TaskPopulateAndVerify {
             );
         }
 
-        public static GenerationSpec oneWithWorkerAndCreatedDateAndWithoutAffinity(UUID fixedWorker,
-                                                                                   LocalDateTime fixedCreatedDate) {
-            return GenerationSpec.of(
-                false,
-                1,
-                false,
-                false,
-                false,
-                fixedWorker,
-                fixedCreatedDate,
-                null,
-                null,
-                null,
-                null
-            );
-        }
-
         public static GenerationSpec oneWithAffinityGroupAndTaskNameAndCreatedDate(String afg,
                                                                                    String taskName,
-                                                                                   LocalDateTime fixedCreatedDate) {
+                                                                                   LocalDateTime beginCreatedDate) {
             return GenerationSpec.of(
                 true,
                 1,
@@ -324,7 +274,7 @@ public class TaskPopulateAndVerify {
                 false,
                 false,
                 null,
-                fixedCreatedDate,
+                beginCreatedDate,
                 afg,
                 null,
                 null,
@@ -414,7 +364,7 @@ public class TaskPopulateAndVerify {
                             .affinity(affinity)
                             .nameOfTasks(taskNames)
                             .assignedWorker(assignedWorker)
-                            .fixedCreatedDate(spec.getFixedCreatedDate())
+                            .begingCreatedDate(spec.getBeginCreatedDate())
                             .fixedWorkflowId(workflowId)
                             .deferred(spec.isDeferred())
                             .canceled(spec.isCanceled())
@@ -441,9 +391,10 @@ public class TaskPopulateAndVerify {
                         populationSpec,
                         (k, prev) -> prev == null ? 0 : (prev + 1) % k.getNameOfTasks().size()
                     );
-                    LocalDateTime createdDateTime = populationSpec.getFixedCreatedDate() != null ?
-                        populationSpec.getFixedCreatedDate() :
-                        now().minusSeconds(size).plusSeconds(i);
+                    LocalDateTime createdDateTime = (populationSpec.getBegingCreatedDate() != null ?
+                        populationSpec.getBegingCreatedDate() :
+                        now()
+                    ).minusSeconds(size).plusSeconds(i);
 
                     return TaskEntity.builder()
                         .taskName(populationSpec.getNameOfTasks().get(taskId))

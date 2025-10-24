@@ -1,5 +1,6 @@
 dependencies {
     api project(':distributed-task-test-spring-boot-starter')
+    api project(':distributed-task-base-saga-spring-boot-starter')
 
     api libs.spring.boot
     api libs.spring.boot.autoconfigure
@@ -10,7 +11,7 @@ dependencies {
     annotationProcessor(libs.spring.boot.configuration.processor)
 
     // For integration tests
-    testImplementation testFixtures(project(':commons-test'))
+    testImplementation testFixtures(project(':common-spring-utils'))
 
     testImplementation libs.liquibase
     testImplementation libs.spring.boot.starter

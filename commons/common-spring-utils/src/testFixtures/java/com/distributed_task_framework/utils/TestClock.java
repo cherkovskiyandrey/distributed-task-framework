@@ -1,4 +1,4 @@
-package com.distributed_task_framework;
+package com.distributed_task_framework.utils;
 
 import lombok.Setter;
 

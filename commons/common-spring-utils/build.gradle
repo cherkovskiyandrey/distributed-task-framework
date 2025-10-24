@@ -1,0 +1,26 @@
+plugins {
+    id 'java-test-fixtures'
+}
+
+dependencies {
+    api project(':common-utils')
+    api libs.jakarta.annotation.api
+    api libs.caffeine
+
+    implementation(libs.spring.boot)
+
+    testFixturesImplementation platform(libs.spring.boot.bom)
+
+    //Lombok
+    testFixturesCompileOnly libs.org.projectlombok.lombok
+    testFixturesAnnotationProcessor libs.org.projectlombok.lombok
+
+    testFixturesImplementation platform(libs.testcontainers.bom)
+
+    testFixturesApi(libs.spring.boot.starter)
+    testFixturesApi(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testFixturesApi(libs.testcontainers.postgresql)
+    testFixturesApi(libs.postgresql)
+}

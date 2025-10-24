@@ -1,12 +1,12 @@
 package com.distributed_task_framework.saga.autoconfigure;
 
-import com.distributed_task_framework.Postgresql16Initializer;
 import com.distributed_task_framework.saga.autoconfigure.test_data.services.ExternalSagaTestService;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
+import com.distributed_task_framework.utils.Postgresql16Initializer;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 
@@ -36,7 +37,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
     initializers = Postgresql16Initializer.class
 )
 @FieldDefaults(level = AccessLevel.PROTECTED)
-public class DisabledSagaAutoconfigureTest {
+@DirtiesContext // in order to prevent races between current dtf context and from BaseSpringIntegrationTest.
+public class DisabledSagaIntegrationTest {
     @Autowired
     ConfigurableApplicationContext applicationContext;
     @Autowired

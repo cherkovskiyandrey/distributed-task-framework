@@ -192,13 +192,23 @@ public class WorkerManagerImpl implements WorkerManager {
         );
         List<TaskEntity> unknownTasks = Lists.newArrayList();
         for (TaskEntity taskEntity : newTasks) {
-            log.info("startNewTasks(): task=[{}] has been started, details=[{}]", taskEntity.getId(), taskEntity);
+            log.info(
+                "startNewTasks(): threadId=[{}], task=[{}] is starting..., details=[{}]",
+                Thread.currentThread().getId(),
+                taskEntity.getId(),
+                taskEntity
+            );
             TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
             Optional<RegisteredTask<Object>> registeredTaskOpt = taskRegistryService.getRegisteredLocalTask(
                 taskEntity.getTaskName()
             );
             if (registeredTaskOpt.isEmpty()) {
-                log.warn("startNewTasks(): planned task=[{}] has been unregistered", taskId);
+                log.warn(
+                    "startNewTasks(): threadId=[{}], planned task=[{}] has been unregistered " +
+                        "and will be returned released by this worker manager",
+                    Thread.currentThread().getId(),
+                    taskId
+                );
                 unknownTasks.add(taskEntity);
                 getUnknownTaskCounter(taskEntity).increment();
             } else {

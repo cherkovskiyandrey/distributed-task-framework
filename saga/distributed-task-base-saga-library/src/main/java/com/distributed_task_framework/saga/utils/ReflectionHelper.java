@@ -1,6 +1,5 @@
 package com.distributed_task_framework.saga.utils;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import lombok.experimental.UtilityClass;
 import org.springframework.lang.Nullable;
@@ -45,8 +44,9 @@ public class ReflectionHelper {
     }
 
     /**
-     * Return stream of all methods (included abstract, included methods in the interfaces) in the hierarchy.
-     * Direction from current class up to hierarchy.
+     * Return stream of all methods (included abstract, methods in the interfaces) in the hierarchy.
+     * Walk direction is from current class up to hierarchy.
+     * In scope of certain class for ordering is undefined.
      *
      * @param cls
      * @return
@@ -58,12 +58,15 @@ public class ReflectionHelper {
             private final Set<Class<?>> visitedClasses;
             private Class<?> currentClass;
             private Class<?> currentInterface;
+            private Method[] currentMethods;
             private int currentIdx;
 
             public SpliteratorMethods(Class<?> currentClass) {
+                Objects.requireNonNull(currentClass);
                 this.visitedClasses = Sets.newHashSet();
                 this.currentInterfaces = new ArrayDeque<>();
                 this.currentClass = currentClass;
+                this.currentMethods = currentClass.getDeclaredMethods();
             }
 
             @Override
@@ -74,12 +77,17 @@ public class ReflectionHelper {
                 do {
                     if (currentInterface == null && !currentInterfaces.isEmpty()) {
                         currentInterface = currentInterfaces.poll();
-                        currentInterfaces.addAll(filterVisited(currentInterface.getInterfaces()));
+                        currentMethods = currentInterface.getDeclaredMethods();
+                        currentInterfaces.addAll(filterOnlyNew(currentInterface.getInterfaces()));
+
+                    } else if (currentInterface == null && currentMethods == null && currentClass != null) {
+                        currentMethods = currentClass.getDeclaredMethods();
 
                     } else if (currentInterface != null) {
-                        if (currentInterface.getDeclaredMethods().length <= currentIdx) {
+                        if (currentMethods.length <= currentIdx) {
                             currentIdx = 0;
                             currentInterface = null;
+                            currentMethods = null;
                             continue;
                         }
                         currentType = currentInterface;
@@ -87,10 +95,11 @@ public class ReflectionHelper {
                         break;
 
                     } else if (currentClass != null) {
-                        if (currentClass.getDeclaredMethods().length <= currentIdx) {
+                        if (currentMethods.length <= currentIdx) {
                             currentIdx = 0;
-                            currentInterfaces.addAll(filterVisited(currentClass.getInterfaces()));
-                            currentClass = currentClass.getSuperclass() == Object.class ? null : currentClass.getSuperclass();
+                            currentInterfaces.addAll(filterOnlyNew(currentClass.getInterfaces()));
+                            currentClass = currentClass.getSuperclass() != Object.class ? currentClass.getSuperclass() : null;
+                            currentMethods = currentClass != null ? currentClass.getDeclaredMethods() : null;
                             continue;
                         }
                         currentType = currentClass;
@@ -106,16 +115,14 @@ public class ReflectionHelper {
                     return false;
                 }
 
-                action.accept(currentType.getDeclaredMethods()[idx]);
+                action.accept(currentMethods[idx]);
                 return true;
             }
 
-            private Collection<Class<?>> filterVisited(Class<?>[] interfaces) {
+            private Collection<Class<?>> filterOnlyNew(Class<?>[] interfaces) {
                 var newInterfaces = Sets.newHashSet(Sets.difference(Sets.newHashSet(interfaces), visitedClasses));
                 visitedClasses.addAll(newInterfaces);
-                return Lists.newArrayList(interfaces).stream()
-                    .filter(newInterfaces::contains)
-                    .toList();
+                return newInterfaces;
             }
 
             @Override

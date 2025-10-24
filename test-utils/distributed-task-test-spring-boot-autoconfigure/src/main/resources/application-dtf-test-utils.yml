@@ -2,6 +2,9 @@ distributed-task:
   enabled: true
   common:
     app-name: test-app
+    completion:
+      handler-initial-delay: PT0.01S
+      handler-fixed-delay: PT0.01S
     registry:
       update-initial-delay-ms: 0
       update-fixed-delay-ms: 100

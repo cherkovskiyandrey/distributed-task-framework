@@ -12,7 +12,7 @@ dependencies {
     annotationProcessor(libs.spring.boot.configuration.processor)
 
     // For integration tests
-    testImplementation testFixtures(project(':commons-test'))
+    testImplementation testFixtures(project(':common-spring-utils'))
 
     testImplementation libs.liquibase
     testImplementation libs.spring.boot.starter

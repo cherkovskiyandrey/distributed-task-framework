@@ -29,7 +29,8 @@ import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import com.distributed_task_framework.utils.CaffeineDistributedTaskCacheManagerImpl;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -38,9 +39,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
@@ -48,7 +46,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.time.Clock;
-import java.util.concurrent.TimeUnit;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
@@ -74,8 +71,8 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 @EnableTransactionManagement
 @EnableConfigurationProperties(value = DistributedSagaProperties.class)
 @ComponentScan(basePackageClasses = SagaMethodPropertiesMapper.class)
-@EnableCaching
 public class SagaAutoconfiguration {
+    private static final String INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME = "internalSagaDistributedTaskCacheManager";
 
     @Bean
     @ConditionalOnMissingBean
@@ -84,19 +81,10 @@ public class SagaAutoconfiguration {
     }
 
     @Bean
-    @Qualifier("commonSagaCaffeineConfig")
-    @ConditionalOnMissingBean
-    public Caffeine<Object, Object> commonSagaCaffeineConfig() {
-        return Caffeine.newBuilder().expireAfterWrite(0, TimeUnit.MILLISECONDS);
-    }
-
-    @Bean
-    @Qualifier("commonSagaCacheManager")
-    @ConditionalOnMissingBean
-    public CacheManager commonSagaCacheManager(@Qualifier("commonSagaCaffeineConfig") Caffeine<Object, Object> caffeine) {
-        CaffeineCacheManager caffeineCacheManager = new CaffeineCacheManager();
-        caffeineCacheManager.setCaffeine(caffeine);
-        return caffeineCacheManager;
+    @ConditionalOnMissingBean(name = INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
+    @Qualifier(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
+    public DistributedTaskCacheManager internalDistributedTaskCacheManager() {
+        return new CaffeineDistributedTaskCacheManagerImpl();
     }
 
     @Bean
@@ -153,6 +141,7 @@ public class SagaAutoconfiguration {
     public SagaManager sagaContextService(DistributedTaskService distributedTaskService,
                                           SagaRepository sagaRepository,
                                           DlsSagaContextRepository dlsSagaContextRepository,
+                                          @Qualifier(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager distributedTaskCacheManager,
                                           SagaHelper sagaHelper,
                                           SagaMapper sagaMapper,
                                           @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
@@ -162,6 +151,7 @@ public class SagaAutoconfiguration {
             distributedTaskService,
             sagaRepository,
             dlsSagaContextRepository,
+            distributedTaskCacheManager,
             sagaHelper,
             sagaMapper,
             transactionManager,

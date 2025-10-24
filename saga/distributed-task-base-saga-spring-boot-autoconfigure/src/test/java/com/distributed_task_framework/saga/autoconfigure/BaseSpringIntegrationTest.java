@@ -1,12 +1,14 @@
 package com.distributed_task_framework.saga.autoconfigure;
 
-import com.distributed_task_framework.Postgresql16Initializer;
 import com.distributed_task_framework.saga.autoconfigure.test_data.services.ExternalSagaTestService;
 import com.distributed_task_framework.saga.autoconfigure.test_data.services.InternalSagaTestService;
 import com.distributed_task_framework.saga.autoconfigure.services.SagaPropertiesProcessor;
 import com.distributed_task_framework.saga.autoconfigure.test_data.services.SagaSpecificTestService;
+import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
+import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
+import com.distributed_task_framework.utils.Postgresql16Initializer;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -31,7 +33,11 @@ import org.springframework.test.context.ContextConfiguration;
 )
 @EnableAutoConfiguration
 @ContextConfiguration(
-    classes = {SagaAutoconfiguration.class, MappersConfiguration.class, AdditionalTestConfiguration.class},
+    classes = {
+        SagaAutoconfiguration.class,
+        MappersConfiguration.class,
+        AdditionalTestConfiguration.class
+    },
     initializers = Postgresql16Initializer.class
 )
 @FieldDefaults(level = AccessLevel.PROTECTED)
@@ -52,6 +58,10 @@ public abstract class BaseSpringIntegrationTest {
     @Autowired
     @Qualifier("sagaSpecificTestServiceTwo")
     SagaSpecificTestService sagaSpecificTestServiceTwo;
+    @Autowired
+    SagaRepository sagaRepository;
+    @Autowired
+    DlsSagaContextRepository dlsSagaContextRepository;
 
     @SneakyThrows
     @BeforeEach
@@ -59,5 +69,7 @@ public abstract class BaseSpringIntegrationTest {
     public void init() {
         Assertions.setMaxStackTraceElementsDisplayed(100);
         distributedTaskTestUtil.reinitAndWait();
+        sagaRepository.deleteAll();
+        dlsSagaContextRepository.deleteAll();
     }
 }

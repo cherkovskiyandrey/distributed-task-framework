@@ -1,11 +1,14 @@
 package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.exception.TaskConfigurationException;
+import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
 import com.distributed_task_framework.persistence.repository.RegisteredTaskRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.utils.DistributedTaskCache;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
@@ -22,13 +25,13 @@ import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -42,20 +45,31 @@ import java.util.stream.Collectors;
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class TaskRegistryServiceImpl implements TaskRegistryService {
+    private final static String REGISTERED_LOCAL_TASK_IN_CLUSTER_CACHE = "registeredLocalTaskInClusterCache";
+    private final static String REGISTERED_LOCAL_TASK_IN_CLUSTER_KEY = "registeredLocalTaskInClusterKey";
+
     ConcurrentMap<TaskDef<?>, RegisteredTask<?>> registeredTasks = Maps.newConcurrentMap();
     CommonSettings commonSettings;
     RegisteredTaskRepository registeredTaskRepository;
     PlatformTransactionManager transactionManager;
+    DistributedTaskCache<Map<UUID, Set<String>>> registeredLocalTaskInClusterCache;
     ClusterProvider clusterProvider;
     ScheduledExecutorService scheduledExecutorService;
 
     public TaskRegistryServiceImpl(CommonSettings commonSettings,
                                    RegisteredTaskRepository registeredTaskRepository,
                                    PlatformTransactionManager transactionManager,
+                                   DistributedTaskCacheManager distributedTaskCacheManager,
                                    ClusterProvider clusterProvider) {
         this.commonSettings = commonSettings;
         this.registeredTaskRepository = registeredTaskRepository;
         this.transactionManager = transactionManager;
+        this.registeredLocalTaskInClusterCache = distributedTaskCacheManager.getOrCreateCache(
+            REGISTERED_LOCAL_TASK_IN_CLUSTER_CACHE,
+            DistributedTaskCacheSettings.builder()
+                .expireAfterWrite(Duration.ofMillis(commonSettings.getRegistrySettings().getCacheExpirationMs()))
+                .build()
+        );
         this.clusterProvider = clusterProvider;
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
             .setDaemon(false)
@@ -169,8 +183,8 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
     @Override
     public <T> Optional<TaskDef<T>> getRegisteredLocalTaskDef(String taskName) {
         return getRegisteredLocalTask(taskName)
-                .map(RegisteredTask::getTask)
-                .map(objectTask -> (TaskDef<T>) objectTask.getDef());
+            .map(RegisteredTask::getTask)
+            .map(objectTask -> (TaskDef<T>) objectTask.getDef());
     }
 
     /**
@@ -181,17 +195,25 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
         return Optional.ofNullable((RegisteredTask<T>) registeredTasks.get(setAppIfRequired(taskDef)));
     }
 
-    @Cacheable(cacheNames = "commonRegistryCacheManager", key = "#root.methodName")
     @Override
     public Map<UUID, Set<String>> getRegisteredLocalTaskInCluster() {
+        return registeredLocalTaskInClusterCache.get(
+            REGISTERED_LOCAL_TASK_IN_CLUSTER_KEY,
+            this::readRegisteredLocalTaskInCluster
+        );
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    private Map<UUID, Set<String>> readRegisteredLocalTaskInCluster() {
         return Lists.newArrayList(registeredTaskRepository.findAll()).stream()
             .collect(Collectors.groupingBy(
-                RegisteredTaskEntity::getNodeStateId,
-                Collectors.mapping(
-                    RegisteredTaskEntity::getTaskName,
-                    Collectors.toSet()
+                    RegisteredTaskEntity::getNodeStateId,
+                    Collectors.mapping(
+                        RegisteredTaskEntity::getTaskName,
+                        Collectors.toSet()
+                    )
                 )
-            ));
+            );
     }
 
     @VisibleForTesting
@@ -219,7 +241,8 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
             Sets.intersection(registeredCurrentTasks, publishedCurrentTasks).size() != publishedCurrentTasks.size();
         if (hasToBeUpdated) {
             log.info(
-                "nodeStateUpdater(): set of registered tasks changed from=[{}], to=[{}]",
+                "nodeStateUpdater(): threadId=[{}] set of registered tasks changed from=[{}], to=[{}]",
+                Thread.currentThread().getId(),
                 publishedCurrentTasks,
                 registeredCurrentTasks
             );

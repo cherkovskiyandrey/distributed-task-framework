@@ -63,42 +63,42 @@ public class TaskRouter {
         Table<String, UUID, Integer> taskNameNodeQuota = HashBasedTable.create();
 
         Map<String, Integer> actualTaskLimits = Maps.newHashMap(batchRouteRequest.getActualTaskLimits());
-        List<NodeCapacity> nodeCapacities = Lists.newArrayList(batchRouteRequest.getNodeCapacities());
+        List<NodeCapacity> availableNodeCapacities = Lists.newArrayList(batchRouteRequest.getAvailableNodeCapacities());
         Map<NodeTask, Integer> nodeTaskToActivity = nodeTaskToActivityAsMap(batchRouteRequest.getNodeTaskActivities());
-        Map<Partition, Integer> newTaskBatches = newTaskBatchesAsMap(batchRouteRequest.getNewTaskBatches());
+        Map<Partition, Integer> newAvailablePartitionsToPlan = newTaskBatchesAsMap(batchRouteRequest.getNewAvailablePartitionStatsToPlan());
 
-        List<Partition> order = newTaskBatches.keySet().stream()
+        List<Partition> availablePartitionsOrder = newAvailablePartitionsToPlan.keySet().stream()
                 .sorted()
                 .toList();
 
-        Set<UUID> activeNodes = nodeCapacities.stream()
+        Set<UUID> availableActiveNodes = availableNodeCapacities.stream()
                 .map(NodeCapacity::getNode)
                 .collect(Collectors.toSet());
 
-        normalizeNodeLastUpdate(activeNodes);
+        normalizeNodeLastUpdate(availableActiveNodes);
 
         Set<Partition> processed = Sets.newHashSet();
-        int cursorIdx = findCursorIdx(order);
-        while (processed.size() < order.size()) {
-            for (int i = cursorIdx; i < order.size(); ++i) {
-                Partition partitionToPlan = order.get(i);
-                String taskName = partitionToPlan.getTaskName();
-                Integer numberToPlan = newTaskBatches.getOrDefault(partitionToPlan, 0);
+        int cursorIdx = findCursorIdx(availablePartitionsOrder);
+        while (processed.size() < availablePartitionsOrder.size()) {
+            for (int i = cursorIdx; i < availablePartitionsOrder.size(); ++i) {
+                Partition availablePartitionToPlan = availablePartitionsOrder.get(i);
+                String taskName = availablePartitionToPlan.getTaskName();
+                Integer numberToPlan = newAvailablePartitionsToPlan.getOrDefault(availablePartitionToPlan, 0);
                 if (numberToPlan == 0) {
-                    processed.add(partitionToPlan);
+                    processed.add(availablePartitionToPlan);
                     continue;
                 }
-                if (isLimitReached(partitionToPlan, actualTaskLimits)) {
-                    processed.add(partitionToPlan);
+                if (isLimitReached(availablePartitionToPlan, actualTaskLimits)) {
+                    processed.add(availablePartitionToPlan);
                     continue;
                 }
                 Optional<NodeCapacity> commonCapacityOpt = lookupCapacity(
-                        partitionToPlan,
-                        nodeCapacities,
+                        availablePartitionToPlan,
+                        availableNodeCapacities,
                         nodeTaskToActivity
                 );
                 if (commonCapacityOpt.isEmpty()) {
-                    processed.add(partitionToPlan);
+                    processed.add(availablePartitionToPlan);
                     continue;
                 }
 
@@ -114,12 +114,12 @@ public class TaskRouter {
                 Integer currentQuota = taskNameNodeQuota.get(taskName, nodeCapacity.getNode());
                 taskNameNodeQuota.put(taskName, nodeCapacity.getNode(), currentQuota == null ? 1 : currentQuota + 1);
 
-                newTaskBatches.computeIfPresent(partitionToPlan, (key, oldVal) -> oldVal - 1);
-                partitionLimits.compute(partitionToPlan, (key, oldVal) -> oldVal == null ? 1 : oldVal + 1);
+                newAvailablePartitionsToPlan.computeIfPresent(availablePartitionToPlan, (key, oldVal) -> oldVal - 1);
+                partitionLimits.compute(availablePartitionToPlan, (key, oldVal) -> oldVal == null ? 1 : oldVal + 1);
                 actualTaskLimits.computeIfPresent(taskName, (key, oldVal) ->
                         oldVal == UNLIMITED_PARALLEL_TASKS ? UNLIMITED_PARALLEL_TASKS : oldVal - 1
                 );
-                partitionCursor = partitionToPlan;
+                partitionCursor = availablePartitionToPlan;
                 nodeLastUpdateNumber.put(nodeCapacity.getNode(), currentUpdateNumber() + 1);
             }
             cursorIdx = 0;

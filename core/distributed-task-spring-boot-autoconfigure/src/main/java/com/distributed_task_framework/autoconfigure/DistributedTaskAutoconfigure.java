@@ -76,12 +76,13 @@ import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.task.Task;
+import com.distributed_task_framework.utils.CaffeineDistributedTaskCacheManagerImpl;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AccessLevel;
@@ -99,15 +100,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.AbstractEnvironment;
 import org.springframework.core.env.MapPropertySource;
@@ -130,7 +127,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import static com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor.EMPTY_TASK_SETTINGS_CUSTOMIZER;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
@@ -155,9 +151,12 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
     jdbcOperationsRef = DTF_JDBC_OPS
 )
 @EnableTransactionManagement
-@EnableCaching
 @ComponentScan(basePackageClasses = CommonSettingsMerger.class)
 public class DistributedTaskAutoconfigure {
+    private static final String INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME = "internalDistributedTaskCacheManager";
+    private static final String VIRTUAL_QUEUE_MANAGER_PLANNER_NAME = "virtualQueueManagerPlanner";
+    private static final String VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_NAME = "virtualQueueBaseFairTaskPlanner";
+    private static final String JOIN_TASK_PLANNER_SERVICE_NAME = "joinTaskPlannerService";
 
     @Bean
     @ConditionalOnMissingBean
@@ -266,21 +265,10 @@ public class DistributedTaskAutoconfigure {
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    @Qualifier("commonRegistryCaffeineConfig")
-    public Caffeine<Object, Object> commonRegistryCaffeineConfig(CommonSettings commonSettings) {
-        return Caffeine.newBuilder()
-            .expireAfterWrite(commonSettings.getRegistrySettings().getCacheExpirationMs(), TimeUnit.MILLISECONDS);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    @Qualifier("commonRegistryCacheManager")
-    public CacheManager commonRegistryCacheManager(
-        @Qualifier("commonRegistryCaffeineConfig") Caffeine<Object, Object> caffeine) {
-        CaffeineCacheManager caffeineCacheManager = new CaffeineCacheManager();
-        caffeineCacheManager.setCaffeine(caffeine);
-        return caffeineCacheManager;
+    @ConditionalOnMissingBean(name = INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
+    @Qualifier(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
+    public DistributedTaskCacheManager internalDistributedTaskCacheManager() {
+        return new CaffeineDistributedTaskCacheManagerImpl();
     }
 
     @Bean
@@ -351,8 +339,8 @@ public class DistributedTaskAutoconfigure {
     public ClusterProvider clusterProvider(CommonSettings commonSettings,
                                            @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
                                            @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                           @Qualifier(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager cacheManager,
                                            NodeStateMapper nodeStateMapper,
-                                           CacheManager cacheManager,
                                            NodeStateRepository nodeStateRepository,
                                            CapabilityRepository capabilityRepository,
                                            OperatingSystemMXBeanHolder operatingSystemMXBeanHolder,
@@ -376,11 +364,13 @@ public class DistributedTaskAutoconfigure {
     public TaskRegistryService taskRegistryService(CommonSettings commonSettings,
                                                    RegisteredTaskRepository registeredTaskRepository,
                                                    @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                   @Qualifier(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager distributedTaskCacheManager,
                                                    ClusterProvider clusterProvider) {
         return new TaskRegistryServiceImpl(
             commonSettings,
             registeredTaskRepository,
             transactionManager,
+            distributedTaskCacheManager,
             clusterProvider
         );
     }
@@ -431,7 +421,7 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    public VirtualQueueStatHelper virtualQueueStatHelper(@Lazy @Qualifier("virtualQueueManagerPlanner")
+    public VirtualQueueStatHelper virtualQueueStatHelper(@Lazy @Qualifier(VIRTUAL_QUEUE_MANAGER_PLANNER_NAME)
                                                          PlannerService plannerService,
                                                          CommonSettings commonSettings,
                                                          TaskRegistryService taskRegistryService,
@@ -457,8 +447,8 @@ public class DistributedTaskAutoconfigure {
     }
 
     @Bean
-    @Qualifier("virtualQueueManagerPlanner")
-    @ConditionalOnMissingBean
+    @Qualifier(VIRTUAL_QUEUE_MANAGER_PLANNER_NAME)
+    @ConditionalOnMissingBean(name = VIRTUAL_QUEUE_MANAGER_PLANNER_NAME)
     public VirtualQueueManagerPlannerImpl virtualQueueManagerPlanner(CommonSettings commonSettings,
                                                                      PlannerRepository plannerRepository,
                                                                      @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
@@ -488,8 +478,8 @@ public class DistributedTaskAutoconfigure {
     }
 
     @Bean
-    @Qualifier("virtualQueueBaseFairTaskPlanner")
-    @ConditionalOnMissingBean
+    @Qualifier(VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_NAME)
+    @ConditionalOnMissingBean(name = VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_NAME)
     public VirtualQueueBaseFairTaskPlannerImpl virtualQueueBaseFairTaskPlanner(CommonSettings commonSettings,
                                                                                PlannerRepository plannerRepository,
                                                                                @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
@@ -517,8 +507,8 @@ public class DistributedTaskAutoconfigure {
     }
 
     @Bean
-    @Qualifier("joinTaskPlannerService")
-    @ConditionalOnMissingBean
+    @Qualifier(JOIN_TASK_PLANNER_SERVICE_NAME)
+    @ConditionalOnMissingBean(name = JOIN_TASK_PLANNER_SERVICE_NAME)
     public JoinTaskPlannerImpl joinTaskPlannerService(CommonSettings commonSettings,
                                                       PlannerRepository plannerRepository,
                                                       @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,

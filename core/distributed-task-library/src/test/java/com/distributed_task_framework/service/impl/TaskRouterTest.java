@@ -40,9 +40,9 @@ class TaskRouterTest {
     private static Arguments shouldRouteFair() {
         return Arguments.of(
                 InputTestData.withoutState(BatchRouteRequest.builder()
-                        .newTaskBatches(Set.of(stat(AFG_1, TASK_NAME_1, 10)))
+                        .newAvailablePartitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 10)))
                         .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
-                        .nodeCapacities(capacityForAllNodes(100))
+                        .availableNodeCapacities(capacityForAllNodes(100))
                         .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
@@ -58,10 +58,10 @@ class TaskRouterTest {
         var nodeTaskActivities = List.of(new NodeTaskActivity(NODES.get(0), TASK_NAME_1, 10));
         return Arguments.of(
                 InputTestData.withoutState(BatchRouteRequest.builder()
-                        .newTaskBatches(Set.of(stat(AFG_1, TASK_NAME_1, 18))) //9(available nodes)*2 = 18
+                        .newAvailablePartitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 18))) //9(available nodes)*2 = 18
                         .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
                         .nodeTaskActivities(nodeTaskActivities)
-                        .nodeCapacities(capacityForAllNodes(100, nodeTaskActivities))
+                        .availableNodeCapacities(capacityForAllNodes(100, nodeTaskActivities))
                         .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
@@ -82,14 +82,14 @@ class TaskRouterTest {
 
         return Arguments.of(
                 InputTestData.withoutState(BatchRouteRequest.builder()
-                        .newTaskBatches(Set.of(stat(AFG_1, TASK_NAME_1, 19))) //9 + 1 + 9
+                        .newAvailablePartitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 19))) //9 + 1 + 9
                         .actualTaskLimits(Map.of(
                                         TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS,
                                         TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                                 )
                         )
                         .nodeTaskActivities(nodeTaskActivities)
-                        .nodeCapacities(capacityForAllNodes(100, nodeTaskActivities))
+                        .availableNodeCapacities(capacityForAllNodes(100, nodeTaskActivities))
                         .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
@@ -116,14 +116,14 @@ class TaskRouterTest {
                 InputTestData.withNodeLastUpdateNumber(
                         updatedNumber(9, 8, 7, 6, 5, 0, 4, 3, 2, 1),
                         BatchRouteRequest.builder()
-                                .newTaskBatches(Set.of(stat(AFG_1, TASK_NAME_1, 1)))
+                                .newAvailablePartitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 1)))
                                 .actualTaskLimits(Map.of(
                                                 TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS,
                                                 TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                                         )
                                 )
                                 .nodeTaskActivities(nodeTaskActivities)
-                                .nodeCapacities(capacityForAllNodes(100, nodeTaskActivities))
+                                .availableNodeCapacities(capacityForAllNodes(100, nodeTaskActivities))
                                 .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
@@ -146,14 +146,14 @@ class TaskRouterTest {
                 InputTestData.withLastAffinityGroupCursor(
                         afgTaskName(AFG_1, TASK_NAME_1),
                         BatchRouteRequest.builder()
-                                .newTaskBatches(Set.of(
+                                .newAvailablePartitionStatsToPlan(Set.of(
                                                 stat(AFG_1, TASK_NAME_1, 1),
                                                 stat(AFG_2, TASK_NAME_2, 1)
                                         )
                                 )
                                 .nodeTaskActivities(nodeTaskActivities)
                                 .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
-                                .nodeCapacities(capacityForAllNodes(10, nodeTaskActivities))
+                                .availableNodeCapacities(capacityForAllNodes(10, nodeTaskActivities))
                                 .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
@@ -174,7 +174,7 @@ class TaskRouterTest {
         return Arguments.of(
                 InputTestData.withoutState(
                         BatchRouteRequest.builder()
-                                .newTaskBatches(Set.of(
+                                .newAvailablePartitionStatsToPlan(Set.of(
                                                 stat(AFG_1, TASK_NAME_1, 10),
                                                 stat(AFG_2, TASK_NAME_2, 9)
                                         )
@@ -185,7 +185,7 @@ class TaskRouterTest {
                                         )
                                 )
                                 .nodeTaskActivities(nodeTaskActivities)
-                                .nodeCapacities(capacityForAllNodes(10, nodeTaskActivities))
+                                .availableNodeCapacities(capacityForAllNodes(10, nodeTaskActivities))
                                 .build()
                 ),
                 ExpectedOutputData.withoutInternalState(
@@ -209,7 +209,7 @@ class TaskRouterTest {
         return Arguments.of(
                 InputTestData.withoutState(
                         BatchRouteRequest.builder()
-                                .newTaskBatches(Set.of(
+                                .newAvailablePartitionStatsToPlan(Set.of(
                                                 stat(AFG_1, TASK_NAME_1, 10),
                                                 stat(AFG_2, TASK_NAME_2, 9)
                                         )
@@ -219,7 +219,7 @@ class TaskRouterTest {
                                                 TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                                         )
                                 )
-                                .nodeCapacities(capacityForAllNodes(20))
+                                .availableNodeCapacities(capacityForAllNodes(20))
                                 .build()
                 ),
                 new ExpectedOutputData(

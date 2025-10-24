@@ -14,6 +14,9 @@ import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.utils.DistributedTaskCache;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.fasterxml.jackson.databind.JavaType;
 import com.google.common.annotations.VisibleForTesting;
@@ -41,12 +44,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaManagerImpl implements SagaManager {
+    private static final String SAGA_MANAGER_CACHE = "sagaManagerCache";
+
     DistributedTaskService distributedTaskService;
     SagaRepository sagaRepository;
     DlsSagaContextRepository dlsSagaContextRepository;
+    DistributedTaskCache<Optional<Saga>> sagaEntityDistributedTaskCache;
     SagaHelper sagaHelper;
     SagaMapper sagaMapper;
     PlatformTransactionManager transactionManager;
@@ -57,6 +64,7 @@ public class SagaManagerImpl implements SagaManager {
     public SagaManagerImpl(DistributedTaskService distributedTaskService,
                            SagaRepository sagaRepository,
                            DlsSagaContextRepository dlsSagaContextRepository,
+                           DistributedTaskCacheManager distributedTaskCacheManager,
                            SagaHelper sagaHelper,
                            SagaMapper sagaMapper,
                            PlatformTransactionManager transactionManager,
@@ -65,6 +73,12 @@ public class SagaManagerImpl implements SagaManager {
         this.distributedTaskService = distributedTaskService;
         this.sagaRepository = sagaRepository;
         this.dlsSagaContextRepository = dlsSagaContextRepository;
+        this.sagaEntityDistributedTaskCache = distributedTaskCacheManager.getOrCreateCache(
+            SAGA_MANAGER_CACHE,
+            DistributedTaskCacheSettings.builder()
+                .expireAfterWrite(sagaCommonSettings.getCacheExpiration())
+                .build()
+        );
         this.sagaHelper = sagaHelper;
         this.clock = clock;
         this.sagaMapper = sagaMapper;
@@ -180,9 +194,10 @@ public class SagaManagerImpl implements SagaManager {
         return getIfExists(sagaId).orElseThrow(sagaNotFoundException(sagaId));
     }
 
+    // cached because client can poll this method
     @Override
     public void checkExistence(UUID sagaId) throws SagaNotFoundException {
-        if (!sagaRepository.existsById(sagaId)) {
+        if (getCachedSagaEntityById(sagaId).isEmpty()) {
             throw sagaNotFoundException(sagaId).get();
         }
     }
@@ -221,11 +236,11 @@ public class SagaManagerImpl implements SagaManager {
             .map(sagaMapper::toModel);
     }
 
-    //because of exposed to client
-    @Cacheable(cacheNames = "commonSagaCacheManager", key = "#root.args[0]")
+    // cached because client can poll this method
     @Override
     public boolean isCompleted(UUID sagaId) throws SagaNotFoundException {
-        return sagaRepository.isCompleted(sagaId)
+        return getCachedSagaEntityById(sagaId)
+            .map(sagaEntity -> sagaEntity.getCompletedDateUtc() != null)
             .orElseThrow(sagaNotFoundException(sagaId));
     }
 
@@ -307,6 +322,13 @@ public class SagaManagerImpl implements SagaManager {
                     throw sagaNotFoundException(sagaId).get();
                 }
             );
+    }
+
+    private Optional<Saga> getCachedSagaEntityById(UUID sagaId) {
+        return sagaEntityDistributedTaskCache.get(
+            sagaId.toString(),
+            () -> sagaRepository.findShortById(sagaId).map(sagaMapper::toModel)
+        );
     }
 
     // NOTE: We use pessimistic update in order to protect from parallel changes, and

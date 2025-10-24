@@ -36,6 +36,10 @@ import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModel;
 import com.distributed_task_framework.task.TestTaskModelSpec;
+import com.distributed_task_framework.utils.DistributedTaskCache;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.Postgresql16Initializer;
+import com.distributed_task_framework.utils.TestClock;
 import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
@@ -44,12 +48,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.SpyBean;
-import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.util.Pair;
@@ -67,7 +69,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -135,8 +136,7 @@ public abstract class BaseSpringIntegrationTest {
     @SpyBean
     WorkerContextManager workerContextManager;
     @Autowired
-    @Qualifier("commonRegistryCacheManager")
-    CacheManager commonRegistryCacheManager;
+    DistributedTaskCacheManager distributedTaskCacheManager;
     @Autowired
     ExtendedTaskGenerator extendedTaskGenerator;
     @Autowired
@@ -160,8 +160,12 @@ public abstract class BaseSpringIntegrationTest {
         partitionRepository.deleteAll();
         capabilityRepository.deleteAll();
         testBusinessObjectRepository.deleteAll();
-        commonRegistryCacheManager.getCacheNames()
-            .forEach(cacheName -> Objects.requireNonNull(commonRegistryCacheManager.getCache(cacheName)).clear());
+        distributedTaskCacheManager.getCacheNames().stream()
+            .map(cacheName -> distributedTaskCacheManager.getCache(cacheName))
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .forEach(DistributedTaskCache::invalidate);
+        ;
     }
 
     protected void setFixedTime() {

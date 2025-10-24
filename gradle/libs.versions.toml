@@ -7,6 +7,7 @@ org-mapstruct = "1.6.2"
 org-lombok-mapstruct-binding = "0.2.0"
 caffeine = "3.1.8"
 guava = "33.3.1-jre"
+jakarta-annotation-api = "2.1.1"
 cron-utils = "9.2.1"
 testcontainers = "1.20.6"
 okhttp3 = "4.12.0"
@@ -35,7 +36,6 @@ spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-star
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
 spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
-spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache" }
 spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc-openapi-starter-webmvc-ui" }
 
@@ -67,6 +67,7 @@ jackson-datatype-jdk8 = { module = "com.fasterxml.jackson.datatype:jackson-datat
 apache-commons-io = { module = "commons-io:commons-io", version.ref = "apache-commons-io" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta-annotation-api"}
 commons-lang3 = { module = "org.apache.commons:commons-lang3" }
 cron-utils = { module = "com.cronutils:cron-utils", version.ref = "cron-utils" }
 

@@ -174,7 +174,8 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
         UPDATE _____dtf_tasks
         SET
             version = :version,
-            assigned_worker = :assignedWorker::uuid
+            assigned_worker = :assignedWorker::uuid,
+            last_assigned_date_utc = :lastAssignedDateUtc
         WHERE
         (
             _____dtf_tasks.id = :id::uuid
@@ -397,6 +398,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
         parameterSource.addValue(ShortTaskEntity.Fields.id, JdbcTools.asNullableString(shortTaskEntity.getId()), Types.VARCHAR);
         parameterSource.addValue(ShortTaskEntity.Fields.version, shortTaskEntity.getVersion(), Types.BIGINT);
         parameterSource.addValue(ShortTaskEntity.Fields.assignedWorker, JdbcTools.asNullableString(shortTaskEntity.getAssignedWorker()), Types.VARCHAR);
+        parameterSource.addValue(ShortTaskEntity.Fields.lastAssignedDateUtc, shortTaskEntity.getLastAssignedDateUtc(), Types.TIMESTAMP);
         parameterSource.addValue("expectedVersion", shortTaskEntity.getVersion() - 1, Types.BIGINT);
 
         return parameterSource;

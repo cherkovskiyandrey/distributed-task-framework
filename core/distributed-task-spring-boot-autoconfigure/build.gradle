@@ -23,7 +23,7 @@ dependencies {
     api libs.spring.data.jdbc
     api libs.spring.boot.starter.validation
     api libs.spring.boot.starter.actuator
-    implementation libs.caffeine
+    implementation project(':common-spring-utils')
 
     annotationProcessor libs.spring.boot.configuration.processor
 

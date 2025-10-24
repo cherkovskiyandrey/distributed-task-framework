@@ -281,7 +281,11 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         // 2. has been rescheduled - will be taken by planner next time
         if (optimisticLockException != null && optimisticLockException.getEntityClass().equals(TaskEntity.class)) {
             getOptLockCounter(taskEntity).increment();
-            log.warn("execute(): task=[{}] has been executed in parallel or canceled or rescheduled", taskEntity);
+            log.warn(
+                "execute(): threadId=[{}], task=[{}] has been executed in parallel or canceled or rescheduled",
+                Thread.currentThread().getId(),
+                taskEntity
+            );
             return true;
         }
         return false;

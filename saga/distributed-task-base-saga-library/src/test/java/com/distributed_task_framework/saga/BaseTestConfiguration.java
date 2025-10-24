@@ -1,6 +1,5 @@
 package com.distributed_task_framework.saga;
 
-import com.distributed_task_framework.TestClock;
 import com.distributed_task_framework.saga.mappers.SagaMapper;
 import com.distributed_task_framework.saga.mappers.SettingsMapper;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
@@ -20,13 +19,12 @@ import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.DistributedTaskNoCacheManager;
+import com.distributed_task_framework.utils.TestClock;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
@@ -36,7 +34,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
@@ -50,26 +47,12 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
     jdbcOperationsRef = DTF_JDBC_OPS
 )
 @EnableTransactionManagement
-@EnableCaching
 public class BaseTestConfiguration {
+    private static final String INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME = "internalSagaDistributedTaskCacheManager";
 
     @Bean
     public TestClock sagaInternalClock() {
         return new TestClock();
-    }
-
-    @Bean
-    @Qualifier("commonSagaCaffeineConfig")
-    public Caffeine<Object, Object> commonSagaCaffeineConfig() {
-        return Caffeine.newBuilder().expireAfterWrite(0, TimeUnit.MILLISECONDS);
-    }
-
-    @Bean
-    @Qualifier("commonSagaCacheManager")
-    public CacheManager commonSagaCacheManager(@Qualifier("commonSagaCaffeineConfig") Caffeine<Object, Object> caffeine) {
-        CaffeineCacheManager caffeineCacheManager = new CaffeineCacheManager();
-        caffeineCacheManager.setCaffeine(caffeine);
-        return caffeineCacheManager;
     }
 
     @Bean
@@ -78,6 +61,12 @@ public class BaseTestConfiguration {
             .deprecatedSagaScanInitialDelay(Duration.ofMillis(500))
             .deprecatedSagaScanFixedDelay(Duration.ofMillis(500))
             .build();
+    }
+
+    @Bean
+    @Qualifier(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
+    public DistributedTaskCacheManager distributedTaskCacheManager() {
+        return new DistributedTaskNoCacheManager();
     }
 
     @Bean
@@ -104,6 +93,7 @@ public class BaseTestConfiguration {
     public SagaManager sagaContextService(DistributedTaskService distributedTaskService,
                                           SagaRepository sagaRepository,
                                           DlsSagaContextRepository dlsSagaContextRepository,
+                                          @Qualifier(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager distributedTaskCacheManager,
                                           SagaHelper sagaHelper,
                                           SagaMapper sagaMapper,
                                           @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
@@ -113,6 +103,7 @@ public class BaseTestConfiguration {
             distributedTaskService,
             sagaRepository,
             dlsSagaContextRepository,
+            distributedTaskCacheManager,
             sagaHelper,
             sagaMapper,
             transactionManager,

@@ -132,7 +132,7 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
 
         List<TaskPopulateAndVerify.PopulationSpec> populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
                 Range.closedOpen(0, 1), withWorker(3, getNode(0)),
-                Range.closedOpen(1, 2), withWorkerAndWithoutAffinity(3, getNode(1))
+                Range.closedOpen(1, 2), withWorkerAndWithoutAffinity(getNode(1),3)
             )
         );
         var allAssignedTasks = taskPopulateAndVerify.populate(0, 18, VirtualQueue.READY, populationSpecs);

@@ -188,6 +188,7 @@ public class CommonSettings {
         ImmutableRangeMap<Integer, Integer> pollingDelay = ImmutableRangeMap.<Integer, Integer>builder().build();
     }
 
+    // for cluster provider
     @Value
     @Builder(toBuilder = true)
     public static class RegistrySettings {
@@ -205,6 +206,7 @@ public class CommonSettings {
         Integer maxInactivityIntervalMs;
         /**
          * Cache expiration in sec to for registered cluster information.
+         * Details: node capabilities, node loading(cpu), registered tasks for node
          */
         Integer cacheExpirationMs;
         /**

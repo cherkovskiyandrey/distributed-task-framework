@@ -1,6 +1,7 @@
 package com.distributed_task_framework.test.autoconfigure;
 
 import com.distributed_task_framework.test.autoconfigure.tasks.DefaultTask;
+import com.distributed_task_framework.utils.Signaller;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;

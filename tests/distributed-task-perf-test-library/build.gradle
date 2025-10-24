@@ -15,7 +15,7 @@ dependencies {
 
     // tests
     testImplementation project(':distributed-task-test-spring-boot-starter')
-    testImplementation testFixtures(project(':commons-test'))
+    testImplementation testFixtures(project(':common-spring-utils'))
 
     testImplementation libs.liquibase
     testImplementation libs.spring.boot.starter

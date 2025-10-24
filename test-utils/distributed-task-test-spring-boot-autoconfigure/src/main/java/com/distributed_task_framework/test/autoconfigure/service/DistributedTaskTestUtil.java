@@ -11,7 +11,7 @@ import java.time.Duration;
 public interface DistributedTaskTestUtil {
 
     /**
-     * Prepare dtf after test and before new one.
+     * Reset dtf after test and/or before new one.
      * Contains next actions:
      * <ol>
      *     <li>Cancel all current tasks.</li>
@@ -22,10 +22,10 @@ public interface DistributedTaskTestUtil {
      * @throws InterruptedException if any thread has interrupted the current thread.
      * The interrupted status of the current thread is cleared when this exception is thrown
      */
-    void reinitAndWait() throws InterruptedException;
+    void reinitAndWait() throws InterruptedException, FailedCancellationException;
 
     /**
-     * Prepare dtf after test and before new one.
+     * Reset dtf after test and/or before new one.
      * Contains next actions:
      * <ol>
      *     <li>Cancel all current tasks.</li>
@@ -38,5 +38,5 @@ public interface DistributedTaskTestUtil {
      * @throws InterruptedException if any thread has interrupted the current thread.
      * The interrupted status of the current thread is cleared when this exception is thrown
      */
-    void reinitAndWait(int attemptsToCancel, Duration duration) throws InterruptedException;
+    void reinitAndWait(int attemptsToCancel, Duration duration) throws InterruptedException, FailedCancellationException;
 }

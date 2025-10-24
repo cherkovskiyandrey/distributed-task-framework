@@ -47,10 +47,7 @@ public class SagaIntegrationTest extends BaseSpringIntegrationTest {
             .get();
 
         //verify
-        assertThat(resultOpt)
-            .isPresent()
-            .get()
-            .isEqualTo(20);
+        assertThat(resultOpt).hasValue(20);
     }
 
     @SneakyThrows

@@ -1,10 +1,10 @@
 package com.distributed_task_framework.perf_test;
 
-import com.distributed_task_framework.Postgresql16Initializer;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestState;
 import com.distributed_task_framework.perf_test.service.PerfTestService;
 import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
+import com.distributed_task_framework.utils.Postgresql16Initializer;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;

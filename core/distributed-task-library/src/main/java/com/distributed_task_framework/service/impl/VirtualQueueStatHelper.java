@@ -35,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.ReflectionUtils;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -318,17 +317,20 @@ public class VirtualQueueStatHelper {
         deleteMeters(unknownNodesWithMeter);
 
         allNodes.forEach(node -> overloadedNodeToMeter.computeIfAbsent(node, k -> Gauge.builder(
-                    overloadedNodesGaugeName,
-                    () -> overloadedNodesRef.get().contains(node) ? NodeLoading.OVERLOADED.getValue() : NodeLoading.NORMAL.getValue()
-                )
-                .tags(ImmutableList.<Tag>builder()
-                    .addAll(commonPlannerTags)
-                    .add(Tag.of("nodeId", node.toString()))
-                    .build()
-                )
-                .register(meterRegistry)
-                .getId()
-        ));
+                        overloadedNodesGaugeName,
+                        () -> overloadedNodesRef.get().contains(node) ?
+                            NodeLoading.OVERLOADED.getValue() :
+                            NodeLoading.NORMAL.getValue()
+                    )
+                    .tags(ImmutableList.<Tag>builder()
+                        .addAll(commonPlannerTags)
+                        .add(Tag.of("nodeId", node.toString()))
+                        .build()
+                    )
+                    .register(meterRegistry)
+                    .getId()
+            )
+        );
     }
 
     public void resetOverloadedNodes() {

@@ -6,9 +6,11 @@ pluginManagement {
 rootProject.name = 'distributed-task-framework'
 
 //Commons
-include ':commons-test'
+include ':common-utils'
+include ':common-spring-utils'
 
-project(':commons-test').projectDir = new File('commons/commons-test')
+project(':common-utils').projectDir = new File('commons/common-utils')
+project(':common-spring-utils').projectDir = new File('commons/common-spring-utils')
 
 //Core
 include ':distributed-task-library'
@@ -37,11 +39,9 @@ project(':distributed-task-test').projectDir = new File('test-utils/distributed-
 project(':distributed-task-test-spring-boot-autoconfigure').projectDir = new File('test-utils/distributed-task-test-spring-boot-autoconfigure')
 project(':distributed-task-test-spring-boot-starter').projectDir = new File('test-utils/distributed-task-test-spring-boot-starter')
 
-include ':distributed-task-base-saga-test'
 include ':distributed-task-base-saga-test-spring-boot-autoconfigure'
 include ':distributed-task-base-saga-test-spring-boot-starter'
 
-project(':distributed-task-base-saga-test').projectDir = new File('test-utils/distributed-task-base-saga-test')
 project(':distributed-task-base-saga-test-spring-boot-autoconfigure').projectDir = new File('test-utils/distributed-task-base-saga-test-spring-boot-autoconfigure')
 project(':distributed-task-base-saga-test-spring-boot-starter').projectDir = new File('test-utils/distributed-task-base-saga-test-spring-boot-starter')
 

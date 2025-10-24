@@ -21,6 +21,7 @@ import com.distributed_task_framework.persistence.repository.RemoteCommandReposi
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
@@ -66,12 +67,13 @@ import com.distributed_task_framework.settings.Fixed;
 import com.distributed_task_framework.settings.Retry;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.distributed_task_framework.utils.DistributedTaskNoCacheManager;
+import com.distributed_task_framework.utils.TestClock;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AccessLevel;
@@ -82,9 +84,6 @@ import org.mapstruct.factory.Mappers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.auditing.DateTimeProvider;
@@ -108,7 +107,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
@@ -123,7 +121,6 @@ import static org.mockito.Mockito.doReturn;
     jdbcOperationsRef = DTF_JDBC_OPS
 )
 @EnableTransactionManagement
-@EnableCaching
 public class BaseTestConfiguration {
     @Bean
     public TestClock distributedTaskInternalClock() {
@@ -217,18 +214,8 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    @Qualifier("commonRegistryCaffeineConfig")
-    public Caffeine<Object, Object> commonRegistryCaffeineConfig(CommonSettings commonSettings) {
-        return Caffeine.newBuilder()
-            .expireAfterWrite(commonSettings.getRegistrySettings().getCacheExpirationMs(), TimeUnit.MILLISECONDS);
-    }
-
-    @Bean
-    @Qualifier("commonRegistryCacheManager")
-    public CacheManager commonRegistryCacheManager(@Qualifier("commonRegistryCaffeineConfig") Caffeine<Object, Object> caffeine) {
-        CaffeineCacheManager caffeineCacheManager = new CaffeineCacheManager();
-        caffeineCacheManager.setCaffeine(caffeine);
-        return caffeineCacheManager;
+    public DistributedTaskCacheManager distributedTaskCacheManager() {
+        return new DistributedTaskNoCacheManager();
     }
 
     @Bean
@@ -335,7 +322,7 @@ public class BaseTestConfiguration {
                                            @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
                                            PlatformTransactionManager transactionManager,
                                            NodeStateMapper nodeStateMapper,
-                                           CacheManager cacheManager,
+                                           DistributedTaskCacheManager cacheManager,
                                            NodeStateRepository nodeStateRepository,
                                            CapabilityRepository capabilityRepository,
                                            OperatingSystemMXBean operatingSystemMXBean,
@@ -357,11 +344,13 @@ public class BaseTestConfiguration {
     public TaskRegistryService taskRegistryService(CommonSettings commonSettings,
                                                    RegisteredTaskRepository registeredTaskRepository,
                                                    PlatformTransactionManager transactionManager,
+                                                   DistributedTaskCacheManager distributedTaskCacheManager,
                                                    ClusterProvider clusterProvider) {
         return new TaskRegistryServiceImpl(
             commonSettings,
             registeredTaskRepository,
             transactionManager,
+            distributedTaskCacheManager,
             clusterProvider
         );
     }

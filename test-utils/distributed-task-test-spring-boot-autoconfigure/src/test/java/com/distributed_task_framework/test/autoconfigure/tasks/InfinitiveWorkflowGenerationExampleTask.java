@@ -4,7 +4,7 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.test.autoconfigure.Signaller;
+import com.distributed_task_framework.utils.Signaller;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
