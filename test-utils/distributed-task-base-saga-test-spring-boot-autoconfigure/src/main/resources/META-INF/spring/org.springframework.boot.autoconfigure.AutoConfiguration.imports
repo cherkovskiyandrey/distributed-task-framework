@@ -1,1 +1,2 @@
+com.distributed_task_framework.saga.autoconfigure.SagaAutoconfiguration
 com.distributed_task_framework.saga.test.autoconfiguration.TestSagaAutoconfiguration

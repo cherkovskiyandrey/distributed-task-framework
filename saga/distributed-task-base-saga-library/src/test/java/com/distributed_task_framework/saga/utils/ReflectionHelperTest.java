@@ -146,16 +146,13 @@ class ReflectionHelperTest {
             )
         );
 
-        assertThat(sagaMethods.subList(8, 9)).containsExactlyInAnyOrder(
+        assertThat(sagaMethods.subList(8, 10)).containsExactlyInAnyOrder(
             new SagaMethod(
                 BI.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
                 ReturnType.class.getTypeName()
-            )
-        );
-
-        assertThat(sagaMethods.subList(9, 10)).containsExactlyInAnyOrder(
+            ),
             new SagaMethod(
                 CI.class.getTypeName(),
                 "foo",
@@ -233,16 +230,13 @@ class ReflectionHelperTest {
             )
         );
 
-        assertThat(sagaMethods.subList(4, 5)).containsExactlyInAnyOrder(
+        assertThat(sagaMethods.subList(4, 6)).containsExactlyInAnyOrder(
             new SagaMethod(
                 BI.class.getTypeName(),
                 "foo",
                 List.of(ArgumentType.class.getTypeName()),
                 ReturnType.class.getTypeName()
-            )
-        );
-
-        assertThat(sagaMethods.subList(5, 6)).containsExactlyInAnyOrder(
+            ),
             new SagaMethod(
                 CI.class.getTypeName(),
                 "foo",

@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class IOExampleTask implements Task<Void> {
+public class InterruptableExampleTask implements Task<Void> {
     public static final TaskDef<Void> TASK_DEF = TaskDef.privateTaskDef("io-example");
 
     Signaller signaller;
@@ -30,8 +30,6 @@ public class IOExampleTask implements Task<Void> {
     @Override
     public void execute(ExecutionContext<Void> executionContext) throws Exception {
         signaller.getCyclicBarrierRef().get().await();
-
-        //todo: IO operation
-        TimeUnit.MINUTES.sleep(10);
+        TimeUnit.SECONDS.sleep(100);
     }
 }

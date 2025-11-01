@@ -1,6 +1,7 @@
 package com.distributed_task_framework.test.autoconfigure;
 
 import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.persistence.repository.DltRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.internal.ClusterProvider;
@@ -8,8 +9,8 @@ import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
 import com.distributed_task_framework.test.autoconfigure.tasks.CpuIntensiveExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.DefaultTask;
-import com.distributed_task_framework.test.autoconfigure.tasks.IOExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.InfinitiveWorkflowGenerationExampleTask;
+import com.distributed_task_framework.test.autoconfigure.tasks.InterruptableExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.RetryExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.SimpleCronCustomizedTask;
 import com.distributed_task_framework.utils.Postgresql16Initializer;
@@ -51,6 +52,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IntegrationTest {
     @Autowired
     TaskRepository taskRepository;
+    @Autowired
+    DltRepository dltRepository;
     @Autowired
     WorkerManager workerManager;
     @Autowired
@@ -95,43 +98,9 @@ class IntegrationTest {
                     InfinitiveWorkflowGenerationExampleTask.TASK_DEF,
                     ExecutionContext.simple(1)
                 );
-                distributedTaskService.schedule(IOExampleTask.TASK_DEF, ExecutionContext.empty());
+                distributedTaskService.schedule(InterruptableExampleTask.TASK_DEF, ExecutionContext.empty());
                 distributedTaskService.schedule(RetryExampleTask.TASK_DEF, ExecutionContext.empty());
-
-                //build workflow in advance
-                var firstLevelTaskIds = IntStream.range(0, 100)
-                    .mapToObj(i -> {
-                            try {
-                                return distributedTaskService.schedule(
-                                    DefaultTask.TASK_DEF,
-                                    ExecutionContext.empty()
-                                );
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                    ).toList();
-
-                var secondLevelTaskIds = IntStream.range(0, 10)
-                    .mapToObj(i -> {
-                            try {
-                                return distributedTaskService.scheduleJoin(
-                                    DefaultTask.TASK_DEF,
-                                    ExecutionContext.empty(),
-                                    firstLevelTaskIds
-                                );
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                    ).toList();
-
-                distributedTaskService.scheduleJoin(
-                    DefaultTask.TASK_DEF,
-                    ExecutionContext.empty(),
-                    secondLevelTaskIds
-                );
-
+                scheduleSimpleWorkflow();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -142,8 +111,45 @@ class IntegrationTest {
         distributedTaskTestUtil.reinitAndWait(5, Duration.ofSeconds(10));
 
         //verify
-        assertThat(taskRepository.findAllNotDeletedAndNotCanceled()).isEmpty();
         assertThat(workerManager.getCurrentActiveTasks()).isEqualTo(0L);
         assertThat(taskRepository.count()).isEqualTo(0L);
+        assertThat(dltRepository.count()).isEqualTo(0L);
+    }
+
+    @SneakyThrows
+    private void scheduleSimpleWorkflow() {
+        //build workflow in advance
+        var firstLevelTaskIds = IntStream.range(0, 100)
+            .mapToObj(i -> {
+                    try {
+                        return distributedTaskService.schedule(
+                            DefaultTask.TASK_DEF,
+                            ExecutionContext.empty()
+                        );
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            ).toList();
+
+        var secondLevelTaskIds = IntStream.range(0, 10)
+            .mapToObj(i -> {
+                    try {
+                        return distributedTaskService.scheduleJoin(
+                            DefaultTask.TASK_DEF,
+                            ExecutionContext.empty(),
+                            firstLevelTaskIds
+                        );
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            ).toList();
+
+        distributedTaskService.scheduleJoin(
+            DefaultTask.TASK_DEF,
+            ExecutionContext.empty(),
+            secondLevelTaskIds
+        );
     }
 }

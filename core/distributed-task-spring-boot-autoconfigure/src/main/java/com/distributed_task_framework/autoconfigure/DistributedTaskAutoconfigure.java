@@ -264,7 +264,7 @@ public class DistributedTaskAutoconfigure {
         };
     }
 
-    @Bean
+    @Bean(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
     @ConditionalOnMissingBean(name = INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
     @Qualifier(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
     public DistributedTaskCacheManager internalDistributedTaskCacheManager() {

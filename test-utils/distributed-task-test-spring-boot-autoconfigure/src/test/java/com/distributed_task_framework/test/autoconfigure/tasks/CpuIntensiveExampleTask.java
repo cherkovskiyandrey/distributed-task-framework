@@ -10,7 +10,6 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.Arrays;
 
 @Slf4j
@@ -19,7 +18,6 @@ import java.util.Arrays;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CpuIntensiveExampleTask implements Task<Void> {
     private static final int SIZE = 1 * 1024 * 1024;
-    private static final Duration TIME_TO_EXECUTE = Duration.ofSeconds(3);
     public static final TaskDef<Void> TASK_DEF = TaskDef.privateTaskDef("cpu-intensive");
 
     Signaller signaller;
@@ -32,14 +30,13 @@ public class CpuIntensiveExampleTask implements Task<Void> {
     @Override
     public void execute(ExecutionContext<Void> executionContext) throws Exception {
         signaller.getCyclicBarrierRef().get().await();
-        long currentTime = System.currentTimeMillis();
-        do {
+        while (!Thread.currentThread().isInterrupted()) {
             int[] array = new int[SIZE];
             for (int i = 0; i < SIZE; ++i) {
                 array[i] = SIZE - i;
             }
             Arrays.sort(array);
             log.info("array.length = {}, firstElement={}", array.length, array[0]);
-        } while (Duration.ofMillis(System.currentTimeMillis() - currentTime).compareTo(TIME_TO_EXECUTE) < 0);
+        }
     }
 }

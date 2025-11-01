@@ -80,10 +80,10 @@ public class SagaAutoconfiguration {
         return Clock.systemUTC();
     }
 
-    @Bean
+    @Bean(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
     @ConditionalOnMissingBean(name = INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
     @Qualifier(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME)
-    public DistributedTaskCacheManager internalDistributedTaskCacheManager() {
+    public DistributedTaskCacheManager internalSagaDistributedTaskCacheManager() {
         return new CaffeineDistributedTaskCacheManagerImpl();
     }
 

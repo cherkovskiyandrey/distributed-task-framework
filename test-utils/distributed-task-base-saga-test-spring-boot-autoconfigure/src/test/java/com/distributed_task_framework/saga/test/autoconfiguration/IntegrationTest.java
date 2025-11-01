@@ -1,11 +1,17 @@
 package com.distributed_task_framework.saga.test.autoconfiguration;
 
-import com.distributed_task_framework.Postgresql16Initializer;
-import com.distributed_task_framework.Signaller;
+import com.distributed_task_framework.persistence.repository.DltRepository;
+import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
+import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.test.autoconfiguration.service.SagaTestUtil;
+import com.distributed_task_framework.saga.test.autoconfiguration.test_data.service.SagaMethodProviderService;
+import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.test.autoconfigure.TestDistributedTaskAutoconfiguration;
+import com.distributed_task_framework.utils.Postgresql16Initializer;
+import com.distributed_task_framework.utils.Signaller;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -16,8 +22,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
-//TODO: add metrics !!!
+import java.time.Duration;
+import java.util.stream.IntStream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+//todo: use this library in order to check it for example in distributed-task-test-application
+//TODO: add metrics to check sagas !!!
 @ActiveProfiles("test")
 @SpringBootTest(
     properties = {
@@ -38,7 +52,15 @@ import org.springframework.transaction.PlatformTransactionManager;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 class IntegrationTest {
     @Autowired
+    TaskRepository taskRepository;
+    @Autowired
+    DltRepository dltRepository;
+    @Autowired
+    WorkerManager workerManager;
+    @Autowired
     SagaRepository sagaRepository;
+    @Autowired
+    DlsSagaContextRepository dlsSagaContextRepository;
     @Autowired
     DistributionSagaService distributionSagaService;
     @Autowired
@@ -47,15 +69,42 @@ class IntegrationTest {
     PlatformTransactionManager transactionManager;
     @Autowired
     Signaller signaller;
+    @Autowired
+    SagaMethodProviderService sagaMethodProviderService;
 
-    //todo
     @SneakyThrows
     @Test
     void shouldCancelAllSagasCorrectly() {
         //when
+        int maxFLows = 10;
+        signaller.reinit(maxFLows + 1);
+
+        var flows = new TransactionTemplate(transactionManager).execute(ts ->
+            IntStream.range(0, maxFLows)
+                .mapToObj(i ->
+                    distributionSagaService.create("test_" + i)
+                        .registerToConsume(
+                            sagaMethodProviderService::forward,
+                            sagaMethodProviderService::backward,
+                            i
+                        )
+                        .start()
+                ).toList()
+        );
 
         //do
+        signaller.getCyclicBarrierRef().get().await();
+        sagaTestUtil.reinitAndWait(5, Duration.ofSeconds(5));
 
         //verify
+        assertThat(workerManager.getCurrentActiveTasks()).isEqualTo(0L);
+        assertThat(taskRepository.count()).isEqualTo(0L);
+        assertThat(dltRepository.count()).isEqualTo(0L);
+
+        assertThat(sagaRepository.count()).isEqualTo(0L);
+        assertThat(dlsSagaContextRepository.count()).isEqualTo(0L);
+        assertThat(flows).allSatisfy(flow ->
+            assertThatThrownBy(flow::waitCompletion).isInstanceOf(SagaNotFoundException.class)
+        );
     }
 }

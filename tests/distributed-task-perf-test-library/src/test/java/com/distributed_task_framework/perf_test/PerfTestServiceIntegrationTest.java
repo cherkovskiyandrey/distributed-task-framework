@@ -20,7 +20,6 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-//2. Try to rewrite test-utils on testFixture approach if possible (-)
 @ActiveProfiles("test")
 @SpringBootTest(
     properties = {
