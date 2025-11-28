@@ -18,4 +18,20 @@ dependencies {
     implementation libs.jackson.module.kotlin
 
     runtimeOnly libs.postgresql
+
+    // For integration tests
+    testImplementation testFixtures(project(':common-spring-utils'))
+    testImplementation project(':distributed-task-base-saga-test-spring-boot-starter')
+
+    testImplementation libs.liquibase
+    testImplementation libs.spring.boot.starter
+    testImplementation libs.postgresql
+    testImplementation libs.spring.boot.starter.data.jdbc
+    testImplementation libs.spring.boot.starter.webflux
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation libs.testcontainers.postgresql
+    testImplementation libs.testcontainers.junit.jupiter
+    testImplementation libs.org.awaitility
 }
