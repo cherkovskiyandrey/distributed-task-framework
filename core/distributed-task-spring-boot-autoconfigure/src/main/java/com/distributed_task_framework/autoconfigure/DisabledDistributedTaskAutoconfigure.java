@@ -40,6 +40,27 @@ public class DisabledDistributedTaskAutoconfigure {
                 log.warn("Distributed task framework is disabled. To enable it set property 'distributed-task.enabled=true'. " +
                     "Called {}.{}()", DistributedTaskService.class.getName(), method.getName());
 
+                // Resolve toString, equals/hashCode
+                if (method.getName().equals("toString")
+                    && method.getReturnType().equals(String.class)
+                    && method.getParameterTypes().length == 0) {
+
+                    return DistributedTaskService.class.getCanonicalName() + "#Disabled" + '@' + Integer.toHexString(System.identityHashCode(proxy));
+                }
+
+                if (method.getName().equals("hashCode")
+                    && method.getReturnType().equals(int.class)
+                    && method.getParameterTypes().length == 0) {
+                    return System.identityHashCode(proxy);
+                }
+
+                if (method.getName().equals("equals")
+                    && method.getReturnType().equals(boolean.class)
+                    && method.getParameterTypes().length == 1
+                    && method.getParameterTypes()[0].equals(Object.class)) {
+                    return args[0] == proxy;
+                }
+
                 final Class<?> returnType = method.getReturnType();
                 if (returnType.isPrimitive()) {
                     if (returnType == boolean.class) {

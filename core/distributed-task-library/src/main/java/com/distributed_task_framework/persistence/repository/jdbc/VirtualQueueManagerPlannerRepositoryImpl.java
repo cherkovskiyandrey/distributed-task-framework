@@ -270,7 +270,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         SET
             virtual_queue = (SELECT target_virtual_queue FROM patched_new WHERE id = d.id),
             version = version + 1
-        WHERE (d.id, d.version) IN (SELECT id, version FROM patched_new)
+        WHERE (d.id, d.version) IN (SELECT id, version FROM patched_new ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
         RETURNING d.id, d.affinity_group, d.affinity, d.task_name, virtual_queue
         """;
 
@@ -383,7 +383,7 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         SET
             virtual_queue = 'READY'::_____dtf_virtual_queue_type,
             version = version + 1
-        WHERE (dt.id, dt.version) IN (SELECT id, version FROM to_unpark)
+        WHERE (dt.id, dt.version) IN (SELECT id, version FROM to_unpark ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
         RETURNING dt.id, dt.task_name, dt.version, 'READY'::_____dtf_virtual_queue_type AS virtual_queue, dt.affinity_group, dt.affinity;
         """;
 

@@ -20,6 +20,7 @@ apache-commons-io = "2.17.0"
 micrometer-registry-prometheus = "1.13.6"
 micrometer-core = "1.13.6"
 instancio-junit = "5.0.2"
+org-jreleaser = "1.17.0"
 
 
 [libraries]
@@ -98,3 +99,4 @@ spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 org-ajoberstar-grgit = { id = "org.ajoberstar.grgit", version.ref = "org-ajoberstar-grgit" }
 property-documenter = { id = "org.rodnansol.spring-configuration-property-documenter" }
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+org-jreleaser = { id = "org.jreleaser", version.ref = "org-jreleaser" }

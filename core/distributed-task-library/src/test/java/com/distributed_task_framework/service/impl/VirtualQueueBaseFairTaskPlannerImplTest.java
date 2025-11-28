@@ -289,6 +289,53 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
     }
 
     @Test
+    void shouldNotPlanGreaterThenMaxParallelInNode() {
+        //when
+        TaskDef<String> taskDef1 = TaskDef.privateTaskDef(TASK_0, String.class);
+        TaskDef<String> taskDef2 = TaskDef.privateTaskDef(TASK_1, String.class);
+        waitForNodeIsRegistered(List.of(
+                Pair.of(
+                    taskDef1,
+                    defaultTaskSettings.toBuilder()
+                        .maxParallelInNode(2)
+                        .maxParallelInCluster(10)
+                        .build()
+                ),
+                Pair.of(
+                    taskDef2,
+                    defaultTaskSettings.toBuilder()
+                        .maxParallelInNode(3)
+                        .build()
+                )
+            )
+        );
+        registerPartition(List.of(TASK_0, TASK_1));
+
+        log.info("shouldApplyRestrictionsWhenPlan(): begging of population");
+        var alreadyPlannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
+            Range.closedOpen(0, 2), withWorkerAndWithoutAffinity(clusterProvider.nodeId(), 2))
+        );
+        taskPopulateAndVerify.populate(0, 2, VirtualQueue.READY, alreadyPlannedPopulationSpecs);
+
+        var unplannedPopulationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
+            Range.closedOpen(0, 2), withCreatedDateAndWithoutAffinity(2, LocalDateTime.now(clock)))
+        );
+        taskPopulateAndVerify.populate(0, 200, VirtualQueue.READY, unplannedPopulationSpecs);
+        log.info("shouldApplyRestrictionsWhenPlan(): finished population");
+        AtomicInteger invocationVerifier = spyProcessInLoopInvocation();
+
+        //do
+        executorService.submit(ExecutorUtils.wrapRunnable(plannerService::planningLoop));
+
+        //verify
+        waitFor(() -> invocationVerifier.get() > 1);
+        Assertions.assertThat(filterAssigned(taskRepository.findAllByTaskName(taskDef1.getTaskName())))
+            .hasSize(2);
+        Assertions.assertThat(filterAssigned(taskRepository.findAllByTaskName(taskDef2.getTaskName())))
+            .hasSize(3);
+    }
+
+    @Test
     void shouldNotPlanWhenNotToPlanIsSet() {
         //when
         TaskDef<String> taskDef = TaskDef.privateTaskDef(TASK_0, String.class);

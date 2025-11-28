@@ -44,12 +44,19 @@ public class TaskSettings {
 
     /**
      * How many parallel tasks can be in the cluster.
-     * '-1' means undefined and depends on current cluster configuration
-     * like how many pods work simultaneously.
+     * '-1' means undefined and depends on current cluster configuration.
      */
     @Nullable
     @Builder.Default
     Integer maxParallelInCluster = CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS;
+
+    /**
+     * How many parallel tasks can be on the one node (one worker).
+     * '-1' means undefined.
+     */
+    @Nullable
+    @Builder.Default
+    Integer maxParallelInNode = CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS;
 
     /**
      * Task timeout. If task still is in progress after timeout expired, it will be interrupted.

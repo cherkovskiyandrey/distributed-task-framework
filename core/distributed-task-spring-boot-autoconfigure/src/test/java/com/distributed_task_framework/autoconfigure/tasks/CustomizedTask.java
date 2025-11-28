@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
         initialDelay = "PT1m",
         maxRetries = 100
 )
-@TaskConcurrency(maxParallelInCluster = 10)
+@TaskConcurrency(maxParallelInCluster = 10, maxParallelInNode = 1)
 @TaskDltEnable
 @TaskSchedule(cron = "* */10 * * *")
 @TaskExecutionGuarantees(TaskSettings.ExecutionGuarantees.EXACTLY_ONCE)

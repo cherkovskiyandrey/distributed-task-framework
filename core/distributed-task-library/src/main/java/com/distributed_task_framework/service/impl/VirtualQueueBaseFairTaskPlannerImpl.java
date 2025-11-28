@@ -27,6 +27,7 @@ import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.Clock;
@@ -186,6 +187,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                 () -> taskRepository.currentAssignedTaskStat(knownNodes, knownTaskNames)
             )
         );
+
         List<NodeCapacity> availableNodeCapacities = calculateNodeCapacities(
             availableTaskByNode,
             nodeTaskActivities
@@ -217,18 +219,20 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                 Collectors.summingInt(NodeTaskActivity::getNumber)
             ));
 
-        Map<String, Integer> actualTaskLimits = applyLimits(availableTaskNamesToPlan, currentActiveTasksByName);
-        boolean isReachedLimits = actualTaskLimits.values().stream()
+        Map<String, Integer> actualClusterTaskLimits = applyClusterTaskLimits(availableTaskNamesToPlan, currentActiveTasksByName);
+        boolean isReachedLimits = actualClusterTaskLimits.values().stream()
             .allMatch(limit -> limit == 0);
         if (isReachedLimits) {
             log.debug("processInLoop(): isReachedLimits=true");
             return 0;
         }
 
+        var nodeTaskLimits = fillNodeTaskLimits(availableTaskNames);
         BatchRouteMap batchRouteMap = Objects.requireNonNull(
             batchRouteTimer.record(() -> taskRouter.batchRoute(BatchRouteRequest.builder()
                     .newAvailablePartitionStatsToPlan(availablePartitionStatsToPlan)
                     .actualTaskLimits(actualTaskLimits)
+                    .nodeTaskLimits(nodeTaskLimits)
                     .nodeTaskActivities(nodeTaskActivities)
                     .availableNodeCapacities(availableNodeCapacities)
                     .build()
@@ -267,6 +271,18 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         );
 
         return plannedTasks.size();
+    }
+
+    private Map<String, Integer> fillNodeTaskLimits(Set<String> availableTaskNames) {
+        return availableTaskNames.stream()
+            .map(taskName -> Pair.of(
+                    taskName,
+                    taskRegistryService.getLocalTaskParameters(taskName)
+                        .map(TaskSettings::getMaxParallelInNode)
+                        .orElse(CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS)
+                )
+            )
+            .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
 
     private Set<UUID> availableNodesCalculation() {
@@ -336,8 +352,8 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
             .toList();
     }
 
-    private Map<String, Integer> applyLimits(Set<String> potentialTasksToAssign,
-                                             Map<String, Integer> currentActiveTasksByName) {
+    private Map<String, Integer> applyClusterTaskLimits(Set<String> potentialTasksToAssign,
+                                                        Map<String, Integer> currentActiveTasksByName) {
         Map<String, Integer> limits = Maps.newHashMap();
         for (String taskName : potentialTasksToAssign) {
             int allowedTaskNumber = calculateAllowedTaskNumber(taskName, currentActiveTasksByName);

@@ -66,6 +66,7 @@ distributed-task:
           max-interval: PT5S
           max-number: 5
       max-parallel-in-cluster: 100
+#      max-parallel-in-node: 1
       timeout: PT10S
 
     task-properties:

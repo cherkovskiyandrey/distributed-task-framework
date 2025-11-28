@@ -6,6 +6,7 @@ import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskIdEntity;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
+import com.distributed_task_framework.utils.ComparatorUtils;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Sets;
@@ -28,11 +29,14 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
+import static com.distributed_task_framework.utils.ComparatorUtils.ID_VERSION_ENTITY_COMPARATOR;
+import static com.distributed_task_framework.utils.ComparatorUtils.TASK_ID_COMPARATOR;
 import static java.lang.String.format;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
+
     NamedParameterJdbcOperations namedParameterJdbcTemplate;
     Clock clock;
 
@@ -114,7 +118,10 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
 
     @Override
     public Collection<TaskEntity> saveAll(Collection<TaskEntity> taskEntities) {
-        List<TaskEntity> preparedTaskEntities = taskEntities.stream().map(this::prepareToSave).toList();
+        List<TaskEntity> preparedTaskEntities = taskEntities.stream()
+            .sorted(TASK_ID_COMPARATOR)
+            .map(this::prepareToSave)
+            .toList();
         var sqlParameterSources = SqlParameters.convert(preparedTaskEntities, this::toSqlParameterSource);
         int[] updateResult = namedParameterJdbcTemplate.batchUpdate(SAVE_OR_UPDATE_TEMPLATE, sqlParameterSources);
         return IntStream.range(0, updateResult.length)
@@ -190,6 +197,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     public void updateAll(Collection<ShortTaskEntity> plannedTasks) {
         plannedTasks = plannedTasks.stream().map(this::prepareToUpdate).toList();
         var batchArgs = plannedTasks.stream()
+            .sorted(ComparatorUtils.SHORT_TASK_ID_COMPARATOR)
             .map(this::toSqlParameterSource)
             .toArray(MapSqlParameterSource[]::new);
 
@@ -354,7 +362,12 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public Collection<IdVersionEntity> deleteByIdVersion(Collection<IdVersionEntity> taskIdVersions) {
-        var taskIds = taskIdVersions.stream().map(IdVersionEntity::getId).toList();
+        taskIdVersions = taskIdVersions.stream()
+            .sorted(ID_VERSION_ENTITY_COMPARATOR)
+            .toList();
+        var taskIds = taskIdVersions.stream()
+            .map(IdVersionEntity::getId)
+            .toList();
         var taskVersions = taskIdVersions.stream().map(IdVersionEntity::getVersion).toList();
         return Sets.newHashSet(namedParameterJdbcTemplate.query(
                 DELETE_BY_IDS_VERSIONS,

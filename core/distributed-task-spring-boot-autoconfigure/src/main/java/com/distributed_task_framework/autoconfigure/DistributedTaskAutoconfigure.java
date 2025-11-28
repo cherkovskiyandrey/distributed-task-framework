@@ -391,6 +391,7 @@ public class DistributedTaskAutoconfigure {
         objectMapper.configure(SerializationFeature.WRITE_SELF_REFERENCES_AS_NULL, true);
         objectMapper.configure(SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS, false);
         objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.findAndRegisterModules();
         objectMapper.registerModule(new Jdk8Module());
         objectMapper.registerModule(new KotlinModule.Builder().build());
         return objectMapper;

@@ -103,7 +103,8 @@ This is a document about the configuration properties in DTF autoconfiguration m
 | cron| java.lang.String| Cron string.| | | 
 | dlt-enabled| java.lang.Boolean| Has this task to be moved to dlt when eventually failed.| true| | 
 | execution-guarantees| java.lang.String| Execution guarantees.| AT_LEAST_ONCE| | 
-| max-parallel-in-cluster| java.lang.Integer| How many parallel tasks can be in the cluster. &#x27;-1&#x27; means undefined and depends on current cluster configuration like how many pods work simultaneously.| -1| | 
+| max-parallel-in-cluster| java.lang.Integer| How many parallel tasks can be in the cluster. &#x27;-1&#x27; means undefined and depends on current cluster configuration.| -1| | 
+| max-parallel-in-node| java.lang.Integer| How many parallel tasks can be on the one node (one worker). &#x27;-1&#x27; means undefined.| -1| | 
 | timeout| java.time.Duration| Task timeout. If task still is in progress after timeout expired, it will be interrupted. {@link InterruptedException} will be risen in {@link Task#execute(ExecutionContext)}| 0| | 
 ### distributed-task.common.completion
 **Class:** `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Completion`
@@ -135,12 +136,11 @@ This is a document about the configuration properties in DTF autoconfiguration m
 | affinity-group-scanner-time-overlap| java.time.Duration| Time overlap is used in order to scan affinity groups from NEW virtual queue.| PT1M| | 
 | batch-size| java.lang.Integer| Max number tasks to plan.| 1000| | 
 | deleted-batch-size| java.lang.Integer| Batch size to handle tasks from DELETED virtual queue.| 300| | 
-| fetch-factor| java.lang.Float| Used to calculate batch size base on current free capacity. Usually allow to take into account dependent tasks.| 2.0| | 
 | max-parallel-tasks-in-cluster-default| java.lang.Integer| How many parallel tasks can be in the cluster for unknown task on planner. -1 means unlimited.| -1| | 
 | new-batch-size| java.lang.Integer| Batch size to move tasks from NEW virtual queue.| 300| | 
 | node-cpu-loading-limit| java.lang.Double| The limit of cpu loading for nodes. If node reach this limit, planner will not consider this node to plan. Range from 0.0-1.0.| 0.95| | 
 | partition-tracking-time-window| java.time.Duration| Time window to track pairs of affinityGroup and taskName in ACTIVE virtual queue.| PT1M| | 
-| plan-factor| java.lang.Float| Used to plan bigger than capacity in this factor times. In order to reduce potential delay between planner loop steps.| 2.0| | 
+| plan-factor| java.lang.Float| Used to plan bigger than capacity in this factor times. In order to reduce potential delay between planner loop steps. Take into account that work only for unlimited tasks (maxParallelTasksInClusterDefault &#x3D; UNLIMITED_PARALLEL_TASKS and TaskSettings.maxParallelInCluster &#x3D; UNLIMITED_PARALLEL_TASKS)| 2.0| | 
 | polling-delay| java.util.Map&lt;java.lang.Integer,java.lang.Integer&gt;| Function describe delay between polling of db depends on last number of ready to plan tasks. Key is a number of tasks in last polling. Value is a delay in ms before next polling.| | | 
 | watchdog-fixed-delay-ms| java.lang.Integer| Delay between watching by current active planner in ms.| 5000| | 
 | watchdog-initial-delay-ms| java.lang.Integer| Initial delay before start to watch by current active planner in ms.| 5000| | 
@@ -170,5 +170,5 @@ This is a document about the configuration properties in DTF autoconfiguration m
 | max-parallel-tasks-in-node| java.lang.Integer| How many parallel tasks can be run on one node.| 100| | 
 
 
-This is a generated file, generated at: **2024-11-02T22:33:20.794915**
+This is a generated file, generated at: **2025-02-28T21:39:05.061697**
 

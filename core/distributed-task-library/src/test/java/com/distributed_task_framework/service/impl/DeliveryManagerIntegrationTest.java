@@ -4,6 +4,7 @@ package com.distributed_task_framework.service.impl;
 import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.controller.dto.CommandListDto;
 import com.distributed_task_framework.mapper.CommandMapper;
+import com.distributed_task_framework.persistence.entity.DlcEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
 import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
@@ -23,7 +24,6 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.apache.commons.fileupload.MultipartStream;
-import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.http.entity.ContentType;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
@@ -43,6 +43,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -50,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -225,6 +227,7 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
     }
 
     @Test
+//    @Disabled
     void shouldNotSendForeignCommands() {
         //when
         Collection<RemoteCommandEntity> firstBatch = createCommands(50, "foreign-test-app");

@@ -13,7 +13,9 @@ public class BatchRouteRequest {
     @Builder.Default
     Set<PartitionStat> newAvailablePartitionStatsToPlan = Set.of();
     @Builder.Default
-    Map<String, Integer> actualTaskLimits = Map.of();
+    Map<String, Integer> actualClusterTaskLimits = Map.of();
+    @Builder.Default
+    Map<String, Integer> nodeTaskLimits = Map.of();
     @Builder.Default
     List<NodeTaskActivity> nodeTaskActivities = List.of();
     @Builder.Default

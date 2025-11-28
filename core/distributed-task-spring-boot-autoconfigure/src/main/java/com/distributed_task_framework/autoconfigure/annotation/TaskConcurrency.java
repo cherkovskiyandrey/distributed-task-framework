@@ -21,4 +21,11 @@ public @interface TaskConcurrency {
      * @return
      */
     int maxParallelInCluster() default -1;
+
+    /**
+     * How many parallel tasks can be on the one node.
+     *
+     * @return
+     */
+    int maxParallelInNode() default -1;
 }
