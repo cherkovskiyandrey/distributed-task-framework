@@ -22,7 +22,7 @@ allprojects {
     apply plugin: libs.plugins.spring.boot.get().pluginId
     apply plugin: 'maven-publish'
     apply plugin: 'java-library'
-    apply plugin: libs.plugins.org.jreleaser.get().pluginId
+    //apply plugin: libs.plugins.org.jreleaser.get().pluginId
     apply plugin: 'base'
 
     repositories {
@@ -98,116 +98,116 @@ configure(localLibraries) { project ->
         }
     }
 
-    publishing {
-        repositories {
-            maven {
-                setUrl(layout.buildDirectory.dir("staging-deploy"))
-            }
-            mavenLocal()
-        }
-        publications {
-            maven(MavenPublication) {
-                from components.java
+//    publishing {
+//        repositories {
+//            maven {
+//                setUrl(layout.buildDirectory.dir("staging-deploy"))
+//            }
+//            mavenLocal()
+//        }
+//        publications {
+//            maven(MavenPublication) {
+//                from components.java
+//
+//                var currentTag = grgit.tag.list().find {
+//                    it.commit.id == grgit.head().getId()
+//                }
+//                if (currentTag != null) {
+//                    var ver = currentTag.name
+//                    if (ver.startsWith("v")) {
+//                        ver = ver.substring(1)
+//                    }
+//                    version = ver
+//                } else {
+//                    version = System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
+//                            "-" +
+//                            new Date().format('yyyyMMdd_HHmmss') +
+//                            "-" +
+//                            grgit.head().getId().substring(0, 8)
+//                }
+//
+//                groupId = "io.github.cherkovskiyandrey"
+//
+//                pom {
+//                    name = "Distributed Task Framework"
+//                    description = "The task processing framework"
+//                    inceptionYear = '2022'
+//                    url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
+//                    issueManagement {
+//                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework/issues"
+//                    }
+//
+//                    scm {
+//                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
+//                        connection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
+//                        developerConnection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
+//                    }
+//
+//                    licenses {
+//                        license {
+//                            name = "The Apache Software License, Version 2.0"
+//                            url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+//                            distribution = "repo"
+//                        }
+//                    }
+//
+//                    developers {
+//                        developer {
+//                            id = "cherkovskiyandrey"
+//                            name = "Andrey Cherkovskiy"
+//                            email = "andreycherkovskiy@gmail.com"
+//                            url = "https://github.com/cherkovskiyandrey"
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 
-                var currentTag = grgit.tag.list().find {
-                    it.commit.id == grgit.head().getId()
-                }
-                if (currentTag != null) {
-                    var ver = currentTag.name
-                    if (ver.startsWith("v")) {
-                        ver = ver.substring(1)
-                    }
-                    version = ver
-                } else {
-                    version = System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
-                            "-" +
-                            new Date().format('yyyyMMdd_HHmmss') +
-                            "-" +
-                            grgit.head().getId().substring(0, 8)
-                }
-
-                groupId = "io.github.cherkovskiyandrey"
-
-                pom {
-                    name = "Distributed Task Framework"
-                    description = "The task processing framework"
-                    inceptionYear = '2022'
-                    url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
-                    issueManagement {
-                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework/issues"
-                    }
-
-                    scm {
-                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
-                        connection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
-                        developerConnection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
-                    }
-
-                    licenses {
-                        license {
-                            name = "The Apache Software License, Version 2.0"
-                            url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
-                            distribution = "repo"
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            id = "cherkovskiyandrey"
-                            name = "Andrey Cherkovskiy"
-                            email = "andreycherkovskiy@gmail.com"
-                            url = "https://github.com/cherkovskiyandrey"
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    jreleaser {
-        dryrun = false
-        //noinspection GroovyAssignabilityCheck
-        project {
-            authors = ['Andrey Cherkovskiy']
-            license = 'Apache-2.0'
-            //noinspection GroovyAssignabilityCheck
-            links {
-                homepage = 'https://github.com/cherkovskiyandrey/distributed-task-framework'
-            }
-            inceptionYear = '2022'
-        }
-        release {
-            //noinspection GroovyAssignabilityCheck
-            github {
-                skipRelease = true
-                skipTag = true
-                sign = true
-                branch = "main"
-                branchPush = "main"
-                overwrite = true
-            }
-        }
-        //noinspection GroovyAssignabilityCheck
-        signing {
-            active = 'ALWAYS'
-            armored = true
-            verify = true
-        }
-        deploy {
-            maven {
-                //noinspection GroovyAssignabilityCheck
-                mavenCentral {
-                    sonatype {
-                        active = 'ALWAYS'
-                        url = "https://central.sonatype.com/api/v1/publisher"
-                        stagingRepository(layout.buildDirectory.dir("staging-deploy").get().toString())
-                        setAuthorization("Basic")
-                        retryDelay = 60
-                    }
-                }
-            }
-        }
-    }
+//    jreleaser {
+//        dryrun = false
+//        //noinspection GroovyAssignabilityCheck
+//        project {
+//            authors = ['Andrey Cherkovskiy']
+//            license = 'Apache-2.0'
+//            //noinspection GroovyAssignabilityCheck
+//            links {
+//                homepage = 'https://github.com/cherkovskiyandrey/distributed-task-framework'
+//            }
+//            inceptionYear = '2022'
+//        }
+//        release {
+//            //noinspection GroovyAssignabilityCheck
+//            github {
+//                skipRelease = true
+//                skipTag = true
+//                sign = true
+//                branch = "main"
+//                branchPush = "main"
+//                overwrite = true
+//            }
+//        }
+//        //noinspection GroovyAssignabilityCheck
+//        signing {
+//            active = 'ALWAYS'
+//            armored = true
+//            verify = true
+//        }
+//        deploy {
+//            maven {
+//                //noinspection GroovyAssignabilityCheck
+//                mavenCentral {
+//                    sonatype {
+//                        active = 'ALWAYS'
+//                        url = "https://central.sonatype.com/api/v1/publisher"
+//                        stagingRepository(layout.buildDirectory.dir("staging-deploy").get().toString())
+//                        setAuthorization("Basic")
+//                        retryDelay = 60
+//                    }
+//                }
+//            }
+//        }
+//    }
 }
 
 configure(apps) { project ->
@@ -224,117 +224,117 @@ configure(libraries) { project ->
 
     apply plugin: grgitPluginId
 
-//    todo: squash with local-libraries configuration!
-    publishing {
-        repositories {
-            maven {
-                setUrl(layout.buildDirectory.dir("staging-deploy"))
-            }
-            mavenLocal()
-        }
-        publications {
-            maven(MavenPublication) {
-                from components.java
+////    todo: squash with local-libraries configuration!
+//    publishing {
+//        repositories {
+//            maven {
+//                setUrl(layout.buildDirectory.dir("staging-deploy"))
+//            }
+//            mavenLocal()
+//        }
+//        publications {
+//            maven(MavenPublication) {
+//                from components.java
+//
+//                var currentTag = grgit.tag.list().find {
+//                    it.commit.id == grgit.head().getId()
+//                }
+//                if (currentTag != null) {
+//                    var ver = currentTag.name
+//                    if (ver.startsWith("v")) {
+//                        ver = ver.substring(1)
+//                    }
+//                    version = ver
+//                } else {
+//                    version = System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
+//                            "-" +
+//                            new Date().format('yyyyMMdd_HHmmss') +
+//                            "-" +
+//                            grgit.head().getId().substring(0, 8)
+//                }
+//
+//                groupId = "io.github.cherkovskiyandrey"
+//
+//                pom {
+//                    name = "Distributed Task Framework"
+//                    description = "The task processing framework"
+//                    inceptionYear = '2022'
+//                    url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
+//                    issueManagement {
+//                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework/issues"
+//                    }
+//
+//                    scm {
+//                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
+//                        connection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
+//                        developerConnection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
+//                    }
+//
+//                    licenses {
+//                        license {
+//                            name = "The Apache Software License, Version 2.0"
+//                            url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+//                            distribution = "repo"
+//                        }
+//                    }
+//
+//                    developers {
+//                        developer {
+//                            id = "cherkovskiyandrey"
+//                            name = "Andrey Cherkovskiy"
+//                            email = "andreycherkovskiy@gmail.com"
+//                            url = "https://github.com/cherkovskiyandrey"
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 
-                var currentTag = grgit.tag.list().find {
-                    it.commit.id == grgit.head().getId()
-                }
-                if (currentTag != null) {
-                    var ver = currentTag.name
-                    if (ver.startsWith("v")) {
-                        ver = ver.substring(1)
-                    }
-                    version = ver
-                } else {
-                    version = System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
-                            "-" +
-                            new Date().format('yyyyMMdd_HHmmss') +
-                            "-" +
-                            grgit.head().getId().substring(0, 8)
-                }
-
-                groupId = "io.github.cherkovskiyandrey"
-
-                pom {
-                    name = "Distributed Task Framework"
-                    description = "The task processing framework"
-                    inceptionYear = '2022'
-                    url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
-                    issueManagement {
-                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework/issues"
-                    }
-
-                    scm {
-                        url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
-                        connection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
-                        developerConnection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
-                    }
-
-                    licenses {
-                        license {
-                            name = "The Apache Software License, Version 2.0"
-                            url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
-                            distribution = "repo"
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            id = "cherkovskiyandrey"
-                            name = "Andrey Cherkovskiy"
-                            email = "andreycherkovskiy@gmail.com"
-                            url = "https://github.com/cherkovskiyandrey"
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    jreleaser {
-        dryrun = false
-        //noinspection GroovyAssignabilityCheck
-        project {
-            authors = ['Andrey Cherkovskiy']
-            license = 'Apache-2.0'
-            //noinspection GroovyAssignabilityCheck
-            links {
-                homepage = 'https://github.com/cherkovskiyandrey/distributed-task-framework'
-            }
-            inceptionYear = '2022'
-        }
-        release {
-            //noinspection GroovyAssignabilityCheck
-            github {
-                skipRelease = true
-                skipTag = true
-                sign = true
-                branch = "main"
-                branchPush = "main"
-                overwrite = true
-            }
-        }
-        //noinspection GroovyAssignabilityCheck
-        signing {
-            active = 'ALWAYS'
-            armored = true
-            verify = true
-        }
-        deploy {
-            maven {
-                //noinspection GroovyAssignabilityCheck
-                mavenCentral {
-                    sonatype {
-                        active = 'ALWAYS'
-                        url = "https://central.sonatype.com/api/v1/publisher"
-                        stagingRepository(layout.buildDirectory.dir("staging-deploy").get().toString())
-                        setAuthorization("Basic")
-                        retryDelay = 60
-                    }
-                }
-            }
-        }
-    }
+//    jreleaser {
+//        dryrun = false
+//        //noinspection GroovyAssignabilityCheck
+//        project {
+//            authors = ['Andrey Cherkovskiy']
+//            license = 'Apache-2.0'
+//            //noinspection GroovyAssignabilityCheck
+//            links {
+//                homepage = 'https://github.com/cherkovskiyandrey/distributed-task-framework'
+//            }
+//            inceptionYear = '2022'
+//        }
+//        release {
+//            //noinspection GroovyAssignabilityCheck
+//            github {
+//                skipRelease = true
+//                skipTag = true
+//                sign = true
+//                branch = "main"
+//                branchPush = "main"
+//                overwrite = true
+//            }
+//        }
+//        //noinspection GroovyAssignabilityCheck
+//        signing {
+//            active = 'ALWAYS'
+//            armored = true
+//            verify = true
+//        }
+//        deploy {
+//            maven {
+//                //noinspection GroovyAssignabilityCheck
+//                mavenCentral {
+//                    sonatype {
+//                        active = 'ALWAYS'
+//                        url = "https://central.sonatype.com/api/v1/publisher"
+//                        stagingRepository(layout.buildDirectory.dir("staging-deploy").get().toString())
+//                        setAuthorization("Basic")
+//                        retryDelay = 60
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     bootJar {
         enabled = false
