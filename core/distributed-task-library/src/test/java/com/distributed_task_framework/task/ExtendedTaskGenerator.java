@@ -15,6 +15,7 @@ import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.distributed_task_framework.utils.TaskGenerator;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;

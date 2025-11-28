@@ -1,6 +1,8 @@
 dependencies {
     api libs.jackson.datatype.jsr310
     api project(':common-utils')
+    // todo: has to be removed when get rid of spring in this module
+    api project(':common-spring-utils')
 
     implementation libs.spring.boot.starter.webflux
     implementation libs.spring.boot.starter.actuator

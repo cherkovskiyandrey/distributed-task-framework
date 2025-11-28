@@ -40,4 +40,6 @@ public interface TaskRegistryService {
      * @return
      */
     Map<UUID, Set<String>> getRegisteredLocalTaskInCluster();
+
+    boolean hasClusterRegisteredTaskByName(String name);
 }

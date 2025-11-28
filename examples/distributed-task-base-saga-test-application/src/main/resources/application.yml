@@ -63,9 +63,12 @@ distributed-task:
     enabled: true
     common:
       cache-expiration: PT30S
-    context:
-      completed-timeout: PT30S
-      expiration-timeout: PT30M
+      deprecated-saga-scan-fixed-delay: PT10S
+      expired-saga-batch-size-to-remove: 1000
+    saga-stat-properties:
+      top-n-sagas: 5
+      calc-initial-delay: PT1S
+      calc-fixed-delay: PT10S
     # Whole saga configuration by name
     saga-properties-group:
       default-saga-properties:

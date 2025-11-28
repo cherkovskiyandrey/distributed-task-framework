@@ -8,12 +8,15 @@ import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPrope
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaStatPropertiesMapper;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaStatPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.services.SagaPropertiesProcessor;
 import com.distributed_task_framework.saga.autoconfigure.utils.SagaNamingUtils;
 import com.distributed_task_framework.saga.services.SagaRegisterSettingsService;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
+import com.distributed_task_framework.saga.settings.SagaStatSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
@@ -23,7 +26,6 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -33,6 +35,8 @@ import java.util.Optional;
 public class SagaPropertiesProcessorImpl implements SagaPropertiesProcessor {
     SagaCommonPropertiesMapper sagaCommonPropertiesMapper;
     SagaCommonPropertiesMerger sagaCommonPropertiesMerger;
+    SagaStatPropertiesMapper sagaStatPropertiesMapper;
+    SagaStatPropertiesMerger sagaStatPropertiesMerger;
     SagaPropertiesMapper sagaPropertiesMapper;
     SagaPropertiesMerger sagaPropertiesMerger;
     SagaMethodPropertiesMapper sagaMethodPropertiesMapper;
@@ -46,6 +50,16 @@ public class SagaPropertiesProcessorImpl implements SagaPropertiesProcessor {
             common
         );
         return sagaCommonPropertiesMapper.map(sagsCommonProperties);
+    }
+
+    @Override
+    public SagaStatSettings buildSagaStatSettings(@Nullable DistributedSagaProperties.SagaStatProperties sagaStatProperties) {
+        var sagaStatConfProperties = sagaStatPropertiesMapper.map(SagaStatSettings.buildDefault());
+        var sagsCommonProperties = sagaStatPropertiesMerger.merge(
+            sagaStatConfProperties,
+            sagaStatProperties
+        );
+        return sagaStatPropertiesMapper.map(sagsCommonProperties);
     }
 
     //Right ordering:

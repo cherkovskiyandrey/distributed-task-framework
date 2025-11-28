@@ -6,7 +6,7 @@ import com.distributed_task_framework.model.JoinTaskMessage;
 import com.distributed_task_framework.model.JoinTaskMessageContainer;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import com.distributed_task_framework.utils.JdbcTools;
 import lombok.AccessLevel;

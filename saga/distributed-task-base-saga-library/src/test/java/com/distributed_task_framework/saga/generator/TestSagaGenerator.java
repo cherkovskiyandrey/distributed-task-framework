@@ -1,7 +1,7 @@
 package com.distributed_task_framework.saga.generator;
 
 import com.distributed_task_framework.saga.services.DistributionSagaService;
-import com.distributed_task_framework.saga.services.impl.SagaTask;
+import com.distributed_task_framework.saga.task.SagaTask;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;

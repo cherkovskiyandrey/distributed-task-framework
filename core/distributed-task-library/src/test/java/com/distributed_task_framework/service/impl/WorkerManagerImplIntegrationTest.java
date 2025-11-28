@@ -7,7 +7,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.utils.ExecutorUtils;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import com.distributed_task_framework.service.internal.TaskWorkerFactory;
@@ -74,7 +74,7 @@ class WorkerManagerImplIntegrationTest extends BaseSpringIntegrationTest {
     @Autowired
     TaskMapper taskMapper;
     @Autowired
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
     WorkerManagerImpl workerManager;
     ExecutorService executorService;
 
@@ -113,7 +113,7 @@ class WorkerManagerImplIntegrationTest extends BaseSpringIntegrationTest {
                 taskRepository,
                 taskMapper,
                 clock,
-                metricHelper
+            distributedTaskMetricHelper
         ));
     }
 

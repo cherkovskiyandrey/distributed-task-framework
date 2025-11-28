@@ -17,7 +17,7 @@ import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.impl.CronService;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
@@ -45,7 +45,7 @@ public class LocalExactlyOnceWorker extends LocalAtLeastOnceWorker implements Ta
                                   TaskMapper taskMapper,
                                   CommonSettings commonSettings,
                                   TaskLinkManager taskLinkManager,
-                                  MetricHelper metricHelper,
+                                  DistributedTaskMetricHelper distributedTaskMetricHelper,
                                   Clock clock) {
         super(
                 clusterProvider,
@@ -60,7 +60,7 @@ public class LocalExactlyOnceWorker extends LocalAtLeastOnceWorker implements Ta
                 taskMapper,
                 commonSettings,
                 taskLinkManager,
-                metricHelper,
+            distributedTaskMetricHelper,
                 clock
         );
     }

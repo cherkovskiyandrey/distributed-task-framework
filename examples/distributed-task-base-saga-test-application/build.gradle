@@ -15,6 +15,7 @@ dependencies {
     implementation libs.micrometer.registry.prometheus
     implementation libs.jackson.datatype.jsr310
     implementation libs.jackson.datatype.jdk8
+    implementation libs.jackson.module.kotlin
 
     runtimeOnly libs.postgresql
 }

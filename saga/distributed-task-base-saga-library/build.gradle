@@ -1,11 +1,14 @@
 dependencies {
     api project(':common-utils')
+    //todo: has to be removed when get rid of spring in this module
+    api project(':common-spring-utils')
 
     implementation project(':distributed-task-library')
 
     implementation libs.spring.boot.starter.actuator
     implementation libs.spring.data.jdbc
     implementation libs.apache.commons.io
+    implementation libs.cron.utils
 
     // For integration tests (we use spring here)
     testImplementation project(':distributed-task-test-spring-boot-starter')

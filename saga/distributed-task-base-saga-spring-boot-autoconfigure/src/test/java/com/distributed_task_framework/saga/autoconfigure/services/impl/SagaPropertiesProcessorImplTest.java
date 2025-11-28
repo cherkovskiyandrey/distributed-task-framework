@@ -9,6 +9,7 @@ import com.distributed_task_framework.saga.services.SagaRegisterSettingsService;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
+import com.distributed_task_framework.saga.settings.SagaStatSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Nested;
@@ -43,7 +44,6 @@ class SagaPropertiesProcessorImplTest extends BaseSpringIntegrationTest {
             // when
             var commonProperties = DistributedSagaProperties.Common.builder()
                 .cacheExpiration(Duration.ofSeconds(1))
-                .deprecatedSagaScanInitialDelay(Duration.ofSeconds(2))
                 .build();
 
             // do
@@ -52,7 +52,6 @@ class SagaPropertiesProcessorImplTest extends BaseSpringIntegrationTest {
             // verify
             assertThat(settings).isEqualTo(SagaCommonSettings.buildDefault().toBuilder()
                 .cacheExpiration(Duration.ofSeconds(1))
-                .deprecatedSagaScanInitialDelay(Duration.ofSeconds(2))
                 .build()
             );
         }
@@ -62,8 +61,8 @@ class SagaPropertiesProcessorImplTest extends BaseSpringIntegrationTest {
             // when
             var commonProperties = DistributedSagaProperties.Common.builder()
                 .cacheExpiration(Duration.ofSeconds(1))
-                .deprecatedSagaScanInitialDelay(Duration.ofSeconds(2))
                 .deprecatedSagaScanFixedDelay(Duration.ofSeconds(3))
+                .expiredSagaBatchSizeToRemove(10)
                 .build();
 
             // do
@@ -72,8 +71,61 @@ class SagaPropertiesProcessorImplTest extends BaseSpringIntegrationTest {
             // verify
             assertThat(settings).isEqualTo(SagaCommonSettings.builder()
                 .cacheExpiration(Duration.ofSeconds(1))
-                .deprecatedSagaScanInitialDelay(Duration.ofSeconds(2))
                 .deprecatedSagaScanFixedDelay(Duration.ofSeconds(3))
+                .expiredSagaBatchSizeToRemove(10)
+                .build()
+            );
+        }
+    }
+
+    @Nested
+    class BuildSagaStatSettingsTest {
+
+        @Test
+        void shouldUseDefaultWhenBuildSagaStatSettings() {
+            // when & do
+            var settings = sagaPropertiesProcessor.buildSagaStatSettings(null);
+
+            // verify
+            assertThat(settings).isEqualTo(SagaStatSettings.buildDefault());
+        }
+
+        @Test
+        void shouldUseDefaultAndPartiallyOverrideWhenBuildSagaStatSettings() {
+            // when
+            var sagaStatProperties = DistributedSagaProperties.SagaStatProperties.builder()
+                .calcInitialDelay(Duration.ofHours(1))
+                .calcFixedDelay(Duration.ofHours(2))
+                .build();
+
+            // do
+            var settings = sagaPropertiesProcessor.buildSagaStatSettings(sagaStatProperties);
+
+            // verify
+            assertThat(settings).isEqualTo(SagaStatSettings.buildDefault().toBuilder()
+                .calcInitialDelay(Duration.ofHours(1))
+                .calcFixedDelay(Duration.ofHours(2))
+                .build()
+            );
+        }
+
+        @Test
+        void shouldOverrideAllWhenBuildSagaStatSettings() {
+            // when
+            var sagaStatProperties = DistributedSagaProperties.SagaStatProperties.builder()
+                .calcInitialDelay(Duration.ofHours(1))
+                .calcFixedDelay(Duration.ofHours(2))
+                .topNSagas(5000)
+                .build();
+
+            // do
+            var settings = sagaPropertiesProcessor.buildSagaStatSettings(sagaStatProperties);
+
+            // verify
+            assertThat(settings).isEqualTo(SagaStatSettings.buildDefault().toBuilder()
+                .calcInitialDelay(Duration.ofHours(1))
+                .calcFixedDelay(Duration.ofHours(2))
+                .topNSagas(5000)
                 .build()
             );
         }

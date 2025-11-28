@@ -25,12 +25,12 @@ open class TestKotlinServiceImpl(
     }
 
     @SagaMethod(name = "createLocal-kotlin")
-    fun createLocal(testDataDto: TestDataKotlinDto?): SagaRevertableKotlinDto<TestDataKotlinEntity> {
+    fun createLocal(testDataDto: TestDataKotlinDto): SagaRevertableKotlinDto<TestDataKotlinEntity> {
         return SagaRevertableKotlinDto(
             newValue = TestDataKotlinEntity(
-                id = testDataDto?.id,
-                version = testDataDto?.version,
-                data = testDataDto?.remoteOneData
+                id = testDataDto.id,
+                version = testDataDto.version,
+                data = testDataDto.remoteOneData
             )
         )
     }
@@ -41,7 +41,7 @@ open class TestKotlinServiceImpl(
         testDataDto: TestDataKotlinDto
     ): RemoteOneKotlinDto {
         return RemoteOneKotlinDto(
-            remoteOneId = revertableTestDataEntity.newValue?.data,
+            remoteOneId = revertableTestDataEntity.newValue.data,
             remoteOneData = testDataDto.remoteOneData
         )
     }

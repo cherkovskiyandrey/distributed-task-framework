@@ -12,7 +12,7 @@ distributed-task:
       cache-expiration-ms: 100
     planner:
       watchdog-initial-delay-ms: 0
-      watchdog-fixed-delay-ms: 500
+      watchdog-fixed-delay-ms: 100
       max-parallel-tasks-in-cluster-default: 10
       batch-size: 10
       polling-delay:

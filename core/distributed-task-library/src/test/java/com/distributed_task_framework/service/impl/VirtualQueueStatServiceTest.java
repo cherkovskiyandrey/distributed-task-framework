@@ -5,7 +5,7 @@ import com.distributed_task_framework.TaskPopulateAndVerify;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PlannerGroups;
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.google.common.collect.ImmutableMap;
@@ -33,14 +33,14 @@ import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpe
 import static com.distributed_task_framework.TaskPopulateAndVerify.getAffinityGroup;
 import static com.distributed_task_framework.TaskPopulateAndVerify.getNode;
 import static com.distributed_task_framework.TaskPopulateAndVerify.getTaskName;
-import static com.distributed_task_framework.service.impl.VirtualQueueStatHelper.NodeLoading.NORMAL;
-import static com.distributed_task_framework.service.impl.VirtualQueueStatHelper.NodeLoading.OVERLOADED;
+import static com.distributed_task_framework.service.impl.VirtualQueueStatService.NodeLoading.NORMAL;
+import static com.distributed_task_framework.service.impl.VirtualQueueStatService.NodeLoading.OVERLOADED;
 import static org.mockito.Mockito.when;
 
 @Slf4j
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @FieldDefaults(level = AccessLevel.PRIVATE)
-class VirtualQueueStatHelperTest extends BaseMetricTest {
+class VirtualQueueStatServiceTest extends BaseMetricTest {
     private final UUID node1 = UUID.randomUUID();
     private final UUID node2 = UUID.randomUUID();
     private final UUID node3 = UUID.randomUUID();
@@ -52,7 +52,7 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
     @Autowired
     TaskPopulateAndVerify taskPopulateAndVerify;
     @Autowired
-    VirtualQueueStatHelper virtualQueueStatHelper;
+    VirtualQueueStatService virtualQueueStatService;
 
     @BeforeEach
     public void init() {
@@ -66,44 +66,44 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
         prepareTasks();
 
         //do
-        virtualQueueStatHelper.calculateAggregatedStat();
+        virtualQueueStatService.calculateAggregatedStat();
 
         //verify
         verifyAllTasksForMetric("planner.task.all");
 
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
             "planner.task.notToPlan",
             METER_BY_GROUP_AND_NAME_AND_VIRTUAL_QUEUE,
             //in new
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "new", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "new", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(0), "new", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(0), "new", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "new", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "new", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(1), "new", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(1), "new", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "new", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "new", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(2), "new", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(2), "new", 2),
 
             //in ready
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "ready", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "ready", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(0), "ready", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(0), "ready", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "ready", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "ready", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(1), "ready", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(1), "ready", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "ready", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "ready", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(2), "ready", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(2), "ready", 2),
 
             //in parked
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "parked", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "parked", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(0), "parked", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(0), "parked", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "parked", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "parked", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(1), "parked", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(1), "parked", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "parked", 0),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "parked", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(2), "parked", 0),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(2), "parked", 2)
         );
@@ -115,7 +115,7 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
         List<TaskEntity> allTasks = prepareTasks();
 
         //do
-        virtualQueueStatHelper.updateMoved(taskMapper.mapToShort(allTasks));
+        virtualQueueStatService.updateMoved(taskMapper.mapToShort(allTasks));
 
         //verify
         verifyAllTasksForMetric("planner.task.moved");
@@ -138,30 +138,30 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
         var allAssignedTasks = taskPopulateAndVerify.populate(0, 18, VirtualQueue.READY, populationSpecs);
 
         //do
-        virtualQueueStatHelper.updatePlannedTasks(taskMapper.mapToShort(allAssignedTasks));
+        virtualQueueStatService.updatePlannedTasks(taskMapper.mapToShort(allAssignedTasks));
 
         //verify
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
             "planner.task.planned",
             METER_BY_GROUP_AND_NAME_AND_WORKER,
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), getAffinityGroup(0), getTaskName(0), s(getNode(0)), 3),
-            Tuple.tuple(PlannerGroups.DEFAULT.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), s(getNode(1)), 3),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), s(getNode(1)), 3),
 
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), getAffinityGroup(0), getTaskName(1), s(getNode(0)), 3),
-            Tuple.tuple(PlannerGroups.DEFAULT.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), s(getNode(1)), 3),
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), s(getNode(1)), 3),
 
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), getAffinityGroup(0), getTaskName(2), s(getNode(0)), 3),
-            Tuple.tuple(PlannerGroups.DEFAULT.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), s(getNode(1)), 3)
+            Tuple.tuple(PlannerGroups.DEFAULT.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), s(getNode(1)), 3)
         );
     }
 
     @Test
     void shouldReportZeroWhenOverloadedNodesIsEmpty() {
         //do
-        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of());
+        virtualQueueStatService.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of());
 
         //verify
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
             "planner.nodes.overloaded",
             METER_BY_GROUP_AND_NODE_NAME,
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node1), NORMAL.getValue()),
@@ -175,10 +175,10 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
     @Test
     void shouldReportOverloadedNodesWhenOverloadedNodesIsNotEmpty() {
         //do
-        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
+        virtualQueueStatService.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
 
         //verify
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
             "planner.nodes.overloaded",
             METER_BY_GROUP_AND_NODE_NAME,
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node1), NORMAL.getValue()),
@@ -192,11 +192,11 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
     @Test
     void shouldReportZeroWhenOverloadedNodesReturnToEmpty() {
         //do
-        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
-        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of());
+        virtualQueueStatService.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
+        virtualQueueStatService.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of());
 
         //verify
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
             "planner.nodes.overloaded",
             METER_BY_GROUP_AND_NODE_NAME,
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node1), NORMAL.getValue()),
@@ -210,17 +210,17 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
     @Test
     void shouldRemoveObsoleteNodesFromMetrics() {
         //do
-        virtualQueueStatHelper.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
-        virtualQueueStatHelper.overloadedNodes(Set.of(node4, node5), Set.of(node4));
+        virtualQueueStatService.overloadedNodes(Set.of(node1, node2, node3, node4, node5), Set.of(node3, node4));
+        virtualQueueStatService.overloadedNodes(Set.of(node4, node5), Set.of(node4));
 
         //verify
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
             "planner.nodes.overloaded",
             METER_BY_GROUP_AND_NODE_NAME,
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node4), OVERLOADED.getValue()),
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node5), NORMAL.getValue())
         );
-        assertMetricNotExists(
+        metricTestHelper.assertMetricNotExists(
             "planner.nodes.overloaded",
             METER_DEFINITION_BY_GROUP_AND_NODE_NAME,
             Tuple.tuple(PlannerGroups.DEFAULT.getName(), s(node1)),
@@ -231,50 +231,50 @@ class VirtualQueueStatHelperTest extends BaseMetricTest {
 
 
     private void verifyAllTasksForMetric(String metricName) {
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
             metricName,
             METER_BY_GROUP_AND_NAME_AND_VIRTUAL_QUEUE,
             //in new
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "new", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "new", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(0), "new", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(0), "new", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "new", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "new", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(1), "new", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(1), "new", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "new", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "new", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(2), "new", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(2), "new", 2),
 
             //in ready
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "ready", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "ready", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(0), "ready", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(0), "ready", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "ready", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "ready", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(1), "ready", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(1), "ready", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "ready", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "ready", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(2), "ready", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(2), "ready", 2),
 
             //in parked
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "parked", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "parked", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(0), "parked", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(0), "parked", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "parked", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "parked", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(1), "parked", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(1), "parked", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "parked", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "parked", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(2), "parked", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(2), "parked", 2),
 
             //in deleted
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "deleted", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(0), "deleted", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(0), "deleted", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(0), "deleted", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "deleted", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(1), "deleted", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(1), "deleted", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(1), "deleted", 2),
-            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), MetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "deleted", 2),
+            Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), DistributedTaskMetricHelper.DEFAULT_GROUP_TAG_NAME, getTaskName(2), "deleted", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(1), getTaskName(2), "deleted", 2),
             Tuple.tuple(PlannerGroups.VQB_MANAGER.getName(), getAffinityGroup(2), getTaskName(2), "deleted", 2)
         );

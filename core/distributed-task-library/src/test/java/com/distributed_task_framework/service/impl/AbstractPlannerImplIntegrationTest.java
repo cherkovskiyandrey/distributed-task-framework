@@ -6,7 +6,7 @@ import com.distributed_task_framework.persistence.entity.PlannerEntity;
 import com.distributed_task_framework.persistence.repository.NodeStateRepository;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import lombok.AccessLevel;
@@ -51,7 +51,7 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
     @Autowired
     Clock clock;
     @Autowired
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
     AbstractPlannerImpl plannerService;
     ExecutorService executorService;
 
@@ -64,7 +64,7 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
                 plannerRepository,
                 transactionManager,
                 clusterProvider,
-                metricHelper
+            distributedTaskMetricHelper
         ));
     }
 
@@ -221,8 +221,8 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
                             PlannerRepository plannerRepository,
                             PlatformTransactionManager transactionManager,
                             ClusterProvider clusterProvider,
-                            MetricHelper metricHelper) {
-            super(commonSettings, plannerRepository, transactionManager, clusterProvider, metricHelper);
+                            DistributedTaskMetricHelper distributedTaskMetricHelper) {
+            super(commonSettings, plannerRepository, transactionManager, clusterProvider, distributedTaskMetricHelper);
             this.active = true;
         }
 

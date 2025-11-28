@@ -8,7 +8,7 @@ import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.persistence.entity.PartitionEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.TaskSettings;
@@ -77,9 +77,9 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
     @Autowired
     PartitionTracker partitionTracker;
     @Autowired
-    VirtualQueueStatHelper virtualQueueStatHelper;
+    VirtualQueueStatService virtualQueueStatService;
     @Autowired
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
     @Autowired
     TaskPopulateAndVerify taskPopulateAndVerify;
 
@@ -99,9 +99,9 @@ class VirtualQueueBaseFairTaskPlannerImplTest extends BaseSpringIntegrationTest 
             partitionTracker,
             taskRegistryService,
             new TaskRouter(),
-            virtualQueueStatHelper,
+            virtualQueueStatService,
             clock,
-            metricHelper
+            distributedTaskMetricHelper
         ));
         mockNodeCpuLoading(0.1);
     }

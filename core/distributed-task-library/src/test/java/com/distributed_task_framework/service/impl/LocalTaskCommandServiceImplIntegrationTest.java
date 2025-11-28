@@ -11,7 +11,7 @@ import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.TaskSettings;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModel;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AccessLevel;

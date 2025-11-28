@@ -8,7 +8,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.utils.ExecutorUtils;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.google.common.collect.ImmutableList;
@@ -53,9 +53,9 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
     @Autowired
     PartitionTracker partitionTracker;
     @MockBean
-    VirtualQueueStatHelper virtualQueueStatHelper;
+    VirtualQueueStatService virtualQueueStatService;
     @Autowired
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
     @Autowired
     TaskPopulateAndVerify taskPopulateAndVerify;
     VirtualQueueManagerPlannerImpl plannerService;
@@ -73,8 +73,8 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
             taskRepository,
             partitionTracker,
             taskMapper,
-            virtualQueueStatHelper,
-            metricHelper
+            virtualQueueStatService,
+            distributedTaskMetricHelper
         ));
     }
 

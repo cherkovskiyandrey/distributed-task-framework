@@ -6,7 +6,7 @@ import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import org.junit.jupiter.api.Disabled;

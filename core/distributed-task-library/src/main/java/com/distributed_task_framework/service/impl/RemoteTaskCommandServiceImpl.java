@@ -97,6 +97,11 @@ public class RemoteTaskCommandServiceImpl extends AbstractTaskCommandWithDetecto
         );
     }
 
+    @Override
+    public <T> TaskId scheduleUnsafe(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
+        throw new UnsupportedOperationException("Isn't supported yet!");
+    }
+
     private <T> TaskId schedule(TaskDef<T> taskDef,
                                 ExecutionContext<T> executionContext,
                                 Duration delay,

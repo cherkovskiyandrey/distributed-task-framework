@@ -54,13 +54,15 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
     PlatformTransactionManager transactionManager;
     DistributedTaskCache<Map<UUID, Set<String>>> registeredLocalTaskInClusterCache;
     ClusterProvider clusterProvider;
+    CronService cronService;
     ScheduledExecutorService scheduledExecutorService;
 
     public TaskRegistryServiceImpl(CommonSettings commonSettings,
                                    RegisteredTaskRepository registeredTaskRepository,
                                    PlatformTransactionManager transactionManager,
                                    DistributedTaskCacheManager distributedTaskCacheManager,
-                                   ClusterProvider clusterProvider) {
+                                   ClusterProvider clusterProvider,
+                                   CronService cronService) {
         this.commonSettings = commonSettings;
         this.registeredTaskRepository = registeredTaskRepository;
         this.transactionManager = transactionManager;
@@ -71,6 +73,7 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
                 .build()
         );
         this.clusterProvider = clusterProvider;
+        this.cronService = cronService;
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
             .setDaemon(false)
             .setNameFormat("node-st-upd-%d")
@@ -203,6 +206,12 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
         );
     }
 
+    @Override
+    public boolean hasClusterRegisteredTaskByName(String name) {
+        return getRegisteredLocalTaskInCluster().values().stream()
+            .anyMatch(set -> set.contains(name));
+    }
+
     @SuppressWarnings("DataFlowIssue")
     private Map<UUID, Set<String>> readRegisteredLocalTaskInCluster() {
         return Lists.newArrayList(registeredTaskRepository.findAll()).stream()
@@ -278,7 +287,8 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
             throw new TaskConfigurationException("Unknown remote app for taskDef=[%s]".formatted(taskDef));
         }
 
-        if (StringUtils.hasText(taskSettings.getCron()) && !CronExpression.isValidExpression(taskSettings.getCron())) {
+        if (StringUtils.hasText(taskSettings.getCron())
+            && !cronService.isValidCronOrDurationExpression(taskSettings.getCron())) {
             throw new TaskConfigurationException("Cron expression=[%s] is invalid".formatted(taskSettings.getCron()));
         }
         //todo: maxParallel in cluster and in node

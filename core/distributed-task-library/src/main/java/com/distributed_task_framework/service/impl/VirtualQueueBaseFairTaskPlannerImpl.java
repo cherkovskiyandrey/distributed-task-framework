@@ -12,7 +12,7 @@ import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.internal.CapabilityRegister;
 import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.PlannerGroups;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
@@ -54,7 +54,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     TaskRouter taskRouter;
     PartitionTracker partitionTracker;
     Integer maxParallelTasksInClusterDefault;
-    VirtualQueueStatHelper virtualQueueStatHelper;
+    VirtualQueueStatService virtualQueueStatService;
     Clock clock;
     List<Tag> commonTags;
     Timer currentAssignedTaskStatTimer;
@@ -70,31 +70,31 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                                                PartitionTracker partitionTracker,
                                                TaskRegistryService taskRegistryService,
                                                TaskRouter taskRouter,
-                                               VirtualQueueStatHelper virtualQueueStatHelper,
+                                               VirtualQueueStatService virtualQueueStatService,
                                                Clock clock,
-                                               MetricHelper metricHelper) {
-        super(commonSettings, plannerRepository, transactionManager, clusterProvider, metricHelper);
+                                               DistributedTaskMetricHelper distributedTaskMetricHelper) {
+        super(commonSettings, plannerRepository, transactionManager, clusterProvider, distributedTaskMetricHelper);
         this.taskRepository = taskRepository;
         this.partitionTracker = partitionTracker;
         this.taskRegistryService = taskRegistryService;
         this.taskRouter = taskRouter;
-        this.virtualQueueStatHelper = virtualQueueStatHelper;
+        this.virtualQueueStatService = virtualQueueStatService;
         this.maxParallelTasksInClusterDefault = commonSettings.getPlannerSettings().getMaxParallelTasksInClusterDefault();
         this.clock = clock;
         this.commonTags = List.of(Tag.of("group", groupName()));
-        this.currentAssignedTaskStatTimer = metricHelper.timer(
+        this.currentAssignedTaskStatTimer = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "currentAssignedTaskStat", "time"),
             commonTags
         );
-        this.partitionsFromNewStatTimer = metricHelper.timer(
+        this.partitionsFromNewStatTimer = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "partitionsFromNewStatTimer", "time"),
             commonTags
         );
-        this.batchRouteTimer = metricHelper.timer(
+        this.batchRouteTimer = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "batchRouteTimer", "time"),
             commonTags
         );
-        this.loadTasksToPlanTimer = metricHelper.timer(
+        this.loadTasksToPlanTimer = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "loadTasksToPlanTimer", "time"),
             commonTags
         );
@@ -135,12 +135,12 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
 
     @Override
     protected void beforeStartLoop() {
-        virtualQueueStatHelper.resetOverloadedNodes();
+        virtualQueueStatService.resetOverloadedNodes();
     }
 
     @Override
     protected void afterStartLoop() {
-        virtualQueueStatHelper.resetOverloadedNodes();
+        virtualQueueStatService.resetOverloadedNodes();
     }
 
     @Override
@@ -259,7 +259,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         );
         plannedTasks = sort(plannedTasks); //to prevent deadlocks during split brain
         taskRepository.updateAll(plannedTasks);
-        virtualQueueStatHelper.updatePlannedTasks(plannedTasks);
+        virtualQueueStatService.updatePlannedTasks(plannedTasks);
         log.info(
             "planTaskFromActiveQueue(): unplannedActualTasks=[{}], plannedTasks=[{}]",
             toIdList(unplannedActualTasks),
@@ -289,7 +289,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                     )
                 )
             );
-        virtualQueueStatHelper.overloadedNodes(allNodes, nodesPartitionedByCpuLoading.get(false));
+        virtualQueueStatService.overloadedNodes(allNodes, nodesPartitionedByCpuLoading.get(false));
         return nodesPartitionedByCpuLoading.get(true);
     }
 

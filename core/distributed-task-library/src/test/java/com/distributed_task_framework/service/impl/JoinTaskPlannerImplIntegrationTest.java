@@ -8,7 +8,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.utils.ExecutorUtils;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import lombok.AccessLevel;
@@ -49,7 +49,7 @@ class JoinTaskPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
     @Autowired
     TaskRepository taskRepository;
     @Autowired
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
     @Autowired
     JoinTaskStatHelper statHelper;
     JoinTaskPlannerImpl plannerService;
@@ -66,7 +66,7 @@ class JoinTaskPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
                 clusterProvider,
                 taskLinkManager,
                 taskRepository,
-                metricHelper,
+            distributedTaskMetricHelper,
                 statHelper,
                 clock
         ));

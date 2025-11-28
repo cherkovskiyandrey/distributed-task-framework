@@ -5,7 +5,6 @@ import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,6 +31,11 @@ public class DistributedSagaProperties {
     Common common;
 
     /**
+     * Properties to configure saga statistics.
+     */
+    SagaStatProperties sagaStatProperties;
+
+    /**
      * Properties for any saga and for particular one.
      */
     SagaPropertiesGroup sagaPropertiesGroup;
@@ -55,14 +59,36 @@ public class DistributedSagaProperties {
         Duration cacheExpiration;
 
         /**
-         * Initial delay to start scan deprecation sagas: completed and expired.
-         */
-        Duration deprecatedSagaScanInitialDelay;
-
-        /**
          * Fixed delay to scan deprecation sagas: completed and expired.
          */
         Duration deprecatedSagaScanFixedDelay;
+
+        /**
+         * The size of batch of expired saga entities in db to handle (remove) in one tick.
+         */
+        Integer expiredSagaBatchSizeToRemove;
+    }
+
+    @Validated
+    @Data
+    @Builder(toBuilder = true)
+    @AllArgsConstructor(access = AccessLevel.PUBLIC)
+    @NoArgsConstructor
+    public static class SagaStatProperties {
+        /**
+         * Delay between calculation of saga statistics.
+         */
+        Duration calcInitialDelay;
+
+        /**
+         * Delay between calculation of saga statistics.
+         */
+        Duration calcFixedDelay;
+
+        /**
+         * Top N saga names to print in stat.
+         */
+        Integer topNSagas;
     }
 
     @Validated

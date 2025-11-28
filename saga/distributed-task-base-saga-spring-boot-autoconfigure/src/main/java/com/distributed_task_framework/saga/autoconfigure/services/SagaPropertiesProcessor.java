@@ -4,6 +4,7 @@ import com.distributed_task_framework.saga.autoconfigure.DistributedSagaProperti
 import com.distributed_task_framework.saga.services.SagaRegisterSettingsService;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
+import com.distributed_task_framework.saga.settings.SagaStatSettings;
 import jakarta.annotation.Nullable;
 
 import java.lang.reflect.Method;
@@ -11,6 +12,8 @@ import java.lang.reflect.Method;
 public interface SagaPropertiesProcessor {
 
     SagaCommonSettings buildSagaCommonSettings(@Nullable DistributedSagaProperties.Common common);
+
+    SagaStatSettings buildSagaStatSettings(@Nullable DistributedSagaProperties.SagaStatProperties sagaStatProperties);
 
     void registerConfiguredSagas(SagaRegisterSettingsService sagaRegisterSettingsService,
                                  @Nullable DistributedSagaProperties.SagaPropertiesGroup sagaPropertiesGroup);

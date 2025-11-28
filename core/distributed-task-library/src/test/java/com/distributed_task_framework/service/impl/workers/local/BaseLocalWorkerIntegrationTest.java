@@ -16,7 +16,7 @@ import com.distributed_task_framework.service.internal.TaskWorker;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModel;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import lombok.AccessLevel;

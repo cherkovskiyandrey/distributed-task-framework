@@ -12,7 +12,7 @@ import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.internal.CapabilityRegister;
 import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.PlannerGroups;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -53,7 +53,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
     TaskMapper taskMapper;
     Set<AffinityGroupWrapper> affinityGroupsInNew = Sets.newHashSet();
     AtomicReference<LocalDateTime> lastScanAffinityGroupsDateTime = new AtomicReference<>(LocalDateTime.MIN);
-    VirtualQueueStatHelper virtualQueueStatHelper;
+    VirtualQueueStatService virtualQueueStatService;
     List<Tag> commonTags;
     Timer maxCreatedDateInNewTimer;
     Timer affinityGroupsInNewTimer;
@@ -70,41 +70,41 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
                                           TaskRepository taskRepository,
                                           PartitionTracker partitionTracker,
                                           TaskMapper taskMapper,
-                                          VirtualQueueStatHelper virtualQueueStatHelper,
-                                          MetricHelper metricHelper) {
-        super(commonSettings, plannerRepository, transactionManager, clusterProvider, metricHelper);
+                                          VirtualQueueStatService virtualQueueStatService,
+                                          DistributedTaskMetricHelper distributedTaskMetricHelper) {
+        super(commonSettings, plannerRepository, transactionManager, clusterProvider, distributedTaskMetricHelper);
         this.plannerSettings = commonSettings.getPlannerSettings();
         this.clusterProvider = clusterProvider;
         this.taskRepository = taskRepository;
         this.partitionTracker = partitionTracker;
         this.taskMapper = taskMapper;
-        this.virtualQueueStatHelper = virtualQueueStatHelper;
+        this.virtualQueueStatService = virtualQueueStatService;
         this.commonTags = List.of(Tag.of("group", groupName()));
-        this.maxCreatedDateInNewTimer = metricHelper.timer(
+        this.maxCreatedDateInNewTimer = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "maxCreatedDateInNew", "time"),
             commonTags
         );
-        this.affinityGroupsInNewTimer = metricHelper.timer(
+        this.affinityGroupsInNewTimer = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "afgInNewQueue", "time"),
             commonTags
         );
-        this.affinityGroupInNewVirtualQueueTime = metricHelper.timer(
+        this.affinityGroupInNewVirtualQueueTime = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "affinityGroupInNewVirtualQueue", "time"),
             commonTags
         );
-        this.moveNewToReadyTime = metricHelper.timer(
+        this.moveNewToReadyTime = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "moveNewToReady", "time"),
             commonTags
         );
-        this.readyToHardDeleteTime = metricHelper.timer(
+        this.readyToHardDeleteTime = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "readyToHardDelete", "time"),
             commonTags
         );
-        this.moveParkedToReadyTime = metricHelper.timer(
+        this.moveParkedToReadyTime = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "moveParkedToReadyBaseOnDeleted", "time"),
             commonTags
         );
-        this.deleteByIdVersionTime = metricHelper.timer(
+        this.deleteByIdVersionTime = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "deleteByIdVersion", "time"),
             commonTags
         );
@@ -211,7 +211,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
             return 0;
         }
 
-        virtualQueueStatHelper.updateMoved(movedTasks);
+        virtualQueueStatService.updateMoved(movedTasks);
         log.info("processNewQueue(): movedTasksDescription=[{}]", movedTasksToDescription(movedTasks));
 
         var partitionsFromNew = movedTasks.stream()
@@ -241,7 +241,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
         );
 
         if (!movedToReadyTasks.isEmpty()) {
-            virtualQueueStatHelper.updateMoved(movedToReadyTasks);
+            virtualQueueStatService.updateMoved(movedToReadyTasks);
             log.info("processDeletedQueue(): movedTasksDescription=[{}]", movedTasksToDescription(movedToReadyTasks));
 
             var partitionsFromParked = movedToReadyTasks.stream()

@@ -7,7 +7,8 @@ dependencies {
     api libs.jakarta.annotation.api
     api libs.caffeine
 
-    implementation(libs.spring.boot)
+    implementation libs.spring.boot
+    implementation libs.spring.data.jdbc
 
     testFixturesImplementation platform(libs.spring.boot.bom)
 
@@ -23,4 +24,5 @@ dependencies {
     }
     testFixturesApi(libs.testcontainers.postgresql)
     testFixturesApi(libs.postgresql)
+    testFixturesApi(libs.spring.boot.starter.actuator)
 }

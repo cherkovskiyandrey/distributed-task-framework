@@ -124,6 +124,57 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     }
 
     @Override
+    public <T> TaskId scheduleUnsafe(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
+        if (taskRegistryService.getRegisteredTask(taskDef).isPresent()) {
+            return schedule(taskDef, executionContext);
+        }
+
+        if (!taskRegistryService.hasClusterRegisteredTaskByName(taskDef.getTaskName())) {
+            throw new UnknownTaskException(taskDef);
+        }
+
+        String taskName = taskDef.getTaskName();
+        Optional<T> inputMessageOpt = executionContext.getInputMessageOpt();
+        byte[] messageBytes = taskSerializer.writeValue(inputMessageOpt.orElse(null));
+
+        TaskEntity taskEntity = TaskEntity.builder()
+            .workflowId(executionContext.getWorkflowId())
+            .workflowCreatedDateUtc(
+                Optional.ofNullable(executionContext.getWorkflowCreatedDateUtc())
+                    .orElseGet(() -> LocalDateTime.now(clock))
+            )
+            .affinityGroup(executionContext.getAffinityGroup())
+            .affinity(executionContext.getAffinity())
+            .taskName(taskName)
+            .virtualQueue(VirtualQueue.NEW)
+            .messageBytes(messageBytes)
+            .executionDateUtc(LocalDateTime.now(clock))
+            .singleton(false)
+            .failures(0)
+            .build();
+
+        final TaskId taskId;
+        Optional<WorkerContext> currentContext = workerContextManager.getCurrentContext();
+        boolean isInContext = currentContext.isPresent();
+        if (isInContext) {
+            WorkerContext workerContext = currentContext.get();
+            taskEntity = taskEntity.toBuilder()
+                .id(UUID.randomUUID()) //generate and bind uuid
+                .createdDateUtc(LocalDateTime.now(clock))
+                .build();
+            ScheduleCommand scheduleCommand = ScheduleCommand.of(taskEntity);
+            workerContext.getLocalCommands().add(scheduleCommand);
+            log.info("scheduleUnsafe(): postponed command=[{}]", scheduleCommand);
+            taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
+        } else {
+            taskEntity = internalTaskCommandService.schedule(taskEntity);
+            taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
+            log.info("scheduleUnsafe(): taskEntity=[{}]", taskEntity);
+        }
+        return taskId;
+    }
+
+    @Override
     public <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
         return scheduleBaseTxAware(
             taskDef,

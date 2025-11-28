@@ -122,6 +122,14 @@ public class DistributedTaskServiceImpl implements DistributedTaskService {
     }
 
     @Override
+    public <T> TaskId scheduleUnsafe(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception {
+        return routeAndCall(
+            taskDef,
+            taskCommandService -> taskCommandService.scheduleUnsafe(taskDef, executionContext)
+        );
+    }
+
+    @Override
     public <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception {
         return routeAndCall(
             taskDef,

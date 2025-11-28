@@ -222,6 +222,7 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
     @Test
     void shouldFindAllNotDeletedAndNotCanceled() {
         //when
+        var testTaskModelToExclude = extendedTaskGenerator.generateDefaultAndSave(String.class);
         var testTaskModel = extendedTaskGenerator.generateDefaultAndSave(String.class);
         extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
             .withSaveInstance()
@@ -235,7 +236,9 @@ class TaskExtendedRepositoryTest extends BaseRepositoryTest {
         );
 
         //do
-        var taskIdEntities = taskExtendedRepository.findAllNotDeletedAndNotCanceled();
+        var taskIdEntities = taskExtendedRepository.findAllNotDeletedAndNotCanceled(
+            Set.of(testTaskModelToExclude.getTaskDef().getTaskName())
+        );
 
         //verify
         @SuppressWarnings("DataFlowIssue")

@@ -6,7 +6,7 @@ import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;

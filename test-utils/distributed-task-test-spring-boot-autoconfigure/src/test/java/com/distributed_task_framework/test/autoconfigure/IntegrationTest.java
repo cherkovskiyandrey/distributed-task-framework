@@ -11,6 +11,7 @@ import com.distributed_task_framework.test.autoconfigure.tasks.CpuIntensiveExamp
 import com.distributed_task_framework.test.autoconfigure.tasks.DefaultTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.InfinitiveWorkflowGenerationExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.InterruptableExampleTask;
+import com.distributed_task_framework.test.autoconfigure.tasks.NotInterruptableTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.RetryExampleTask;
 import com.distributed_task_framework.test.autoconfigure.tasks.SimpleCronCustomizedTask;
 import com.distributed_task_framework.utils.Postgresql16Initializer;
@@ -29,6 +30,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.IntStream;
 
 import static com.distributed_task_framework.test.ClusterProviderTestImpl.TEST_NODE_ID;
@@ -89,9 +92,9 @@ class IntegrationTest {
     @Test
     void shouldCancelAllTasksCorrectly() {
         //when
-        signaller.reinit(5);
+        signaller.reinit(6);
 
-        new TransactionTemplate(transactionManager).executeWithoutResult(ts -> {
+        var notInterruptableTaskId = new TransactionTemplate(transactionManager).execute(ts -> {
             try {
                 distributedTaskService.schedule(CpuIntensiveExampleTask.TASK_DEF, ExecutionContext.empty());
                 distributedTaskService.schedule(
@@ -101,19 +104,39 @@ class IntegrationTest {
                 distributedTaskService.schedule(InterruptableExampleTask.TASK_DEF, ExecutionContext.empty());
                 distributedTaskService.schedule(RetryExampleTask.TASK_DEF, ExecutionContext.empty());
                 scheduleSimpleWorkflow();
+                return distributedTaskService.schedule(NotInterruptableTask.TASK_DEF, ExecutionContext.empty());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         });
 
-        //do
-        signaller.getCyclicBarrierRef().get().await();
-        distributedTaskTestUtil.reinitAndWait(5, Duration.ofSeconds(10));
+        try {
+            //do
+            signaller.getCyclicBarrierRef().get().await();
+            distributedTaskTestUtil.reinitAndWait(
+                5,
+                Duration.ofSeconds(10),
+                List.of(NotInterruptableTask.TASK_DEF)
+            );
 
-        //verify
-        assertThat(workerManager.getCurrentActiveTasks()).isEqualTo(0L);
-        assertThat(taskRepository.count()).isEqualTo(0L);
-        assertThat(dltRepository.count()).isEqualTo(0L);
+            //verify
+            assertThat(notInterruptableTaskId).isNotNull();
+            assertThat(workerManager.getCurrentActiveTaskIds()).allMatch(taskId -> Objects.equals(
+                    taskId.getTaskName(),
+                    notInterruptableTaskId.getTaskName()
+                )
+            );
+            assertThat(taskRepository.findAll())
+                .singleElement()
+                .matches(taskEntity -> Objects.equals(
+                        taskEntity.getTaskName(),
+                        notInterruptableTaskId.getTaskName()
+                    )
+                );
+            assertThat(dltRepository.count()).isEqualTo(0L);
+        } finally {
+            distributedTaskService.cancelTaskExecution(notInterruptableTaskId);
+        }
     }
 
     @SneakyThrows

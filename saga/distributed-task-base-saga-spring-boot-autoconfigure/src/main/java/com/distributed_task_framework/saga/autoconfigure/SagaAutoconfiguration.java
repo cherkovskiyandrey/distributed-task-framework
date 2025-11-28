@@ -8,6 +8,8 @@ import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPrope
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaPropertiesMerger;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaStatPropertiesMapper;
+import com.distributed_task_framework.saga.autoconfigure.mappers.SagaStatPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.services.SagaPropertiesProcessor;
 import com.distributed_task_framework.saga.autoconfigure.services.impl.SagaPropertiesProcessorImpl;
 import com.distributed_task_framework.saga.mappers.SagaMapper;
@@ -21,16 +23,22 @@ import com.distributed_task_framework.saga.services.impl.SagaHelper;
 import com.distributed_task_framework.saga.services.impl.SagaManagerImpl;
 import com.distributed_task_framework.saga.services.impl.SagaRegisterServiceImpl;
 import com.distributed_task_framework.saga.services.impl.SagaResolverImpl;
+import com.distributed_task_framework.saga.services.impl.SagaStatService;
 import com.distributed_task_framework.saga.services.impl.SagaTaskFactoryImpl;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
+import com.distributed_task_framework.saga.settings.SagaStatSettings;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
+import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.utils.CaffeineDistributedTaskCacheManagerImpl;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.MetricHelper;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -47,6 +55,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.time.Clock;
 
+import static com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure.VIRTUAL_QUEUE_MANAGER_PLANNER_NAME;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
@@ -91,6 +100,8 @@ public class SagaAutoconfiguration {
     @ConditionalOnMissingBean
     public SagaPropertiesProcessor sagaPropertiesProcessor(SagaCommonPropertiesMapper sagaCommonPropertiesMapper,
                                                            SagaCommonPropertiesMerger sagaCommonPropertiesMerger,
+                                                           SagaStatPropertiesMapper sagaStatPropertiesMapper,
+                                                           SagaStatPropertiesMerger sagaStatPropertiesMerger,
                                                            SagaPropertiesMapper sagaPropertiesMapper,
                                                            SagaPropertiesMerger sagaPropertiesMerger,
                                                            SagaMethodPropertiesMapper sagaMethodPropertiesMapper,
@@ -98,6 +109,8 @@ public class SagaAutoconfiguration {
         return new SagaPropertiesProcessorImpl(
             sagaCommonPropertiesMapper,
             sagaCommonPropertiesMerger,
+            sagaStatPropertiesMapper,
+            sagaStatPropertiesMerger,
             sagaPropertiesMapper,
             sagaPropertiesMerger,
             sagaMethodPropertiesMapper,
@@ -110,6 +123,13 @@ public class SagaAutoconfiguration {
     public SagaCommonSettings sagaCommonSettings(SagaPropertiesProcessor sagaPropertiesProcessor,
                                                  DistributedSagaProperties distributedSagaProperties) {
         return sagaPropertiesProcessor.buildSagaCommonSettings(distributedSagaProperties.getCommon());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SagaStatSettings sagaStatSettings(SagaPropertiesProcessor sagaPropertiesProcessor,
+                                             DistributedSagaProperties distributedSagaProperties) {
+        return sagaPropertiesProcessor.buildSagaStatSettings(distributedSagaProperties.sagaStatProperties);
     }
 
     @Bean
@@ -138,15 +158,17 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaManager sagaContextService(DistributedTaskService distributedTaskService,
-                                          SagaRepository sagaRepository,
-                                          DlsSagaContextRepository dlsSagaContextRepository,
-                                          @Qualifier(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager distributedTaskCacheManager,
-                                          SagaHelper sagaHelper,
-                                          SagaMapper sagaMapper,
-                                          @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
-                                          Clock clock,
-                                          SagaCommonSettings sagaCommonSettings) {
+    public SagaManagerImpl sagaContextService(DistributedTaskService distributedTaskService,
+                                              SagaRepository sagaRepository,
+                                              DlsSagaContextRepository dlsSagaContextRepository,
+                                              @Qualifier(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager distributedTaskCacheManager,
+                                              SagaHelper sagaHelper,
+                                              SagaMapper sagaMapper,
+                                              @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                              SagaCommonSettings sagaCommonSettings,
+                                              MeterRegistry meterRegistry,
+                                              MetricHelper metricHelper,
+                                              Clock clock) {
         return new SagaManagerImpl(
             distributedTaskService,
             sagaRepository,
@@ -156,6 +178,8 @@ public class SagaAutoconfiguration {
             sagaMapper,
             transactionManager,
             sagaCommonSettings,
+            meterRegistry,
+            metricHelper,
             clock
         );
     }
@@ -217,6 +241,24 @@ public class SagaAutoconfiguration {
             distributionSagaService,
             distributedSagaProperties,
             sagaPropertiesProcessor
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SagaStatService sagaStatService(@Qualifier(VIRTUAL_QUEUE_MANAGER_PLANNER_NAME) PlannerService plannerService,
+                                           DistributedTaskMetricHelper distributedTaskMetricHelper,
+                                           MeterRegistry meterRegistry,
+                                           SagaRepository sagaRepository,
+                                           SagaCommonSettings sagaCommonSettings,
+                                           SagaStatSettings sagaStatSettings) {
+        return new SagaStatService(
+            plannerService,
+            distributedTaskMetricHelper,
+            meterRegistry,
+            sagaRepository,
+            sagaCommonSettings,
+            sagaStatSettings
         );
     }
 }

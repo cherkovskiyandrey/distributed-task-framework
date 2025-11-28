@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     api(libs.jakarta.annotation.api)
+    api(libs.micrometer.core)
 
     testFixturesImplementation platform(libs.spring.boot.bom)
 

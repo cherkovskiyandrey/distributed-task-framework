@@ -11,7 +11,7 @@ import com.distributed_task_framework.settings.Retry;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModelCustomizerUtils;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import com.fasterxml.jackson.core.type.TypeReference;

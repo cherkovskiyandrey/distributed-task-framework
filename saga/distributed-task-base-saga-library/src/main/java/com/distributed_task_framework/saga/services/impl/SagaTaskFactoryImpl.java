@@ -7,6 +7,8 @@ import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
+import com.distributed_task_framework.saga.task.SagaRevertTask;
+import com.distributed_task_framework.saga.task.SagaTask;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import lombok.AccessLevel;
@@ -33,8 +35,8 @@ public class SagaTaskFactoryImpl implements SagaTaskFactory {
                              SagaMethodSettings sagaMethodSettings) {
         return new SagaTask(
             sagaResolver,
-            distributedTaskService,
             sagaManager,
+            distributedTaskService,
             taskSerializer,
             sagaHelper,
             taskDef,
@@ -48,8 +50,8 @@ public class SagaTaskFactoryImpl implements SagaTaskFactory {
     public SagaRevertTask sagaRevertTask(TaskDef<SagaPipeline> taskDef, Method method, Object bean) {
         return new SagaRevertTask(
             sagaResolver,
-            distributedTaskService,
             sagaManager,
+            distributedTaskService,
             sagaHelper,
             taskDef,
             method,

@@ -15,7 +15,7 @@ import com.distributed_task_framework.remote_commands.ScheduleCommand;
 import com.distributed_task_framework.service.impl.workers.local.BaseLocalWorkerIntegrationTest;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;

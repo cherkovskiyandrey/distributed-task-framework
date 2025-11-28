@@ -4,7 +4,7 @@ import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.persistence.entity.PlannerEntity;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
@@ -42,7 +42,7 @@ public abstract class AbstractPlannerImpl implements PlannerService {
     ScheduledExecutorService watchdogExecutorService;
     ExecutorService plannerExecutorService;
     AtomicReference<Future<?>> planningLoopTask;
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
     List<Tag> commonTags;
     Timer planningTime;
     Counter optLockErrorCounter;
@@ -52,17 +52,17 @@ public abstract class AbstractPlannerImpl implements PlannerService {
                                   PlannerRepository plannerRepository,
                                   PlatformTransactionManager transactionManager,
                                   ClusterProvider clusterProvider,
-                                  MetricHelper metricHelper) {
+                                  DistributedTaskMetricHelper distributedTaskMetricHelper) {
         this.commonSettings = commonSettings;
         this.plannerRepository = plannerRepository;
         this.transactionManager = transactionManager;
         this.clusterProvider = clusterProvider;
         this.planningLoopTask = new AtomicReference<>();
-        this.metricHelper = metricHelper;
+        this.distributedTaskMetricHelper = distributedTaskMetricHelper;
         this.commonTags = List.of(Tag.of("group", groupName()));
-        this.planningTime = metricHelper.timer(List.of("planner", "time"), commonTags);
-        this.optLockErrorCounter = metricHelper.counter(List.of("planner", "optlock", "error"), commonTags);
-        this.plannedTaskCounter = metricHelper.counter(List.of("planner", "tasks", "planned"), commonTags);
+        this.planningTime = distributedTaskMetricHelper.timer(List.of("planner", "time"), commonTags);
+        this.optLockErrorCounter = distributedTaskMetricHelper.counter(List.of("planner", "optlock", "error"), commonTags);
+        this.plannedTaskCounter = distributedTaskMetricHelper.counter(List.of("planner", "tasks", "planned"), commonTags);
         this.watchdogExecutorService = Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder()
                 .setDaemon(false)

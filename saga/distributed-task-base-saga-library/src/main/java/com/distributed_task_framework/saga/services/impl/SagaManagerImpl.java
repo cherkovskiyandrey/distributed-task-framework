@@ -1,5 +1,7 @@
 package com.distributed_task_framework.saga.services.impl;
 
+import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.exceptions.SagaCancellationException;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
@@ -8,39 +10,45 @@ import com.distributed_task_framework.saga.models.CreateSagaRequest;
 import com.distributed_task_framework.saga.models.Saga;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
+import com.distributed_task_framework.saga.persistence.entities.ShortSagaEntity;
 import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.settings.Retry;
+import com.distributed_task_framework.settings.RetryMode;
+import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.utils.DistributedTaskCache;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
-import com.distributed_task_framework.utils.ExecutorUtils;
+import com.distributed_task_framework.utils.MetricHelper;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.fasterxml.jackson.databind.JavaType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.util.ReflectionUtils;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -49,6 +57,7 @@ import java.util.function.Supplier;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaManagerImpl implements SagaManager {
     private static final String SAGA_MANAGER_CACHE = "sagaManagerCache";
+    public static final TaskDef<Void> INTERNAL_SAGA_MANAGER_TASK_DEF = TaskDef.privateTaskDef("INTERNAL_SAGA_MANAGER_TASK");
 
     DistributedTaskService distributedTaskService;
     SagaRepository sagaRepository;
@@ -58,8 +67,11 @@ public class SagaManagerImpl implements SagaManager {
     SagaMapper sagaMapper;
     PlatformTransactionManager transactionManager;
     SagaCommonSettings sagaCommonSettings;
+    MeterRegistry meterRegistry;
+    MetricHelper metricHelper;
     Clock clock;
-    ScheduledExecutorService scheduledExecutorService;
+    AtomicBoolean handleDeprecatedSagasEnabled;
+    AtomicBoolean isHandleDeprecatedSagasEnabled;
 
     public SagaManagerImpl(DistributedTaskService distributedTaskService,
                            SagaRepository sagaRepository,
@@ -69,6 +81,8 @@ public class SagaManagerImpl implements SagaManager {
                            SagaMapper sagaMapper,
                            PlatformTransactionManager transactionManager,
                            SagaCommonSettings sagaCommonSettings,
+                           MeterRegistry meterRegistry,
+                           MetricHelper metricHelper,
                            Clock clock) {
         this.distributedTaskService = distributedTaskService;
         this.sagaRepository = sagaRepository;
@@ -84,54 +98,80 @@ public class SagaManagerImpl implements SagaManager {
         this.sagaMapper = sagaMapper;
         this.transactionManager = transactionManager;
         this.sagaCommonSettings = sagaCommonSettings;
-        this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryBuilder()
-            .setDaemon(false)
-            .setNameFormat("saga-result")
-            .setUncaughtExceptionHandler((t, e) -> {
-                log.error("SagaResultServiceImpl(): unexpected error", e);
-                ReflectionUtils.rethrowRuntimeException(e);
-            })
-            .build()
-        );
+        this.meterRegistry = meterRegistry;
+        this.metricHelper = metricHelper;
+        this.handleDeprecatedSagasEnabled = new AtomicBoolean(true);
+        this.isHandleDeprecatedSagasEnabled = new AtomicBoolean(true);
     }
 
     @PostConstruct
-    public void init() {
-        scheduledExecutorService.scheduleWithFixedDelay(
-            ExecutorUtils.wrapRepeatableRunnable(this::handleDeprecatedSagas),
-            sagaCommonSettings.getDeprecatedSagaScanInitialDelay().toMillis(),
-            sagaCommonSettings.getDeprecatedSagaScanFixedDelay().toMillis(),
-            TimeUnit.MILLISECONDS
+    public void init() throws Exception {
+        var taskSettings = TaskSettings.builder()
+            .retry(Retry.builder()
+                .retryMode(RetryMode.OFF)
+                .build()
+            )
+            .cron(sagaCommonSettings.getDeprecatedSagaScanFixedDelay().toString())
+            .maxParallelInCluster(1)
+            .dltEnabled(false)
+            .executionGuarantees(TaskSettings.ExecutionGuarantees.AT_LEAST_ONCE)
+            .build();
+
+        distributedTaskService.registerTask(
+            TaskGenerator.defineTask(
+                INTERNAL_SAGA_MANAGER_TASK_DEF,
+                ctx -> handleDeprecatedSagas()
+            ),
+            taskSettings
         );
+        //todo: may be should be scheduled async?
+        distributedTaskService.schedule(INTERNAL_SAGA_MANAGER_TASK_DEF, ExecutionContext.empty());
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     @PreDestroy
-    public void shutdown() throws InterruptedException {
-        log.info("shutdown(): shutdown started");
-        scheduledExecutorService.shutdownNow();
-        scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
-        log.info("shutdown(): shutdown completed");
+    public void shutdown() {
+        distributedTaskService.unregisterTask(INTERNAL_SAGA_MANAGER_TASK_DEF);
+    }
+
+    private void handleDeprecatedSagas() {
+        if (handleDeprecatedSagasEnabled.get()) {
+            handleCompletedSagas();
+            handleExpiredSagas();
+            isHandleDeprecatedSagasEnabled.set(true);
+        } else {
+            isHandleDeprecatedSagasEnabled.set(false);
+        }
     }
 
     @VisibleForTesting
-    void handleDeprecatedSagas() {
-        handleCompletedSagas();
-        handleExpiredSagas();
+    void enableHandleDeprecatedSagas(boolean enabled) {
+        handleDeprecatedSagasEnabled.set(enabled);
+    }
+
+    @VisibleForTesting
+    boolean isHandleDeprecatedSagasEnabled() {
+        return isHandleDeprecatedSagasEnabled.get();
     }
 
     private void handleCompletedSagas() {
         var removedCompletedSagaContexts = sagaRepository.removeCompleted();
-        if (!removedCompletedSagaContexts.isEmpty()) {
-            log.info("handleCompletedSagas(): removedCompletedSagaContexts=[{}]", removedCompletedSagaContexts);
+        if (removedCompletedSagaContexts.isEmpty()) {
+            return;
         }
+
+        log.info("handleCompletedSagas(): removedCompletedSagaContexts=[{}]", removedCompletedSagaContexts);
+        removedCompletedSagaContexts.forEach(shortSagaEntity ->
+            getRemoveCompletedSagaCounter(shortSagaEntity).increment()
+        );
     }
 
     private void handleExpiredSagas() {
         var transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         transactionTemplate.executeWithoutResult(status -> {
-            var expiredSagaContextEntities = sagaRepository.findExpired();
+            var expiredSagaContextEntities = sagaRepository.findExpired(
+                sagaCommonSettings.getExpiredSagaBatchSizeToRemove()
+            );
             if (expiredSagaContextEntities.isEmpty()) {
                 return;
             }
@@ -141,6 +181,7 @@ public class SagaManagerImpl implements SagaManager {
                 .toList();
             log.info("handleExpiredSagas(): expiredSagaIds=[{}]", expiredSagaIds);
             forceShutdown(expiredSagaContextEntities, true);
+            expiredSagaContextEntities.forEach(sagaEntity -> getExpiredShutdownSagaCounter(sagaEntity).increment());
         });
     }
 
@@ -187,6 +228,7 @@ public class SagaManagerImpl implements SagaManager {
             .stopOnFailedAnyRevert(sagaSettings.isStopOnFailedAnyRevert())
             .build();
         sagaRepository.saveOrUpdate(sagaEntity);
+        getCreateSagaCounter(sagaEntity).increment();
     }
 
     @Override
@@ -265,11 +307,19 @@ public class SagaManagerImpl implements SagaManager {
     @Override
     public void completeIfExists(UUID sagaId) {
         log.info("completeIfExists(): sagaId=[{}]", sagaId);
+        var now = LocalDateTime.now(clock);
         updateUnderLock(
             sagaId,
             sagaContextEntity -> sagaContextEntity.toBuilder()
-                .completedDateUtc(LocalDateTime.now(clock))
+                .completedDateUtc(now)
+                .expirationDateUtc(now.plusSeconds(sagaContextEntity.getAvailableAfterCompletionTimeoutSec()))
                 .build(),
+            sagaEntity -> {
+                getCompletedSagaCounter(sagaEntity).increment();
+                getCompletedTimer(sagaEntity).record(
+                    Duration.between(sagaEntity.getCreatedDateUtc(), sagaEntity.getCompletedDateUtc())
+                );
+            },
             false
         );
     }
@@ -282,6 +332,7 @@ public class SagaManagerImpl implements SagaManager {
             sagaContextEntity -> sagaContextEntity.toBuilder()
                 .result(serializedValue)
                 .build(),
+            sagaEntity -> getCompletedOkSagaCounter(sagaEntity).increment(),
             false
         );
     }
@@ -295,6 +346,7 @@ public class SagaManagerImpl implements SagaManager {
                 .result(serializedException)
                 .exceptionType(exceptionType.toCanonical())
                 .build(),
+            sagaEntity -> getCompletedFailedSagaCounter(sagaEntity).increment(),
             false
         );
     }
@@ -307,6 +359,9 @@ public class SagaManagerImpl implements SagaManager {
             sagaEntity -> sagaEntity.toBuilder()
                 .canceled(true)
                 .build(),
+            sagaEntity -> {
+                getCanceledSagaCounter(sagaEntity).increment();
+            },
             true
         );
     }
@@ -317,7 +372,13 @@ public class SagaManagerImpl implements SagaManager {
         sagaRepository.findById(sagaId)
             .ifPresentOrElse(
                 //don't move shutdown sagas to DLS because it is explicit action
-                sagaEntity -> forceShutdown(List.of(sagaEntity), false),
+                sagaEntity -> {
+                    forceShutdown(List.of(sagaEntity), false);
+                    getShutdownByManualSagaCounter(sagaEntity).increment();
+                    getCompletedTimer(sagaEntity).record(
+                        Duration.between(sagaEntity.getCreatedDateUtc(), LocalDateTime.now(clock))
+                    );
+                },
                 () -> {
                     throw sagaNotFoundException(sagaId).get();
                 }
@@ -331,12 +392,19 @@ public class SagaManagerImpl implements SagaManager {
         );
     }
 
+    private void updateUnderLock(UUID sagaId,
+                                 Function<SagaEntity, SagaEntity> updateAction,
+                                 boolean strictMode) throws SagaNotFoundException {
+        updateUnderLock(sagaId, updateAction, null, strictMode);
+    }
+
     // NOTE: We use pessimistic update in order to protect from parallel changes, and
     // we will prepare to support parallel-saga mode. Parallel changes may be from client code,
     // for example cancellation and task any code from task.
     // Or for instance, in that mode SagaPipeline will be merged with existed in db before saving.
     private void updateUnderLock(UUID sagaId,
                                  Function<SagaEntity, SagaEntity> updateAction,
+                                 Consumer<SagaEntity> ofSuccessConsumer,
                                  boolean strictMode) throws SagaNotFoundException {
         var transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
@@ -344,7 +412,11 @@ public class SagaManagerImpl implements SagaManager {
                 sagaRepository.findByIdIfExistsForUpdate(sagaId)
                     .map(updateAction)
                     .ifPresentOrElse(
-                        sagaRepository::save,
+                        sagaEntity -> {
+                            final var sagaEntityFinal = sagaRepository.save(sagaEntity);
+                            Optional.ofNullable(ofSuccessConsumer)
+                                .ifPresent(consumer -> consumer.accept(sagaEntityFinal));
+                        },
                         () -> {
                             if (strictMode) {
                                 throw sagaNotFoundException(sagaId).get();
@@ -359,6 +431,69 @@ public class SagaManagerImpl implements SagaManager {
     private Supplier<? extends RuntimeException> sagaNotFoundException(UUID sagaId) {
         return () -> new SagaNotFoundException(
             "Saga with id=[%s] doesn't exists or has been completed for a long time".formatted(sagaId)
+        );
+    }
+
+    private Counter getCreateSagaCounter(SagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "create"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Counter getCompletedSagaCounter(SagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "completed"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Counter getCompletedOkSagaCounter(SagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "complete-ok-with-result"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Counter getCompletedFailedSagaCounter(SagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "complete-failed-with-result"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Counter getCanceledSagaCounter(SagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "cancel"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Counter getRemoveCompletedSagaCounter(ShortSagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "removed"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Counter getShutdownByManualSagaCounter(SagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "manual-shutdown"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Counter getExpiredShutdownSagaCounter(SagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "expired-shutdown"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Timer getCompletedTimer(SagaEntity sagaEntity) {
+        return metricHelper.timer(
+            List.of("saga", "timer", "completed"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
         );
     }
 }

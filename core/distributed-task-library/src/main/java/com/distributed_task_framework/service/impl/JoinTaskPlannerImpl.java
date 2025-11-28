@@ -11,7 +11,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PlannerGroups;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -44,10 +44,10 @@ public class JoinTaskPlannerImpl extends AbstractPlannerImpl {
                                ClusterProvider clusterProvider,
                                TaskLinkManager taskLinkManager,
                                TaskRepository taskRepository,
-                               MetricHelper metricHelper,
+                               DistributedTaskMetricHelper distributedTaskMetricHelper,
                                JoinTaskStatHelper statHelper,
                                Clock clock) {
-        super(commonSettings, plannerRepository, transactionManager, clusterProvider, metricHelper);
+        super(commonSettings, plannerRepository, transactionManager, clusterProvider, distributedTaskMetricHelper);
         this.taskLinkManager = taskLinkManager;
         this.taskRepository = taskRepository;
         this.statHelper = statHelper;

@@ -7,7 +7,7 @@ import com.distributed_task_framework.model.PlannedTask;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PlannerGroups;
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
@@ -48,7 +48,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class VirtualQueueStatHelper {
+public class VirtualQueueStatService {
     @Getter
     @RequiredArgsConstructor
     public enum NodeLoading {
@@ -62,7 +62,7 @@ public class VirtualQueueStatHelper {
     TaskRegistryService taskRegistryService;
     TaskRepository taskRepository;
     TaskMapper taskMapper;
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
     MeterRegistry meterRegistry;
     AtomicReference<ImmutableList<AggregatedTaskStat>> aggregatedStatRef;
     Map<UUID, Meter.Id> overloadedNodeToMeter;
@@ -78,29 +78,29 @@ public class VirtualQueueStatHelper {
     Timer aggregatedStatCalculationTimer;
     PlannerService plannerService;
 
-    public VirtualQueueStatHelper(PlannerService plannerService,
-                                  CommonSettings commonSettings,
-                                  TaskRegistryService taskRegistryService,
-                                  TaskRepository taskRepository,
-                                  TaskMapper taskMapper,
-                                  MetricHelper metricHelper,
-                                  MeterRegistry meterRegistry) {
+    public VirtualQueueStatService(PlannerService plannerService,
+                                   CommonSettings commonSettings,
+                                   TaskRegistryService taskRegistryService,
+                                   TaskRepository taskRepository,
+                                   TaskMapper taskMapper,
+                                   DistributedTaskMetricHelper distributedTaskMetricHelper,
+                                   MeterRegistry meterRegistry) {
         this.plannerService = plannerService;
         this.commonSettings = commonSettings;
         this.taskRegistryService = taskRegistryService;
         this.taskRepository = taskRepository;
         this.taskMapper = taskMapper;
-        this.metricHelper = metricHelper;
+        this.distributedTaskMetricHelper = distributedTaskMetricHelper;
         this.meterRegistry = meterRegistry;
         this.aggregatedStatRef = new AtomicReference<>(ImmutableList.of());
         this.overloadedNodeToMeter = Maps.newHashMap();
         this.overloadedNodesRef = new AtomicReference<>(Set.of());
-        this.aggregatedStatCalculationTimer = metricHelper.timer("aggregatedStatCalculation", "time");
-        this.allTasksGaugeName = metricHelper.buildName("planner", "task", "all");
-        this.notToPlanGaugeName = metricHelper.buildName("planner", "task", "notToPlan");
-        this.movedCounterName = metricHelper.buildName("planner", "task", "moved");
-        this.plannedCounterName = metricHelper.buildName("planner", "task", "planned");
-        this.overloadedNodesGaugeName = metricHelper.buildName("planner", "nodes", "overloaded");
+        this.aggregatedStatCalculationTimer = distributedTaskMetricHelper.timer("aggregatedStatCalculation", "time");
+        this.allTasksGaugeName = distributedTaskMetricHelper.buildName("planner", "task", "all");
+        this.notToPlanGaugeName = distributedTaskMetricHelper.buildName("planner", "task", "notToPlan");
+        this.movedCounterName = distributedTaskMetricHelper.buildName("planner", "task", "moved");
+        this.plannedCounterName = distributedTaskMetricHelper.buildName("planner", "task", "planned");
+        this.overloadedNodesGaugeName = distributedTaskMetricHelper.buildName("planner", "nodes", "overloaded");
         this.commonManagerTags = List.of(Tag.of("group", PlannerGroups.VQB_MANAGER.getName()));
         this.commonPlannerTags = List.of(Tag.of("group", PlannerGroups.DEFAULT.getName()));
         this.watchdogExecutorService = Executors.newSingleThreadScheduledExecutor(
@@ -210,8 +210,8 @@ public class VirtualQueueStatHelper {
     private Collection<Tag> buildTags(AggregatedTaskStat stat) {
         return ImmutableList.<Tag>builder()
             .addAll(commonManagerTags)
-            .add(metricHelper.buildAffinityGroupTag(stat.getAffinityGroupName()))
-            .add(metricHelper.buildVirtualQueueTag(stat.getVirtualQueue()))
+            .add(distributedTaskMetricHelper.buildAffinityGroupTag(stat.getAffinityGroupName()))
+            .add(distributedTaskMetricHelper.buildVirtualQueueTag(stat.getVirtualQueue()))
             .add(Tag.of("task_name", stat.getTaskName()))
             .build();
     }
@@ -271,8 +271,8 @@ public class VirtualQueueStatHelper {
                     Partition partition = entry.getKey();
                     List<Tag> tags = ImmutableList.<Tag>builder()
                         .addAll(commonManagerTags)
-                        .add(metricHelper.buildVirtualQueueTag(virtualQueue))
-                        .add(metricHelper.buildAffinityGroupTag(partition.getAffinityGroup()))
+                        .add(distributedTaskMetricHelper.buildVirtualQueueTag(virtualQueue))
+                        .add(distributedTaskMetricHelper.buildAffinityGroupTag(partition.getAffinityGroup()))
                         .add(Tag.of("task_name", partition.getTaskName()))
                         .build();
                     Counter.builder(movedCounterName)
@@ -299,7 +299,7 @@ public class VirtualQueueStatHelper {
             final PlannedTask plannedTask = entry.getKey();
             List<Tag> tags = ImmutableList.<Tag>builder()
                 .addAll(commonPlannerTags)
-                .add(metricHelper.buildAffinityGroupTag(plannedTask.affinityGroup()))
+                .add(distributedTaskMetricHelper.buildAffinityGroupTag(plannedTask.affinityGroup()))
                 .add(Tag.of("task_name", plannedTask.taskName()))
                 .add(Tag.of("worker_id", plannedTask.workerId().toString()))
                 .build();

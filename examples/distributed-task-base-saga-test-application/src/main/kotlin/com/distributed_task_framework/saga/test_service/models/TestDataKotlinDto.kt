@@ -6,14 +6,14 @@ import java.time.Duration
 
 @Validated
 data class TestDataKotlinDto(
-    var id: @NotEmpty Long? = null,
-    var version: @NotEmpty Long? = null,
+    var id: @NotEmpty Long,
+    var version: @NotEmpty Long,
 
-    var remoteServiceOneId: @NotEmpty String? = null,
-    var remoteOneData: @NotEmpty String? = null,
+    var remoteServiceOneId: @NotEmpty String,
+    var remoteOneData: @NotEmpty String,
 
-    var remoteServiceTwoId: @NotEmpty String? = null,
-    var remoteTwoData: @NotEmpty String? = null,
+    var remoteServiceTwoId: @NotEmpty String,
+    var remoteTwoData: @NotEmpty String,
 
     var throwExceptionOnLevel: Int? = null,
 

@@ -157,13 +157,15 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
             deleted_at IS NULL
             AND virtual_queue != 'DELETED'::_____dtf_virtual_queue_type
             AND canceled = FALSE
+            AND NOT (task_name = ANY( (:excludedTaskNames)::varchar[] ))
         )
         """;
 
     @Override
-    public Collection<TaskIdEntity> findAllNotDeletedAndNotCanceled() {
+    public Collection<TaskIdEntity> findAllNotDeletedAndNotCanceled(Set<String> excludedTaskNames) {
         return namedParameterJdbcTemplate.query(
             FIND_ALL_NOT_DELETED,
+            SqlParameters.of("excludedTaskNames", JdbcTools.toArray(excludedTaskNames), Types.ARRAY),
             TaskIdEntity.TASK_ID_ROW_MAPPER
         );
     }

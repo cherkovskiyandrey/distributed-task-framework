@@ -21,7 +21,6 @@ import com.distributed_task_framework.persistence.repository.RemoteCommandReposi
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
@@ -32,7 +31,7 @@ import com.distributed_task_framework.service.impl.InternalTaskCommandServiceImp
 import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
-import com.distributed_task_framework.service.impl.MetricHelperImpl;
+import com.distributed_task_framework.service.impl.DistributedTaskMetricHelperImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.TaskCommandStatServiceImpl;
@@ -40,7 +39,7 @@ import com.distributed_task_framework.service.impl.TaskLinkManagerImpl;
 import com.distributed_task_framework.service.impl.TaskRegistryServiceImpl;
 import com.distributed_task_framework.service.impl.TaskWorkerFactoryImpl;
 import com.distributed_task_framework.service.impl.VirtualQueueBaseTaskCommandServiceImpl;
-import com.distributed_task_framework.service.impl.VirtualQueueStatHelper;
+import com.distributed_task_framework.service.impl.VirtualQueueStatService;
 import com.distributed_task_framework.service.impl.WorkerContextManagerImpl;
 import com.distributed_task_framework.service.impl.WorkerManagerImpl;
 import com.distributed_task_framework.service.impl.workers.LocalAtLeastOnceWorker;
@@ -50,7 +49,7 @@ import com.distributed_task_framework.service.internal.CapabilityRegisterProvide
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskCommandStatService;
@@ -67,6 +66,7 @@ import com.distributed_task_framework.settings.Fixed;
 import com.distributed_task_framework.settings.Retry;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.utils.DistributedTaskNoCacheManager;
 import com.distributed_task_framework.utils.TestClock;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -345,13 +345,15 @@ public class BaseTestConfiguration {
                                                    RegisteredTaskRepository registeredTaskRepository,
                                                    PlatformTransactionManager transactionManager,
                                                    DistributedTaskCacheManager distributedTaskCacheManager,
-                                                   ClusterProvider clusterProvider) {
+                                                   ClusterProvider clusterProvider,
+                                                   CronService cronService) {
         return new TaskRegistryServiceImpl(
             commonSettings,
             registeredTaskRepository,
             transactionManager,
             distributedTaskCacheManager,
-            clusterProvider
+            clusterProvider,
+            cronService
         );
     }
 
@@ -392,8 +394,8 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public MetricHelper metricHelper(MeterRegistry meterRegistry) {
-        return new MetricHelperImpl(meterRegistry);
+    public DistributedTaskMetricHelper metricHelper(MeterRegistry meterRegistry) {
+        return new DistributedTaskMetricHelperImpl(meterRegistry);
     }
 
     @Bean
@@ -409,28 +411,28 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public VirtualQueueStatHelper virtualQueueStatHelper(@Lazy @Qualifier("virtualQueueManagerPlanner")
-                                                         PlannerService plannerService,
-                                                         CommonSettings commonSettings,
-                                                         TaskRegistryService taskRegistryService,
-                                                         TaskRepository taskRepository,
-                                                         TaskMapper taskMapper,
-                                                         MetricHelper metricHelper,
-                                                         MeterRegistry meterRegistry) {
-        return new VirtualQueueStatHelper(
+    public VirtualQueueStatService virtualQueueStatHelper(@Lazy @Qualifier("virtualQueueManagerPlanner")
+                                                          PlannerService plannerService,
+                                                          CommonSettings commonSettings,
+                                                          TaskRegistryService taskRegistryService,
+                                                          TaskRepository taskRepository,
+                                                          TaskMapper taskMapper,
+                                                          DistributedTaskMetricHelper distributedTaskMetricHelper,
+                                                          MeterRegistry meterRegistry) {
+        return new VirtualQueueStatService(
             plannerService,
             commonSettings,
             taskRegistryService,
             taskRepository,
             taskMapper,
-            metricHelper,
+            distributedTaskMetricHelper,
             meterRegistry
         );
     }
 
     @Bean
-    public JoinTaskStatHelper joinTaskStatHelper(MetricHelper metricHelper) {
-        return new JoinTaskStatHelper(metricHelper);
+    public JoinTaskStatHelper joinTaskStatHelper(DistributedTaskMetricHelper distributedTaskMetricHelper) {
+        return new JoinTaskStatHelper(distributedTaskMetricHelper);
     }
 
     @Bean
@@ -469,9 +471,9 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public TaskCommandStatService taskCommandStatService(MetricHelper metricHelper) {
+    public TaskCommandStatService taskCommandStatService(DistributedTaskMetricHelper distributedTaskMetricHelper) {
         return new TaskCommandStatServiceImpl(
-            metricHelper
+            distributedTaskMetricHelper
         );
     }
 
@@ -566,7 +568,7 @@ public class BaseTestConfiguration {
                                                          TaskMapper taskMapper,
                                                          CommonSettings commonSettings,
                                                          TaskLinkManager taskLinkManager,
-                                                         MetricHelper metricHelper,
+                                                         DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                          Clock clock) {
         return new LocalAtLeastOnceWorker(
             clusterProvider,
@@ -581,7 +583,7 @@ public class BaseTestConfiguration {
             taskMapper,
             commonSettings,
             taskLinkManager,
-            metricHelper,
+            distributedTaskMetricHelper,
             clock
         );
     }
@@ -600,7 +602,7 @@ public class BaseTestConfiguration {
                                                          TaskMapper taskMapper,
                                                          CommonSettings commonSettings,
                                                          TaskLinkManager taskLinkManager,
-                                                         MetricHelper metricHelper,
+                                                         DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                          Clock clock) {
         return new LocalExactlyOnceWorker(
             clusterProvider,
@@ -615,7 +617,7 @@ public class BaseTestConfiguration {
             taskMapper,
             commonSettings,
             taskLinkManager,
-            metricHelper,
+            distributedTaskMetricHelper,
             clock
         );
     }
@@ -633,7 +635,7 @@ public class BaseTestConfiguration {
                                        TaskRepository taskRepository,
                                        TaskMapper taskMapper,
                                        Clock clock,
-                                       MetricHelper metricHelper) {
+                                       DistributedTaskMetricHelper distributedTaskMetricHelper) {
         return new WorkerManagerImpl(
             commonSettings,
             clusterProvider,
@@ -642,7 +644,7 @@ public class BaseTestConfiguration {
             taskRepository,
             taskMapper,
             clock,
-            metricHelper
+            distributedTaskMetricHelper
         );
     }
 

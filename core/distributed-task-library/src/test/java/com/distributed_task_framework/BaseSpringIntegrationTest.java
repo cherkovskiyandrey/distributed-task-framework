@@ -33,7 +33,8 @@ import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.ExtendedTaskGenerator;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.MetricTestHelper;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModel;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import com.distributed_task_framework.utils.DistributedTaskCache;
@@ -41,6 +42,7 @@ import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.utils.Postgresql16Initializer;
 import com.distributed_task_framework.utils.TestClock;
 import com.google.common.collect.Lists;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -382,6 +384,11 @@ public abstract class BaseSpringIntegrationTest {
         @Bean
         public ExtendedTaskGenerator extendedTaskGenerator(TaskRegistryService taskRegistryService) {
             return new ExtendedTaskGenerator(taskRegistryService);
+        }
+
+        @Bean
+        public MetricTestHelper metricTestHelper(MeterRegistry meterRegistry) {
+            return new MetricTestHelper(meterRegistry);
         }
     }
 }

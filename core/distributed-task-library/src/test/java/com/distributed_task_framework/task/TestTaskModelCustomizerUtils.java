@@ -3,6 +3,7 @@ package com.distributed_task_framework.task;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import com.distributed_task_framework.utils.TaskGenerator;
 import lombok.experimental.UtilityClass;
 
 import java.time.LocalDateTime;

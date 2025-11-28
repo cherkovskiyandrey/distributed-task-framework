@@ -40,7 +40,7 @@ import com.distributed_task_framework.service.impl.JoinTaskPlannerImpl;
 import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
-import com.distributed_task_framework.service.impl.MetricHelperImpl;
+import com.distributed_task_framework.service.impl.DistributedTaskMetricHelperImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.TaskCommandStatServiceImpl;
@@ -51,7 +51,7 @@ import com.distributed_task_framework.service.impl.TaskWorkerFactoryImpl;
 import com.distributed_task_framework.service.impl.VirtualQueueBaseFairTaskPlannerImpl;
 import com.distributed_task_framework.service.impl.VirtualQueueBaseTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.VirtualQueueManagerPlannerImpl;
-import com.distributed_task_framework.service.impl.VirtualQueueStatHelper;
+import com.distributed_task_framework.service.impl.VirtualQueueStatService;
 import com.distributed_task_framework.service.impl.WorkerContextManagerImpl;
 import com.distributed_task_framework.service.impl.WorkerManagerImpl;
 import com.distributed_task_framework.service.impl.workers.LocalAtLeastOnceWorker;
@@ -62,7 +62,7 @@ import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.DeliveryManager;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskCommandStatService;
@@ -82,7 +82,9 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.AccessLevel;
@@ -154,9 +156,10 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 @ComponentScan(basePackageClasses = CommonSettingsMerger.class)
 public class DistributedTaskAutoconfigure {
     private static final String INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME = "internalDistributedTaskCacheManager";
-    private static final String VIRTUAL_QUEUE_MANAGER_PLANNER_NAME = "virtualQueueManagerPlanner";
-    private static final String VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_NAME = "virtualQueueBaseFairTaskPlanner";
-    private static final String JOIN_TASK_PLANNER_SERVICE_NAME = "joinTaskPlannerService";
+
+    public static final String VIRTUAL_QUEUE_MANAGER_PLANNER_NAME = "virtualQueueManagerPlanner";
+    public static final String VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_NAME = "virtualQueueBaseFairTaskPlanner";
+    public static final String JOIN_TASK_PLANNER_SERVICE_NAME = "joinTaskPlannerService";
 
     @Bean
     @ConditionalOnMissingBean
@@ -365,13 +368,15 @@ public class DistributedTaskAutoconfigure {
                                                    RegisteredTaskRepository registeredTaskRepository,
                                                    @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                    @Qualifier(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager distributedTaskCacheManager,
-                                                   ClusterProvider clusterProvider) {
+                                                   ClusterProvider clusterProvider,
+                                                   CronService cronService) {
         return new TaskRegistryServiceImpl(
             commonSettings,
             registeredTaskRepository,
             transactionManager,
             distributedTaskCacheManager,
-            clusterProvider
+            clusterProvider,
+            cronService
         );
     }
 
@@ -386,6 +391,8 @@ public class DistributedTaskAutoconfigure {
         objectMapper.configure(SerializationFeature.WRITE_SELF_REFERENCES_AS_NULL, true);
         objectMapper.configure(SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS, false);
         objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.registerModule(new Jdk8Module());
+        objectMapper.registerModule(new KotlinModule.Builder().build());
         return objectMapper;
     }
 
@@ -415,35 +422,35 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    public MetricHelper metricHelper(MeterRegistry meterRegistry) {
-        return new MetricHelperImpl(meterRegistry);
+    public DistributedTaskMetricHelper metricHelper(MeterRegistry meterRegistry) {
+        return new DistributedTaskMetricHelperImpl(meterRegistry);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public VirtualQueueStatHelper virtualQueueStatHelper(@Lazy @Qualifier(VIRTUAL_QUEUE_MANAGER_PLANNER_NAME)
-                                                         PlannerService plannerService,
-                                                         CommonSettings commonSettings,
-                                                         TaskRegistryService taskRegistryService,
-                                                         TaskRepository taskRepository,
-                                                         TaskMapper taskMapper,
-                                                         MetricHelper metricHelper,
-                                                         MeterRegistry meterRegistry) {
-        return new VirtualQueueStatHelper(
+    public VirtualQueueStatService virtualQueueStatHelper(@Lazy @Qualifier(VIRTUAL_QUEUE_MANAGER_PLANNER_NAME)
+                                                          PlannerService plannerService,
+                                                          CommonSettings commonSettings,
+                                                          TaskRegistryService taskRegistryService,
+                                                          TaskRepository taskRepository,
+                                                          TaskMapper taskMapper,
+                                                          DistributedTaskMetricHelper distributedTaskMetricHelper,
+                                                          MeterRegistry meterRegistry) {
+        return new VirtualQueueStatService(
             plannerService,
             commonSettings,
             taskRegistryService,
             taskRepository,
             taskMapper,
-            metricHelper,
+            distributedTaskMetricHelper,
             meterRegistry
         );
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public JoinTaskStatHelper joinTaskStatHelper(MetricHelper metricHelper) {
-        return new JoinTaskStatHelper(metricHelper);
+    public JoinTaskStatHelper joinTaskStatHelper(DistributedTaskMetricHelper distributedTaskMetricHelper) {
+        return new JoinTaskStatHelper(distributedTaskMetricHelper);
     }
 
     @Bean
@@ -456,8 +463,8 @@ public class DistributedTaskAutoconfigure {
                                                                      TaskRepository taskRepository,
                                                                      PartitionTracker partitionTracker,
                                                                      TaskMapper taskMapper,
-                                                                     VirtualQueueStatHelper virtualQueueStatHelper,
-                                                                     MetricHelper metricHelper) {
+                                                                     VirtualQueueStatService virtualQueueStatService,
+                                                                     DistributedTaskMetricHelper distributedTaskMetricHelper) {
         return new VirtualQueueManagerPlannerImpl(
             commonSettings,
             plannerRepository,
@@ -466,8 +473,8 @@ public class DistributedTaskAutoconfigure {
             taskRepository,
             partitionTracker,
             taskMapper,
-            virtualQueueStatHelper,
-            metricHelper
+            virtualQueueStatService,
+            distributedTaskMetricHelper
         );
     }
 
@@ -488,9 +495,9 @@ public class DistributedTaskAutoconfigure {
                                                                                PartitionTracker partitionTracker,
                                                                                TaskRegistryService taskRegistryService,
                                                                                TaskRouter taskRouter,
-                                                                               VirtualQueueStatHelper virtualQueueStatHelper,
+                                                                               VirtualQueueStatService virtualQueueStatService,
                                                                                Clock clock,
-                                                                               MetricHelper metricHelper) {
+                                                                               DistributedTaskMetricHelper distributedTaskMetricHelper) {
         return new VirtualQueueBaseFairTaskPlannerImpl(
             commonSettings,
             plannerRepository,
@@ -500,9 +507,9 @@ public class DistributedTaskAutoconfigure {
             partitionTracker,
             taskRegistryService,
             taskRouter,
-            virtualQueueStatHelper,
+            virtualQueueStatService,
             clock,
-            metricHelper
+            distributedTaskMetricHelper
         );
     }
 
@@ -515,7 +522,7 @@ public class DistributedTaskAutoconfigure {
                                                       ClusterProvider clusterProvider,
                                                       TaskLinkManager taskLinkManager,
                                                       TaskRepository taskRepository,
-                                                      MetricHelper metricHelper,
+                                                      DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                       JoinTaskStatHelper statHelper,
                                                       Clock clock) {
         return new JoinTaskPlannerImpl(
@@ -525,7 +532,7 @@ public class DistributedTaskAutoconfigure {
             clusterProvider,
             taskLinkManager,
             taskRepository,
-            metricHelper,
+            distributedTaskMetricHelper,
             statHelper,
             clock
         );
@@ -571,8 +578,8 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    public TaskCommandStatService taskCommandStatService(MetricHelper metricHelper) {
-        return new TaskCommandStatServiceImpl(metricHelper);
+    public TaskCommandStatService taskCommandStatService(DistributedTaskMetricHelper distributedTaskMetricHelper) {
+        return new TaskCommandStatServiceImpl(distributedTaskMetricHelper);
     }
 
     @Bean
@@ -698,7 +705,7 @@ public class DistributedTaskAutoconfigure {
                                                          TaskMapper taskMapper,
                                                          CommonSettings commonSettings,
                                                          TaskLinkManager taskLinkManager,
-                                                         MetricHelper metricHelper,
+                                                         DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                          Clock clock) {
         return new LocalAtLeastOnceWorker(
             clusterProvider,
@@ -713,7 +720,7 @@ public class DistributedTaskAutoconfigure {
             taskMapper,
             commonSettings,
             taskLinkManager,
-            metricHelper,
+            distributedTaskMetricHelper,
             clock
         );
     }
@@ -732,7 +739,7 @@ public class DistributedTaskAutoconfigure {
                                                          TaskMapper taskMapper,
                                                          CommonSettings commonSettings,
                                                          TaskLinkManager taskLinkManager,
-                                                         MetricHelper metricHelper,
+                                                         DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                          Clock clock) {
         return new LocalExactlyOnceWorker(
             clusterProvider,
@@ -747,7 +754,7 @@ public class DistributedTaskAutoconfigure {
             taskMapper,
             commonSettings,
             taskLinkManager,
-            metricHelper,
+            distributedTaskMetricHelper,
             clock
         );
     }
@@ -767,7 +774,7 @@ public class DistributedTaskAutoconfigure {
                                        TaskRepository taskRepository,
                                        TaskMapper taskMapper,
                                        Clock clock,
-                                       MetricHelper metricHelper) {
+                                       DistributedTaskMetricHelper distributedTaskMetricHelper) {
         return new WorkerManagerImpl(
             commonSettings,
             clusterProvider,
@@ -776,7 +783,7 @@ public class DistributedTaskAutoconfigure {
             taskRepository,
             taskMapper,
             clock,
-            metricHelper
+            distributedTaskMetricHelper
         );
     }
 

@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -196,5 +197,18 @@ public class SagaResolverImpl implements SagaResolver {
     public TaskDef<SagaPipeline> resolveByTaskName(String taskName) {
         return taskRegistryService.<SagaPipeline>getRegisteredLocalTaskDef(taskName)
             .orElseThrow(() -> new SagaTaskNotFoundException(taskName));
+    }
+
+    @Override
+    public Optional<TaskDef<SagaPipeline>> resolveByTaskNameIfExists(String taskName) {
+        return taskRegistryService.getRegisteredLocalTaskDef(taskName);
+    }
+
+    @Override
+    public TaskDef<SagaPipeline> resolveByTaskNameInCluster(String taskName) {
+        if (taskRegistryService.hasClusterRegisteredTaskByName(taskName)) {
+            return TaskDef.privateTaskDef(taskName, SagaPipeline.class);
+        }
+        throw new SagaTaskNotFoundException(taskName);
     }
 }

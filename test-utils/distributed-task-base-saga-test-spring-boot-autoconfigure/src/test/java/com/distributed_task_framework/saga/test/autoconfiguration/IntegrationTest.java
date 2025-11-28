@@ -25,13 +25,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.stream.IntStream;
 
+import static com.distributed_task_framework.saga.services.impl.SagaManagerImpl.INTERNAL_SAGA_MANAGER_TASK_DEF;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-//todo: use this library in order to check it for example in distributed-task-test-application
-//TODO: add metrics to check sagas !!!
+//todo: use this library in order to check it for example in distributed-task-test-application (-)
 @ActiveProfiles("test")
 @SpringBootTest(
     properties = {
@@ -97,8 +98,18 @@ class IntegrationTest {
         sagaTestUtil.reinitAndWait(5, Duration.ofSeconds(5));
 
         //verify
-        assertThat(workerManager.getCurrentActiveTasks()).isEqualTo(0L);
-        assertThat(taskRepository.count()).isEqualTo(0L);
+        assertThat(workerManager.getCurrentActiveTaskIds()).allMatch(taskId -> Objects.equals(
+                taskId.getTaskName(),
+                INTERNAL_SAGA_MANAGER_TASK_DEF.getTaskName()
+            )
+        );
+        assertThat(taskRepository.findAll())
+            .singleElement()
+            .matches(taskEntity -> Objects.equals(
+                    taskEntity.getTaskName(),
+                    INTERNAL_SAGA_MANAGER_TASK_DEF.getTaskName()
+                )
+            );
         assertThat(dltRepository.count()).isEqualTo(0L);
 
         assertThat(sagaRepository.count()).isEqualTo(0L);

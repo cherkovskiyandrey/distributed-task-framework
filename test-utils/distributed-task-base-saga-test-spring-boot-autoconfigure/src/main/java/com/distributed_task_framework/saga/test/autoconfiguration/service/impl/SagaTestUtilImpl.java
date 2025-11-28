@@ -10,6 +10,9 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
+import java.util.List;
+
+import static com.distributed_task_framework.saga.services.impl.SagaManagerImpl.INTERNAL_SAGA_MANAGER_TASK_DEF;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -32,7 +35,11 @@ public class SagaTestUtilImpl implements SagaTestUtil {
     @Override
     public void reinitAndWait(int attemptsToCancel, Duration duration) throws InterruptedException {
         log.info("reinitAndWait(): begin");
-        distributedTaskTestUtil.reinitAndWait(attemptsToCancel, duration);
+        distributedTaskTestUtil.reinitAndWait(
+            attemptsToCancel,
+            duration,
+            List.of(INTERNAL_SAGA_MANAGER_TASK_DEF)
+        );
         sagaRepository.deleteAll();
         dlsSagaContextRepository.deleteAll();
         log.info("reinitAndWait(): end");

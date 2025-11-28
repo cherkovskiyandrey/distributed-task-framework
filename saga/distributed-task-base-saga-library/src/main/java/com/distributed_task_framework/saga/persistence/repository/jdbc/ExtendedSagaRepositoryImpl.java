@@ -1,5 +1,6 @@
 package com.distributed_task_framework.saga.persistence.repository.jdbc;
 
+import com.distributed_task_framework.saga.persistence.entities.AggregatedSagaStat;
 import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
 import com.distributed_task_framework.saga.persistence.entities.ShortSagaEntity;
 import com.distributed_task_framework.saga.persistence.repository.ExtendedSagaRepository;
@@ -14,6 +15,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.sql.Types;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -155,12 +157,15 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
         WHERE
             completed_date_utc IS NULL
             AND expiration_date_utc <= :expirationDateUtc
+        LIMIT :batchSize
         """;
 
     @Override
-    public List<SagaEntity> findExpired() {
-        var mapSqlParameterSource = new MapSqlParameterSource();
-        mapSqlParameterSource.addValue(SagaEntity.Fields.expirationDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP);
+    public List<SagaEntity> findExpired(Integer batchSize) {
+        var mapSqlParameterSource = SqlParameters.of(
+            SagaEntity.Fields.expirationDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP,
+            "batchSize", batchSize, Types.INTEGER
+        );
         return namedParameterJdbcTemplate.query(
             FIND_EXPIRED,
             mapSqlParameterSource,
@@ -184,20 +189,136 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
 
 
     //language=postgresql
-    private static final String REMOVE_EXPIRED_RESULT = """
+    private static final String REMOVE_COMPLETED_RESULT = """
         DELETE FROM _____dtf_saga
         WHERE
             completed_date_utc IS NOT NULL
-            AND date_add(completed_date_utc, make_interval(secs => available_after_completion_timeout_sec)) < :timeThreshold
-        RETURNING saga_id
+            AND expiration_date_utc < :timeThreshold
+        RETURNING
+            saga_id,
+            name,
+            created_date_utc,
+            completed_date_utc,
+            expiration_date_utc,
+            canceled,
+            stop_on_failed_any_revert,
+            root_task_id
         """;
 
     @Override
-    public List<UUID> removeCompleted() {
-        return namedParameterJdbcTemplate.queryForList(
-            REMOVE_EXPIRED_RESULT,
+    public List<ShortSagaEntity> removeCompleted() {
+        return namedParameterJdbcTemplate.query(
+            REMOVE_COMPLETED_RESULT,
             SqlParameters.of("timeThreshold", LocalDateTime.now(clock), Types.TIMESTAMP),
-            UUID.class
+            ShortSagaEntity.SHORT_SAGA_ROW_MAPPER
+        );
+    }
+
+
+    //language=postgresql
+    private static final String STATE_TEMPLATE = """
+        CASE
+            WHEN
+                completed_date_utc IS NULL
+                AND expiration_date_utc > :expirationDateUtc
+            THEN '{active}'
+            WHEN
+                completed_date_utc IS NOT NULL
+                AND expiration_date_utc > :expirationDateUtc
+            THEN '{completed}'
+            WHEN
+                completed_date_utc IS NOT NULL
+                AND expiration_date_utc <= :expirationDateUtc
+                AND expiration_date_utc > :timeToCleanDateUtc
+            THEN '{completed_cleaning}'
+            WHEN
+                completed_date_utc IS NOT NULL
+                AND expiration_date_utc <= :timeToCleanDateUtc
+            THEN '{completed_not_cleaned}'
+            WHEN
+                completed_date_utc IS NULL
+                AND expiration_date_utc <= :expirationDateUtc
+                AND expiration_date_utc > :timeToCleanDateUtc
+            THEN '{expired}'
+            WHEN
+                completed_date_utc IS NULL
+                AND expiration_date_utc <= :timeToCleanDateUtc
+            THEN '{expired_not_cleaned}'
+            ELSE '{undefined}'
+        END
+        """.replace("{active}", AggregatedSagaStat.State.ACTIVE.name())
+            .replace("{completed}", AggregatedSagaStat.State.COMPLETED.name())
+            .replace("{completed_cleaning}", AggregatedSagaStat.State.COMPLETED_CLEANING.name())
+            .replace("{completed_not_cleaned}", AggregatedSagaStat.State.COMPLETED_NOT_CLEANED.name())
+            .replace("{expired}", AggregatedSagaStat.State.EXPIRED.name())
+            .replace("{expired_not_cleaned}", AggregatedSagaStat.State.EXPIRED_NOT_CLEANED.name())
+            .replace("{undefined}", AggregatedSagaStat.State.UNDEFINED.name());
+
+
+    //language=postgresql
+    private static final String SELECT_AGGREGATED_SAGA_STAT = """
+        SELECT
+            {STATE} as state,
+            count(1) as number
+        FROM _____dtf_saga
+        GROUP BY state;
+        """.replace("{STATE}", STATE_TEMPLATE);
+
+    @Override
+    public List<AggregatedSagaStat> getAggregatedSagaStat(Duration timeToClean) {
+        var now = LocalDateTime.now(clock);
+        var sqlParameters = SqlParameters.of(
+            SagaEntity.Fields.expirationDateUtc, now, Types.TIMESTAMP,
+            "timeToCleanDateUtc", now.minus(timeToClean), Types.TIMESTAMP
+        );
+        return namedParameterJdbcTemplate.query(
+            SELECT_AGGREGATED_SAGA_STAT,
+            sqlParameters,
+            AggregatedSagaStat.SAGA_CONTEXT_ENTITY_MAPPER
+        );
+    }
+
+
+    //language=postgresql
+    private static final String SELECT_AGGREGATED_TOP_N_SAGA_STAT = """
+        WITH saga_with_states as (
+            SELECT
+                {STATE} as state,
+                name
+            FROM _____dtf_saga
+        ), saga_with_states_ranked as (
+            SELECT
+                state,
+                name,
+                count(1) as number,
+                row_number() over (
+                    partition by state
+                    order by count(1) desc, name
+                ) name_rank
+            FROM saga_with_states
+            GROUP BY state, name
+        )
+        SELECT
+            state,
+            name,
+            number
+        FROM saga_with_states_ranked
+        WHERE name_rank <= :tonNSize
+        ORDER BY state, number desc
+        """.replace("{STATE}", STATE_TEMPLATE);
+
+    @Override
+    public List<AggregatedSagaStat> getAggregatedTopNSagaStat(Integer tonNSize, Duration timeToClean) {
+        var now = LocalDateTime.now(clock);
+        var sqlParameters = SqlParameters.of(
+            SagaEntity.Fields.expirationDateUtc, now, Types.TIMESTAMP,
+            "timeToCleanDateUtc", now.minus(timeToClean), Types.TIMESTAMP,
+            "tonNSize", tonNSize, Types.INTEGER
+        );
+        return namedParameterJdbcTemplate.query(
+            SELECT_AGGREGATED_TOP_N_SAGA_STAT,
+            sqlParameters,
+            AggregatedSagaStat.SAGA_CONTEXT_ENTITY_MAPPER
         );
     }
 

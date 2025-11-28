@@ -326,7 +326,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
             execution_date_utc = :executionDateUtc
         WHERE
         (
-            _____dtf_tasks.workflow_id = ANY( (:workflowId)::uuid[] )
+            workflow_id = ANY( (:workflowId)::uuid[] )
             AND NOT (id = ANY( (:ids)::uuid[] ))
             AND deleted_at ISNULL
         )

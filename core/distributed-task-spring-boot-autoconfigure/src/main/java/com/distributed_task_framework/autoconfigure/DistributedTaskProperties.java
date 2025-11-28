@@ -264,7 +264,7 @@ public class DistributedTaskProperties {
          */
         Boolean dltEnabled; //@TaskDltEnable
         /**
-         * Cron string.
+         * Cron string or time duration string {@link Duration#parse(CharSequence)}
          */
         String cron; // @TaskSchedule
         /**

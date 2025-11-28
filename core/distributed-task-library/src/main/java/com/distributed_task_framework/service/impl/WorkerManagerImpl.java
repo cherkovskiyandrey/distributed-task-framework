@@ -6,7 +6,7 @@ import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import com.distributed_task_framework.service.internal.TaskWorkerFactory;
@@ -73,7 +73,7 @@ public class WorkerManagerImpl implements WorkerManager {
     ExecutorService workersExecutorService;
     TaskMapper taskMapper;
     Clock clock;
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
 
     public WorkerManagerImpl(CommonSettings commonSettings,
                              ClusterProvider clusterProvider,
@@ -82,7 +82,7 @@ public class WorkerManagerImpl implements WorkerManager {
                              TaskRepository taskRepository,
                              TaskMapper taskMapper,
                              Clock clock,
-                             MetricHelper metricHelper) {
+                             DistributedTaskMetricHelper distributedTaskMetricHelper) {
         this.commonSettings = commonSettings;
         this.clusterProvider = clusterProvider;
         this.workerManagerSettings = commonSettings.getWorkerManagerSettings();
@@ -94,7 +94,7 @@ public class WorkerManagerImpl implements WorkerManager {
         this.activeTasks = Maps.newHashMap();
         this.expiredDateToTask = MultimapBuilder.treeKeys().arrayListValues().build();
         this.interruptedTasks = Sets.newHashSet();
-        this.metricHelper = metricHelper;
+        this.distributedTaskMetricHelper = distributedTaskMetricHelper;
         this.workerManagerExecutorService = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
             .setDaemon(false)
             .setNameFormat("worker-mng-%d")
@@ -337,12 +337,17 @@ public class WorkerManagerImpl implements WorkerManager {
         return activeTasks.size();
     }
 
+    @Override
+    public List<TaskId> getCurrentActiveTaskIds() {
+        return Lists.newArrayList(activeTasks.keySet());
+    }
+
     private Timer getManageTimer() {
-        return metricHelper.timer("workerManager", "manage", "time");
+        return distributedTaskMetricHelper.timer("workerManager", "manage", "time");
     }
 
     private Counter getUnknownTaskCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(
+        return distributedTaskMetricHelper.counter(
             List.of("workerManager", "unknown"),
             List.of(),
             taskEntity
@@ -350,10 +355,10 @@ public class WorkerManagerImpl implements WorkerManager {
     }
 
     private Counter getManagedTasks() {
-        return metricHelper.counter("workerManager", "managed");
+        return distributedTaskMetricHelper.counter("workerManager", "managed");
     }
 
     private Counter getExpiredTasksCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(List.of("workerManager", "expiredTasks"), Collections.emptyList(), taskEntity);
+        return distributedTaskMetricHelper.counter(List.of("workerManager", "expiredTasks"), Collections.emptyList(), taskEntity);
     }
 }

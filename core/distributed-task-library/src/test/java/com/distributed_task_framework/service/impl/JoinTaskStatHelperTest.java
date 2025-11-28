@@ -35,7 +35,7 @@ class JoinTaskStatHelperTest extends BaseMetricTest {
         );
 
         //verify
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
                 "planner.optLock.changed",
                 METER_BY_GROUP_AND_NAME,
                 Tuple.tuple(PlannerGroups.JOIN.getName(), "default", "task-1", 1),
@@ -55,7 +55,7 @@ class JoinTaskStatHelperTest extends BaseMetricTest {
         joinTaskStatHelper.updatePlannedTasks(List.of(taskEntity, taskEntityWithGroup));
 
         //verify
-        assertMetricToContain(
+        metricTestHelper.assertMetricToContain(
                 "planner.task.planned",
                 METER_BY_GROUP_AND_NAME,
                 Tuple.tuple(PlannerGroups.JOIN.getName(), "default", "task-1", 1),

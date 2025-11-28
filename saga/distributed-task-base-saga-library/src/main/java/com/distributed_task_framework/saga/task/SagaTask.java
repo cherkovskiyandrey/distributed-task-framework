@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.services.impl;
+package com.distributed_task_framework.saga.task;
 
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
@@ -8,6 +8,7 @@ import com.distributed_task_framework.model.TypeDef;
 import com.distributed_task_framework.saga.exceptions.SagaInternalException;
 import com.distributed_task_framework.saga.models.SagaAction;
 import com.distributed_task_framework.saga.models.SagaPipeline;
+import com.distributed_task_framework.saga.services.impl.SagaHelper;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.settings.SagaMethodSettings;
@@ -22,7 +23,6 @@ import com.distributed_task_framework.task.StatefulTask;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -34,18 +34,32 @@ import java.util.Optional;
 
 
 @Slf4j
-@RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedException> {
-    SagaResolver sagaResolver;
-    DistributedTaskService distributedTaskService;
-    SagaManager sagaManager;
+public class SagaTask extends BaseSagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedException> {
     TaskSerializer taskSerializer;
     SagaHelper sagaHelper;
     TaskDef<SagaPipeline> taskDef;
     Method method;
     Object bean;
     SagaMethodSettings sagaMethodSettings;
+
+    public SagaTask(SagaResolver sagaResolver,
+                    SagaManager sagaManager,
+                    DistributedTaskService distributedTaskService,
+                    TaskSerializer taskSerializer,
+                    SagaHelper sagaHelper,
+                    TaskDef<SagaPipeline> taskDef,
+                    Method method,
+                    Object bean,
+                    SagaMethodSettings sagaMethodSettings) {
+        super(sagaResolver, sagaManager, distributedTaskService);
+        this.taskSerializer = taskSerializer;
+        this.sagaHelper = sagaHelper;
+        this.taskDef = taskDef;
+        this.method = method;
+        this.bean = bean;
+        this.sagaMethodSettings = sagaMethodSettings;
+    }
 
     @Override
     public TaskDef<SagaPipeline> getDef() {
@@ -125,7 +139,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
         if (sagaOpt.get().isCanceled()) {
             log.info("execute(): sagaId=[{}] has been canceled in the end of current step, scheduling interrupting...", sagaId);
             sagaPipeline.rewindToRevertFromCurrentPosition();
-            scheduleNextRevertOrComplete(executionContext, sagaPipeline);
+            scheduleNextOrComplete(executionContext, sagaPipeline, SagaAction::getSagaRevertMethodTaskName);
             return;
         }
 
@@ -143,13 +157,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
             .build();
         sagaPipeline.setCurrentAction(currentSagaAction);
 
-        sagaPipeline.moveToNext();
-        var nextSagaContext = sagaPipeline.getCurrentAction();
-        distributedTaskService.schedule(
-            sagaResolver.resolveByTaskName(nextSagaContext.getSagaMethodTaskName()),
-            executionContext.withNewMessage(sagaPipeline)
-        );
-        sagaManager.trackIfExists(sagaPipeline);
+        scheduleNextOrComplete(executionContext, sagaPipeline, SagaAction::getSagaMethodTaskName);
     }
 
     private void scheduleNextRevertOrCompleteBeforeExecution(ExecutionContext<SagaPipeline> executionContext,
@@ -170,7 +178,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
         } else {
             sagaPipeline.rewindToRevertFromPrevPosition();
         }
-        scheduleNextRevertOrComplete(executionContext, sagaPipeline);
+        scheduleNextOrComplete(executionContext, sagaPipeline, SagaAction::getSagaRevertMethodTaskName);
     }
 
     @Override
@@ -208,7 +216,7 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
             serializedException.exceptionType()
         );
         sagaPipeline.rewindToRevertFromCurrentPosition();
-        scheduleNextRevertOrComplete(failedExecutionContext, sagaPipeline);
+        scheduleNextOrComplete(failedExecutionContext, sagaPipeline, SagaAction::getSagaRevertMethodTaskName);
 
         return true;
     }
@@ -221,21 +229,6 @@ public class SagaTask implements StatefulTask<SagaPipeline, SagaTask.SerializedE
         byte[] serializedException = taskSerializer.writeValue(exception);
 
         return new SerializedException(serializedException, exceptionType);
-    }
-
-    private void scheduleNextRevertOrComplete(ExecutionContext<SagaPipeline> executionContext,
-                                              SagaPipeline sagaPipeline) throws Exception {
-        if (sagaPipeline.hasNext()) {
-            sagaPipeline.moveToNext();
-            var currentSagaAction = sagaPipeline.getCurrentAction();
-            distributedTaskService.schedule(
-                sagaResolver.resolveByTaskName(currentSagaAction.getSagaRevertMethodTaskName()),
-                executionContext.withNewMessage(sagaPipeline)
-            );
-            sagaManager.trackIfExists(sagaPipeline);
-        } else {
-            sagaManager.completeIfExists(sagaPipeline.getSagaId());
-        }
     }
 
     public record SerializedException(

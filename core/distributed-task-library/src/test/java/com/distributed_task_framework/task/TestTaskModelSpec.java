@@ -5,6 +5,7 @@ import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.distributed_task_framework.utils.TaskGenerator;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;

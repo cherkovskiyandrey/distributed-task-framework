@@ -31,7 +31,7 @@ public class TaskSettings {
     boolean dltEnabled = true;
 
     /**
-     * Cron string.
+     * Cron string or time duration string {@link Duration#parse(CharSequence)}
      */
     @Nullable
     String cron;

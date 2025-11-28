@@ -1,4 +1,4 @@
-package com.distributed_task_framework.saga.services.impl;
+package com.distributed_task_framework.saga.task;
 
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
@@ -7,6 +7,7 @@ import com.distributed_task_framework.saga.exceptions.SagaInternalException;
 import com.distributed_task_framework.saga.models.Saga;
 import com.distributed_task_framework.saga.models.SagaAction;
 import com.distributed_task_framework.saga.models.SagaPipeline;
+import com.distributed_task_framework.saga.services.impl.SagaHelper;
 import com.distributed_task_framework.saga.services.internal.SagaManager;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.utils.ArgumentProvider;
@@ -17,7 +18,6 @@ import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.task.Task;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -26,16 +26,26 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 
 @Slf4j
-@RequiredArgsConstructor
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class SagaRevertTask implements Task<SagaPipeline> {
-    SagaResolver sagaResolver;
-    DistributedTaskService distributedTaskService;
-    SagaManager sagaManager;
+public class SagaRevertTask extends BaseSagaTask implements Task<SagaPipeline> {
     SagaHelper sagaHelper;
     TaskDef<SagaPipeline> taskDef;
     Method method;
     Object bean;
+
+    public SagaRevertTask(SagaResolver sagaResolver,
+                          SagaManager sagaManager,
+                          DistributedTaskService distributedTaskService,
+                          SagaHelper sagaHelper,
+                          TaskDef<SagaPipeline> taskDef,
+                          Method method,
+                          Object bean) {
+        super(sagaResolver, sagaManager, distributedTaskService);
+        this.sagaHelper = sagaHelper;
+        this.taskDef = taskDef;
+        this.method = method;
+        this.bean = bean;
+    }
 
     @Override
     public TaskDef<SagaPipeline> getDef() {
@@ -154,12 +164,6 @@ public class SagaRevertTask implements Task<SagaPipeline> {
             return;
         }
 
-        sagaPipeline.moveToNext();
-        var currentSagaContext = sagaPipeline.getCurrentAction();
-        distributedTaskService.schedule(
-            sagaResolver.resolveByTaskName(currentSagaContext.getSagaRevertMethodTaskName()),
-            executionContext.withNewMessage(sagaPipeline)
-        );
-        sagaManager.trackIfExists(sagaPipeline);
+        scheduleNextOrComplete(executionContext, sagaPipeline, SagaAction::getSagaRevertMethodTaskName);
     }
 }

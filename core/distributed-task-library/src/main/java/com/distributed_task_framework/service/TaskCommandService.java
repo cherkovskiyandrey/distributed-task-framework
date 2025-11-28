@@ -1,5 +1,6 @@
 package com.distributed_task_framework.service;
 
+import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.JoinTaskMessage;
 import com.distributed_task_framework.model.TaskDef;
@@ -27,7 +28,7 @@ public interface TaskCommandService {
 
 
     /**
-     * The same as {@link this#schedule(TaskDef, ExecutionContext)} but exclude itself from
+     * The same as {@link TaskCommandService#schedule(TaskDef, ExecutionContext)} but exclude itself from
      * join hierarchy of parent task.
      *
      * @param taskDef
@@ -40,7 +41,7 @@ public interface TaskCommandService {
 
 
     /**
-     * The same as {@link this#schedule(TaskDef, ExecutionContext)} but when invoked from
+     * The same as {@link TaskCommandService#schedule(TaskDef, ExecutionContext)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
@@ -51,6 +52,29 @@ public interface TaskCommandService {
      * @throws Exception
      */
     <T> TaskId scheduleImmediately(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception;
+
+
+    /**
+     * The same as {@link TaskCommandService#schedule(TaskDef, ExecutionContext)} but used in case when
+     * task is not registered on current node, but registered on at least one other node in cluster.
+     * If none node in cluster know about thi task, {@link UnknownTaskException} will throw.
+     * If task is registered on current node - {@link TaskCommandService#schedule(TaskDef, ExecutionContext)}
+     * will be invoked underhood.
+     * WARNING: method is unsafe because:
+     * <ol>
+     *     <li>there isn't information about real type of message</li>
+     *     <li>there isn't information about where task is cron type or not and suggest by default - no.</li>
+     * </ol>
+     *
+     * Use very carefully. In most cases there is information about task to schedule.
+     *
+     * @param taskDef
+     * @param executionContext
+     * @return
+     * @param <T>
+     * @throws Exception
+     */
+    <T> TaskId scheduleUnsafe(TaskDef<T> taskDef, ExecutionContext<T> executionContext) throws Exception;
 
     /**
      * Schedule task to execute in the cluster according to taskParameters with delay.
@@ -66,7 +90,7 @@ public interface TaskCommandService {
     <T> TaskId schedule(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception;
 
     /**
-     * The same as {@link this#schedule(TaskDef, ExecutionContext, Duration)} but exclude itself from
+     * The same as {@link TaskCommandService#schedule(TaskDef, ExecutionContext, Duration)} but exclude itself from
      * join hierarchy of parent task.
      *
      * @param taskDef
@@ -79,7 +103,7 @@ public interface TaskCommandService {
     <T> TaskId scheduleFork(TaskDef<T> taskDef, ExecutionContext<T> executionContext, Duration delay) throws Exception;
 
     /**
-     * The same as {@link this#schedule(TaskDef, ExecutionContext, Duration)} but when invoked from
+     * The same as {@link TaskCommandService#schedule(TaskDef, ExecutionContext, Duration)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
@@ -100,7 +124,7 @@ public interface TaskCommandService {
      * Scenario:
      * 1. schedule general tasks form task or transaction
      * 2. schedule join task and put tasksId of tasks to join to method
-     * 3. optionally use from task {@link this#getJoinMessagesFromBranch(TaskDef)} and {@link this#setJoinMessageToBranch(JoinTaskMessage)}
+     * 3. optionally use from task {@link TaskCommandService#getJoinMessagesFromBranch(TaskDef)} and {@link TaskCommandService#setJoinMessageToBranch(JoinTaskMessage)}
      * in order to send you instance of message to join task bellow
      *
      * @param taskDef
@@ -143,7 +167,7 @@ public interface TaskCommandService {
     void reschedule(TaskId taskId, Duration delay) throws Exception;
 
     /**
-     * The same as {@link this#reschedule(TaskId, Duration)} but when invoked from
+     * The same as {@link TaskCommandService#reschedule(TaskId, Duration)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
@@ -167,7 +191,7 @@ public interface TaskCommandService {
     <T> void rescheduleByTaskDef(TaskDef<T> taskDef, Duration delay) throws Exception;
 
     /**
-     * The same as {@link this#rescheduleByTaskDef(TaskDef, Duration)} but when invoked from
+     * The same as {@link TaskCommandService#rescheduleByTaskDef(TaskDef, Duration)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
@@ -188,7 +212,7 @@ public interface TaskCommandService {
     boolean cancelTaskExecution(TaskId taskId);
 
     /**
-     * The same as {@link this#cancelTaskExecution(TaskId)} but when invoked from
+     * The same as {@link TaskCommandService#cancelTaskExecution(TaskId)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
@@ -209,7 +233,7 @@ public interface TaskCommandService {
     <T> boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef);
 
     /**
-     * The same as {@link this#cancelAllTaskByTaskDef(TaskDef)} but when invoked from
+     * The same as {@link TaskCommandService#cancelAllTaskByTaskDef(TaskDef)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
@@ -230,7 +254,7 @@ public interface TaskCommandService {
     boolean cancelWorkflowByTaskId(TaskId taskId);
 
     /**
-     * The same as {@link this#cancelWorkflowByTaskId(TaskId)} but when invoked from
+     * The same as {@link TaskCommandService#cancelWorkflowByTaskId(TaskId)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
@@ -240,7 +264,7 @@ public interface TaskCommandService {
     boolean cancelWorkflowByTaskIdImmediately(TaskId taskId) throws Exception;
 
     /**
-     * The same as {@link this#cancelWorkflowByTaskId(TaskId)} but for batch.
+     * The same as {@link TaskCommandService#cancelWorkflowByTaskId(TaskId)} but for batch.
      *
      * @param taskIds
      * @return
@@ -248,7 +272,7 @@ public interface TaskCommandService {
     boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds);
 
     /**
-     * The same as {@link this#cancelAllWorkflowsByTaskId(List)} but when invoked from
+     * The same as {@link TaskCommandService#cancelAllWorkflowsByTaskId(List)} but when invoked from
      * task then is implemented immediately without waiting for the end of current task.
      * Only one exception: current task.
      *

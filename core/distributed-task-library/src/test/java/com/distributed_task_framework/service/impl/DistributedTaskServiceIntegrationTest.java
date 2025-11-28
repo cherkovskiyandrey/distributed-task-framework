@@ -7,7 +7,7 @@ import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.distributed_task_framework.task.common.RemoteStubTask;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;

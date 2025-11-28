@@ -19,7 +19,7 @@ import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.CronService;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
 import com.distributed_task_framework.service.internal.TaskWorker;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
@@ -71,7 +71,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     TaskMapper taskMapper;
     CommonSettings commonSettings;
     TaskLinkManager taskLinkManager;
-    MetricHelper metricHelper;
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
     Clock clock;
 
     protected List<Tag> getCommonTags() {
@@ -534,7 +534,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     }
 
     private Timer getRunInternalTimer(TaskEntity taskEntity) {
-        return metricHelper.timer(
+        return distributedTaskMetricHelper.timer(
             List.of("worker", "run", "timer"),
             getCommonTags(),
             taskEntity
@@ -542,7 +542,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     }
 
     private Counter getCancelCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(
+        return distributedTaskMetricHelper.counter(
             List.of("worker", "cancel"),
             getCommonTags(),
             taskEntity
@@ -550,7 +550,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     }
 
     private Counter getOptLockCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(
+        return distributedTaskMetricHelper.counter(
             List.of("worker", "optLock", "error"),
             getCommonTags(),
             taskEntity
@@ -558,7 +558,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     }
 
     private Counter getCommonErrorCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(
+        return distributedTaskMetricHelper.counter(
             List.of("worker", "common", "error"),
             getCommonTags(),
             taskEntity
@@ -566,7 +566,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     }
 
     private Counter getEngineErrorCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(
+        return distributedTaskMetricHelper.counter(
             List.of("worker", "engine", "error"),
             getCommonTags(),
             taskEntity
@@ -574,7 +574,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     }
 
     private Counter getUnexpectedDeletingErrorCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(
+        return distributedTaskMetricHelper.counter(
             List.of("worker", "unexpectedDeleting", "error"),
             getCommonTags(),
             taskEntity
@@ -582,7 +582,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     }
 
     private Counter getFinalCompletedTaskCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(
+        return distributedTaskMetricHelper.counter(
             List.of("worker", "final", "completed"),
             getCommonTags(),
             taskEntity
@@ -590,7 +590,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     }
 
     private Counter getFinalCompletedTaskWithErrorCounter(TaskEntity taskEntity) {
-        return metricHelper.counter(
+        return distributedTaskMetricHelper.counter(
             List.of("worker", "final", "completed", "error"),
             getCommonTags(),
             taskEntity

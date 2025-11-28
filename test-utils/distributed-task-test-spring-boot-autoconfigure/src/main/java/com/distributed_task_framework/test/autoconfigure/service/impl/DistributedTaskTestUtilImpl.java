@@ -1,6 +1,7 @@
 package com.distributed_task_framework.test.autoconfigure.service.impl;
 
 import com.distributed_task_framework.mapper.TaskMapper;
+import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.repository.DltRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
@@ -19,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -29,8 +31,8 @@ import static org.awaitility.Awaitility.await;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DistributedTaskTestUtilImpl implements DistributedTaskTestUtil {
-    private static final int DEFAULT_ATTEMPTS = 10;
-    private static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
+    public static final int DEFAULT_ATTEMPTS = 10;
+    public static final Duration DEFAULT_DURATION = Duration.ofMinutes(1);
 
     TaskRepository taskRepository;
     DltRepository dltRepository;
@@ -47,15 +49,22 @@ public class DistributedTaskTestUtilImpl implements DistributedTaskTestUtil {
 
     @Override
     public void reinitAndWait(int attemptsToCancel, Duration duration) throws InterruptedException {
+        reinitAndWait(attemptsToCancel, duration, List.of());
+    }
+
+    @Override
+    public void reinitAndWait(int attemptsToCancel,
+                              Duration duration,
+                              List<TaskDef<?>> excludeList) throws InterruptedException, FailedCancellationException {
         Preconditions.checkArgument(
             attemptsToCancel > 0,
             "attemptsToCancel has to be greater than 0"
         );
 
         log.info("reinitAndWait(): begin");
-        Set<TaskId> activeTaskIds = cancelTasks(attemptsToCancel);
+        Set<TaskId> activeTaskIds = cancelTasks(attemptsToCancel, excludeList);
         waitForTasksCompletion(activeTaskIds, attemptsToCancel, duration);
-        doPostProcessing(duration);
+        doPostProcessing(excludeList, duration);
         log.info("reinitAndWait(): end");
     }
 
@@ -81,9 +90,9 @@ public class DistributedTaskTestUtilImpl implements DistributedTaskTestUtil {
         throw new FailedCancellationException(exception);
     }
 
-    private Set<TaskId> cancelTasks(int attemptsToCancel) {
+    private Set<TaskId> cancelTasks(int attemptsToCancel, List<TaskDef<?>> excludeList) {
         Set<TaskId> activeTaskIds = Sets.newHashSet();
-        activeTaskIds.addAll(getAllActiveTasks());
+        activeTaskIds.addAll(getAllActiveTasks(excludeList));
         if (activeTaskIds.isEmpty()) {
             return activeTaskIds;
         }
@@ -97,7 +106,7 @@ public class DistributedTaskTestUtilImpl implements DistributedTaskTestUtil {
                 exception = e;
             }
 
-            var restActiveTaskIds = getAllActiveTasks();
+            var restActiveTaskIds = getAllActiveTasks(excludeList);
             activeTaskIds.addAll(restActiveTaskIds);
 
             if (restActiveTaskIds.isEmpty()) {
@@ -108,22 +117,33 @@ public class DistributedTaskTestUtilImpl implements DistributedTaskTestUtil {
         throw new FailedCancellationException(exception);
     }
 
-    private List<TaskId> getAllActiveTasks() {
-        return Lists.newArrayList(taskRepository.findAllNotDeletedAndNotCanceled()).stream()
+    private List<TaskId> getAllActiveTasks(List<TaskDef<?>> excludeList) {
+        var excludedTaskNames = excludeList.stream()
+            .map(TaskDef::getTaskName)
+            .collect(Collectors.toSet());
+        return Lists.newArrayList(taskRepository.findAllNotDeletedAndNotCanceled(excludedTaskNames)).stream()
             .map(task -> taskMapper.map(task, commonSettings.getAppName()))
             .toList();
     }
 
-    private void doPostProcessing(Duration duration) {
+    private void doPostProcessing(List<TaskDef<?>> excludeList, Duration duration) {
+        var excludeTaskNames = excludeList.stream()
+            .map(TaskDef::getTaskName)
+            .collect(Collectors.toSet());
+
         await("rest active tasks in worker manager")
             .atMost(duration)
             .pollDelay(Duration.ofMillis(50))
-            .until(() -> workerManager.getCurrentActiveTasks() == 0L);
+            .until(() -> workerManager.getCurrentActiveTaskIds().stream()
+                .allMatch(taskId -> excludeTaskNames.contains(taskId.getTaskName()))
+            );
 
         await("all tasks in deleted queue are completed")
             .atMost(duration)
             .pollDelay(Duration.ofMillis(50))
-            .until(() -> taskRepository.count() == 0L);
+            .until(() -> Lists.newArrayList(taskRepository.findAll()).stream().filter(Objects::nonNull)
+                .allMatch(taskEntity -> excludeTaskNames.contains(taskEntity.getTaskName()))
+            );
         dltRepository.deleteAll();
     }
 }

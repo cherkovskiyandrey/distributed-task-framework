@@ -3,7 +3,7 @@ package com.distributed_task_framework.service.impl;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskIdEntity;
-import com.distributed_task_framework.service.internal.MetricHelper;
+import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.TaskCommandStatService;
 import io.micrometer.core.instrument.Tag;
 import lombok.AccessLevel;
@@ -14,13 +14,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collection;
 import java.util.List;
 
-import static com.distributed_task_framework.service.internal.MetricHelper.TASK_NAME_TAG_NAME;
+import static com.distributed_task_framework.service.internal.DistributedTaskMetricHelper.TASK_NAME_TAG_NAME;
 
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class TaskCommandStatServiceImpl implements TaskCommandStatService {
-    MetricHelper metricHelper;
+public class    TaskCommandStatServiceImpl implements TaskCommandStatService {
+    DistributedTaskMetricHelper distributedTaskMetricHelper;
 
     @Override
     public TaskEntity schedule(TaskEntity taskEntity) {
@@ -56,7 +56,7 @@ public class TaskCommandStatServiceImpl implements TaskCommandStatService {
 
     @Override
     public void forceRescheduleAll(TaskDef<?> taskDef, int number) {
-        metricHelper.counter(
+        distributedTaskMetricHelper.counter(
             List.of("local", "command", "reschedule"),
             List.of(Tag.of(TASK_NAME_TAG_NAME, taskDef.getTaskName()))
         ).increment(number);
@@ -75,7 +75,7 @@ public class TaskCommandStatServiceImpl implements TaskCommandStatService {
     @Override
     public void cancelAllTaskIds(Collection<TaskIdEntity> taskIdEntities) {
         taskIdEntities.forEach(taskIdEntity ->
-            metricHelper.counter(
+            distributedTaskMetricHelper.counter(
                 List.of("local", "command", "cancel"),
                 List.of(Tag.of(TASK_NAME_TAG_NAME, taskIdEntity.getTaskName()))
             )
@@ -84,7 +84,7 @@ public class TaskCommandStatServiceImpl implements TaskCommandStatService {
 
     @Override
     public void cancelAll(TaskDef<?> taskDef, int number) {
-        metricHelper.counter(
+        distributedTaskMetricHelper.counter(
             List.of("local", "command", "cancel"),
             List.of(Tag.of(TASK_NAME_TAG_NAME, taskDef.getTaskName()))
         ).increment(number);
@@ -106,7 +106,7 @@ public class TaskCommandStatServiceImpl implements TaskCommandStatService {
 
     private void command(String command, Collection<TaskEntity> taskEntities) {
         taskEntities.forEach(taskEntity ->
-            metricHelper.counter(List.of("local", "command", command), List.of(), taskEntity).increment()
+            distributedTaskMetricHelper.counter(List.of("local", "command", command), List.of(), taskEntity).increment()
         );
     }
 }

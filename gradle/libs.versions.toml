@@ -18,6 +18,7 @@ spring-configuration-property-documenter-gradle-plugin = "0.7.1"
 springdoc-openapi-starter-webmvc-ui = "2.6.0"
 apache-commons-io = "2.17.0"
 micrometer-registry-prometheus = "1.13.6"
+micrometer-core = "1.13.6"
 instancio-junit = "5.0.2"
 
 
@@ -62,6 +63,7 @@ caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "c
 # Serialisations
 jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
 jackson-datatype-jdk8 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jdk8" }
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
 
 # Tools
 apache-commons-io = { module = "commons-io:commons-io", version.ref = "apache-commons-io" }
@@ -77,6 +79,7 @@ okhttp3 = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp3" }
 # Monitoring
 logback-core = { module = "ch.qos.logback:logback-core" }
 net-logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "net-logstash-logback-encoder" }
+micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometer-core" }
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-registry-prometheus" }
 
 # Tests

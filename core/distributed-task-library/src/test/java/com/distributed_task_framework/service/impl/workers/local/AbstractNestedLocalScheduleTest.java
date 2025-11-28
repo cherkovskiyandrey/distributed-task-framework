@@ -1,13 +1,15 @@
 package com.distributed_task_framework.service.impl.workers.local;
 
+import com.distributed_task_framework.exception.UnknownTaskException;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
+import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.task.TaskGenerator;
+import com.distributed_task_framework.utils.TaskGenerator;
 import com.distributed_task_framework.task.TestTaskModelCustomizerUtils;
 import com.distributed_task_framework.task.TestTaskModelSpec;
 import lombok.AccessLevel;
@@ -21,6 +23,7 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -135,8 +138,6 @@ public abstract class AbstractNestedLocalScheduleTest extends BaseLocalWorkerInt
         verifyIsEmptyByTaskDef(childFromFailureTestTaskModel.getTaskDef());
     }
 
-    //todo: all test below should be rewritten like for both ActionMode
-
     @Test
     void shouldScheduleImmediatelyNewTask() {
         //when
@@ -161,5 +162,70 @@ public abstract class AbstractNestedLocalScheduleTest extends BaseLocalWorkerInt
             .matches(te -> te.getVersion() == 1, "opt locking")
             .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "schedule time")
             .matches(te -> te.getAssignedWorker() == null, "free assigned worker");
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    @Test
+    void shouldScheduleUnsafeWhenThereIsTaskInCluster() {
+        //when
+        setFixedTime();
+        String foreignTaskName = "foreign-task";
+        TaskDef<String> foreignTaskDef = TaskDef.privateTaskDef(foreignTaskName, String.class);
+        when(taskRegistryService.hasClusterRegisteredTaskByName(eq(foreignTaskName))).thenReturn(true);
+
+        var testTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(ctx -> {
+                    TaskId taskId = distributedTaskService.scheduleUnsafe(
+                        foreignTaskDef,
+                        ExecutionContext.simple("hello world!")
+                    );
+                    assertThat(taskRepository.find(taskId.getId())).isEmpty();
+                }
+            )
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(testTaskModel.getTaskEntity(), testTaskModel.getRegisteredTask());
+
+        //verify
+        verifyTaskIsFinished(testTaskModel.getTaskId());
+        assertThat(taskRepository.findByName(foreignTaskName, 2)).singleElement()
+            .matches(te -> te.getVersion() == 1, "opt locking")
+            .matches(te -> te.getExecutionDateUtc().toEpochSecond(ZoneOffset.UTC) == 0L, "schedule time")
+            .matches(te -> te.getAssignedWorker() == null, "free assigned worker")
+            .matches(te -> VirtualQueue.NEW.equals(te.getVirtualQueue()), "virtual queue");
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    @Test
+    void shouldNotScheduleUnsafeWhenUnknownTaskInCluster() {
+        //when
+        setFixedTime();
+        String foreignTaskName = "foreign-task";
+        TaskDef<String> foreignTaskDef = TaskDef.privateTaskDef(foreignTaskName, String.class);
+        when(taskRegistryService.hasClusterRegisteredTaskByName(eq(foreignTaskName))).thenReturn(false);
+
+        var testTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .withSaveInstance()
+            .action(ctx -> {
+                    assertThatThrownBy(() -> distributedTaskService.scheduleUnsafe(
+                        foreignTaskDef,
+                        ExecutionContext.simple("hello world!")
+                        )
+                    ).isInstanceOf(UnknownTaskException.class);
+                    assertThat(taskRepository.findByName(foreignTaskName, 2)).isEmpty();
+                }
+            )
+            .build()
+        );
+
+        //do
+        getTaskWorker().execute(testTaskModel.getTaskEntity(), testTaskModel.getRegisteredTask());
+
+        //verify
+        verifyTaskIsFinished(testTaskModel.getTaskId());
+        assertThat(taskRepository.findByName(foreignTaskName, 2)).isEmpty();
     }
 }

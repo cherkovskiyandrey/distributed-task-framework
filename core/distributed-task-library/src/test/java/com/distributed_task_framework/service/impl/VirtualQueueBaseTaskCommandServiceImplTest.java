@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.DirtiesContext;
@@ -31,169 +32,207 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     @Autowired
     VirtualQueueBaseTaskCommandServiceImpl taskCommandService;
 
-    @Test
-    void shouldScheduleToNewWhenNotInTaskContext() {
-        //when
-        var task = createNewTask(null, null);
+    @Nested
+    public class Schedule {
 
-        //do
-        task = taskCommandService.schedule(task);
+        @Test
+        void shouldScheduleToNewWhenNotInTaskContextAndAffinityIsNull() {
+            //when
+            var task = createNewTask(null, null);
 
-        //verify
-        verifyInQueue(task.getId(), VirtualQueue.NEW);
-        verifyPartitionRepositoryIsEmpty();
+            //do
+            task = taskCommandService.schedule(task);
+
+            //verify
+            verifyInQueue(task.getId(), VirtualQueue.NEW);
+            verifyPartitionRepositoryIsEmpty();
+        }
+
+        @Test
+        void shouldScheduleToNewWhenNotInTaskContext() {
+            //when
+            var task = createNewTask("1", "1");
+
+            //do
+            task = taskCommandService.schedule(task);
+
+            //verify
+            verifyInQueue(task.getId(), VirtualQueue.NEW);
+            verifyPartitionRepositoryIsEmpty();
+        }
+
+        @Test
+        void shouldScheduleToReadyWhenInTaskContextButCtxTaskInReady() {
+            //when
+            UUID workflowId = UUID.randomUUID();
+            var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
+            var task = createNewTask("1", "1", workflowId);
+
+            inWorkerContext(ctxTask);
+
+            //do
+            task = taskCommandService.schedule(task);
+
+            //verify
+            verifyInQueue(task.getId(), VirtualQueue.READY);
+            verifyRegisteredPartition("1", TASK_NAME);
+        }
+
+        @Test
+        void shouldScheduleToParkedWhenInTaskContextAndWorkflowIdIsOther() {
+            //when
+            var ctxTask = createNewTask("1", "1", UUID.randomUUID(), VirtualQueue.READY);
+            var task = createNewTask("1", "1", UUID.randomUUID());
+
+            inWorkerContext(ctxTask);
+
+            //do
+            task = taskCommandService.schedule(task);
+
+            //verify
+            verifyInQueue(task.getId(), VirtualQueue.PARKED);
+            verifyPartitionRepositoryIsEmpty();
+        }
+
+        @Test
+        void shouldScheduleToNewWhenInTaskContextAndAffinityIsOther() {
+            //when
+            UUID workflowId = UUID.randomUUID();
+            var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
+            var task = createNewTask("1", "2", workflowId);
+
+            inWorkerContext(ctxTask);
+
+            //do
+            task = taskCommandService.schedule(task);
+
+            //verify
+            verifyInQueue(task.getId(), VirtualQueue.NEW);
+            verifyPartitionRepositoryIsEmpty();
+        }
+
+        @Test
+        void shouldScheduleToNewWhenInTaskContextAndAffinityGroupAndAffinityIsNull() {
+            //when
+            UUID workflowId = UUID.randomUUID();
+            var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
+            var task = createNewTask(null, null, workflowId);
+
+            inWorkerContext(ctxTask);
+
+            //do
+            task = taskCommandService.schedule(task);
+
+            //verify
+            verifyInQueue(task.getId(), VirtualQueue.NEW);
+            verifyPartitionRepositoryIsEmpty();
+        }
+
+        @Test
+        void shouldScheduleToNewWhenInTaskContextSimpleTaskAndAffinityGroupAndAffinityIsNull() {
+            //when
+            UUID workflowId = UUID.randomUUID();
+            var ctxTask = createNewTask(null, null, workflowId, VirtualQueue.READY);
+            var task = createNewTask(null, null, workflowId);
+
+            inWorkerContext(ctxTask);
+
+            //do
+            task = taskCommandService.schedule(task);
+
+            //verify
+            verifyInQueue(task.getId(), VirtualQueue.NEW);
+            verifyPartitionRepositoryIsEmpty();
+        }
     }
 
-    @Test
-    void shouldScheduleToReadyWhenInTaskContextButCtxTaskInReady() {
-        //when
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task = createNewTask("1", "1", workflowId);
+    @Nested
+    public class ScheduleAll {
 
-        inWorkerContext(ctxTask);
+        @Test
+        void shouldScheduleAllToNewWhenNotInTaskContext() {
+            //when
+            var task1 = createNewTask(null, null);
+            var task2 = createNewTask(null, null);
 
-        //do
-        task = taskCommandService.schedule(task);
+            //do
+            var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
 
-        //verify
-        verifyInQueue(task.getId(), VirtualQueue.READY);
-        verifyRegisteredPartition("1", TASK_NAME);
-    }
+            //verify
+            verifyInQueue(toIds(tasks), VirtualQueue.NEW);
+            verifyPartitionRepositoryIsEmpty();
+        }
 
-    @Test
-    void shouldScheduleToParkedWhenInTaskContextWorkflowIdIsOther() {
-        //when
-        var ctxTask = createNewTask("1", "1", UUID.randomUUID(), VirtualQueue.READY);
-        var task = createNewTask("1", "1", UUID.randomUUID());
+        @Test
+        void shouldScheduleAllToReadyWhenInTaskContextButCtxTaskInReady() {
+            //when
+            UUID workflowId = UUID.randomUUID();
+            var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
+            var task1 = createNewTask("1", "1", workflowId);
+            var task2 = createNewTask("1", "1", workflowId);
 
-        inWorkerContext(ctxTask);
+            inWorkerContext(ctxTask);
 
-        //do
-        task = taskCommandService.schedule(task);
+            //do
+            var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
 
-        //verify
-        verifyInQueue(task.getId(), VirtualQueue.PARKED);
-        verifyPartitionRepositoryIsEmpty();
-    }
+            //verify
+            verifyInQueue(toIds(tasks), VirtualQueue.READY);
+            verifyRegisteredPartition("1", TASK_NAME);
+        }
 
-    @Test
-    void shouldScheduleToNewWhenInTaskContextAffinityIsOther() {
-        //when
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task = createNewTask("1", "2", workflowId);
+        @Test
+        void shouldScheduleAllToParkedWhenInTaskContextWorkflowIdIsOther() {
+            //when
+            var ctxTask = createNewTask("1", "1", UUID.randomUUID(), VirtualQueue.READY);
+            var task1 = createNewTask("1", "1", UUID.randomUUID());
+            var task2 = createNewTask("1", "1", UUID.randomUUID());
 
-        inWorkerContext(ctxTask);
+            inWorkerContext(ctxTask);
 
-        //do
-        task = taskCommandService.schedule(task);
+            //do
+            var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
 
-        //verify
-        verifyInQueue(task.getId(), VirtualQueue.NEW);
-        verifyPartitionRepositoryIsEmpty();
-    }
+            //verify
+            verifyInQueue(toIds(tasks), VirtualQueue.PARKED);
+            verifyPartitionRepositoryIsEmpty();
+        }
 
-    @Test
-    void shouldScheduleToActiveWhenInTaskContextAffinityGroupAndAffinityIsNull() {
-        //when
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task = createNewTask(null, null, workflowId);
+        @Test
+        void shouldScheduleAllToNewWhenInTaskContextAndAffinityIsOther() {
+            //when
+            UUID workflowId = UUID.randomUUID();
+            var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
+            var task1 = createNewTask("1", "2", workflowId);
+            var task2 = createNewTask("1", "2", workflowId);
 
-        inWorkerContext(ctxTask);
+            inWorkerContext(ctxTask);
 
-        //do
-        task = taskCommandService.schedule(task);
+            //do
+            var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
 
-        //verify
-        verifyInQueue(task.getId(), VirtualQueue.READY);
-        verifyRegisteredPartition(null, TASK_NAME);
-    }
+            //verify
+            verifyInQueue(toIds(tasks), VirtualQueue.NEW);
+            verifyPartitionRepositoryIsEmpty();
+        }
 
-    @Test
-    void shouldScheduleAllToNewWhenNotInTaskContext() {
-        //when
-        var task1 = createNewTask(null, null);
-        var task2 = createNewTask(null, null);
+        @Test
+        void shouldScheduleAllToNewWhenInTaskContextAffinityGroupAndAffinityIsNull() {
+            //when
+            UUID workflowId = UUID.randomUUID();
+            var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
+            var task1 = createNewTask(null, null, workflowId);
+            var task2 = createNewTask(null, null, workflowId);
 
-        //do
-        var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
+            inWorkerContext(ctxTask);
 
-        //verify
-        verifyInQueue(toIds(tasks), VirtualQueue.NEW);
-        verifyPartitionRepositoryIsEmpty();
-    }
+            //do
+            var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
 
-    @Test
-    void shouldScheduleAllToReadyWhenInTaskContextButCtxTaskInReady() {
-        //when
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task1 = createNewTask("1", "1", workflowId);
-        var task2 = createNewTask("1", "1", workflowId);
-
-        inWorkerContext(ctxTask);
-
-        //do
-        var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
-
-        //verify
-        verifyInQueue(toIds(tasks), VirtualQueue.READY);
-        verifyRegisteredPartition("1", TASK_NAME);
-    }
-
-    @Test
-    void shouldScheduleAllToParkedWhenInTaskContextWorkflowIdIsOther() {
-        //when
-        var ctxTask = createNewTask("1", "1", UUID.randomUUID(), VirtualQueue.READY);
-        var task1 = createNewTask("1", "1", UUID.randomUUID());
-        var task2 = createNewTask("1", "1", UUID.randomUUID());
-
-        inWorkerContext(ctxTask);
-
-        //do
-        var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
-
-        //verify
-        verifyInQueue(toIds(tasks), VirtualQueue.PARKED);
-        verifyPartitionRepositoryIsEmpty();
-    }
-
-    @Test
-    void shouldScheduleAllToNewWhenInTaskContextAffinityIsOther() {
-        //when
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task1 = createNewTask("1", "2", workflowId);
-        var task2 = createNewTask("1", "2", workflowId);
-
-        inWorkerContext(ctxTask);
-
-        //do
-        var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
-
-        //verify
-        verifyInQueue(toIds(tasks), VirtualQueue.NEW);
-        verifyPartitionRepositoryIsEmpty();
-    }
-
-    @Test
-    void shouldScheduleAllToActiveWhenInTaskContextAffinityGroupAndAffinityIsNull() {
-        //when
-        UUID workflowId = UUID.randomUUID();
-        var ctxTask = createNewTask("1", "1", workflowId, VirtualQueue.READY);
-        var task1 = createNewTask(null, null, workflowId);
-        var task2 = createNewTask(null, null, workflowId);
-
-        inWorkerContext(ctxTask);
-
-        //do
-        var tasks = taskCommandService.scheduleAll(List.of(task1, task2));
-
-        //verify
-        verifyInQueue(toIds(tasks), VirtualQueue.READY);
-        verifyRegisteredPartition(null, TASK_NAME);
+            //verify
+            verifyInQueue(toIds(tasks), VirtualQueue.NEW);
+            verifyPartitionRepositoryIsEmpty();
+        }
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.Optional;
 
 public interface SagaResolver {
 
@@ -59,4 +60,22 @@ public interface SagaResolver {
      * @return
      */
     TaskDef<SagaPipeline> resolveByTaskName(String taskName);
+
+    /**
+     * The same as {@link #resolveByTaskName(String)} but not throw exception.
+     *
+     * @param taskName
+     * @return
+     */
+    Optional<TaskDef<SagaPipeline>> resolveByTaskNameIfExists(String taskName);
+
+    /**
+     * Resolve registered task definition by task name in cluster.
+     * IMPORTANT: method used in case when task can be absent on current node,
+     * but potentially can be registered on other node in cluster.
+     *
+     * @param taskName
+     * @return
+     */
+    TaskDef<SagaPipeline> resolveByTaskNameInCluster(String taskName);
 }

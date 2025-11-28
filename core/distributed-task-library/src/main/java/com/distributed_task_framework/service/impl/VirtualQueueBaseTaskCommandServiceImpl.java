@@ -154,16 +154,11 @@ public class VirtualQueueBaseTaskCommandServiceImpl implements VirtualQueueBaseT
     }
 
     private boolean isApplicableToReady(TaskEntity activeTaskEntity, TaskEntity secondTaskEntity) {
-        return withoutAffinityGroupAndAffinity(secondTaskEntity)
-            || withSameAffinityGroupAndAffinity(activeTaskEntity, secondTaskEntity)
+        return withSameAffinityGroupAndAffinity(activeTaskEntity, secondTaskEntity)
             && Objects.equals(
             activeTaskEntity.getWorkflowId(),
             secondTaskEntity.getWorkflowId()
         );
-    }
-
-    private boolean withoutAffinityGroupAndAffinity(TaskEntity taskEntity) {
-        return taskEntity.getAffinityGroup() == null && taskEntity.getAffinity() == null;
     }
 
     private boolean isApplicableToParked(TaskEntity firstTaskEntity, TaskEntity secondTaskEntity) {
@@ -171,13 +166,13 @@ public class VirtualQueueBaseTaskCommandServiceImpl implements VirtualQueueBaseT
     }
 
     private boolean withSameAffinityGroupAndAffinity(TaskEntity firstTaskEntity, TaskEntity secondTaskEntity) {
-        return Objects.equals(
+        return firstTaskEntity.getAffinityGroup() != null
+            && firstTaskEntity.getAffinity() != null
+            && Objects.equals(
             firstTaskEntity.getAffinityGroup(),
-            secondTaskEntity.getAffinityGroup()
-        ) &&
-            Objects.equals(
-                firstTaskEntity.getAffinity(),
-                secondTaskEntity.getAffinity()
-            );
+            secondTaskEntity.getAffinityGroup())
+            && Objects.equals(
+            firstTaskEntity.getAffinity(),
+            secondTaskEntity.getAffinity());
     }
 }

@@ -30,7 +30,7 @@ public interface TaskExtendedRepository {
     Optional<TaskEntity> find(UUID taskId);
 
     @VisibleForTesting
-    Collection<TaskIdEntity> findAllNotDeletedAndNotCanceled();
+    Collection<TaskIdEntity> findAllNotDeletedAndNotCanceled(Set<String> excludedTaskNames);
 
     List<TaskEntity> findAll(Collection<UUID> taskIds);
 

@@ -2,23 +2,22 @@ package com.distributed_task_framework;
 
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import com.distributed_task_framework.utils.MetricTestHelper;
 import io.micrometer.core.instrument.Meter;
-import io.micrometer.core.instrument.MeterRegistry;
-import org.assertj.core.groups.Tuple;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import org.junit.jupiter.api.Disabled;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 @Disabled
+@FieldDefaults(level = AccessLevel.PROTECTED)
 public class BaseMetricTest extends BaseSpringIntegrationTest {
     @Autowired
-    MeterRegistry meterRegistry;
+    MetricTestHelper metricTestHelper;
 
     protected TaskEntity buildBaseTaskEntity(String name) {
         return TaskEntity.builder()
@@ -75,24 +74,6 @@ public class BaseMetricTest extends BaseSpringIntegrationTest {
         meter -> ((Meter) meter).getId().getTag("worker_id"),
         meter -> (int) ((Meter) meter).measure().iterator().next().getValue()
     };
-
-    protected void assertMetricToContain(String metricName, Function<Meter, ?>[] mappers, Tuple... tuples) {
-        List<Meter> gaugesForAll = meterRegistry.getMeters().stream()
-            .filter(meter -> metricName.equals(meter.getId().getName()))
-            .toList();
-        assertThat(gaugesForAll).hasSize(tuples.length)
-            .map(mappers)
-            .containsExactlyInAnyOrder(tuples);
-    }
-
-    protected void assertMetricNotExists(String metricName, Function<Meter, ?>[] mappers, Tuple... tuples) {
-        List<Meter> gaugesForAll = meterRegistry.getMeters().stream()
-            .filter(meter -> metricName.equals(meter.getId().getName()))
-            .toList();
-        assertThat(gaugesForAll)
-            .map(mappers)
-            .doesNotContain(tuples);
-    }
 
     protected static String s(UUID nodeId) {
         return nodeId.toString();
