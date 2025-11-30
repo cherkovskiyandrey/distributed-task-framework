@@ -231,7 +231,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         BatchRouteMap batchRouteMap = Objects.requireNonNull(
             batchRouteTimer.record(() -> taskRouter.batchRoute(BatchRouteRequest.builder()
                     .newAvailablePartitionStatsToPlan(availablePartitionStatsToPlan)
-                    .actualTaskLimits(actualTaskLimits)
+                    .actualClusterTaskLimits(actualClusterTaskLimits)
                     .nodeTaskLimits(nodeTaskLimits)
                     .nodeTaskActivities(nodeTaskActivities)
                     .availableNodeCapacities(availableNodeCapacities)

@@ -233,9 +233,13 @@ public class TaskPopulateAndVerify {
         }
 
         public static GenerationSpec oneWithCreatedDateAndWithoutAffinity(LocalDateTime beginCreatedDate) {
+            return withCreatedDateAndWithoutAffinity(1, beginCreatedDate);
+        }
+
+        public static GenerationSpec withCreatedDateAndWithoutAffinity(int taskNumber, LocalDateTime beginCreatedDate) {
             return GenerationSpec.of(
                 false,
-                1,
+                taskNumber,
                 false,
                 false,
                 false,

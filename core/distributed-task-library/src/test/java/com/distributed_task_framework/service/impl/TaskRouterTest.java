@@ -41,7 +41,7 @@ class TaskRouterTest {
         return Arguments.of(
             InputTestData.withoutState(BatchRouteRequest.builder()
                 .newAvailablePartitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 10)))
-                .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
+                .actualClusterTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
                 .availableNodeCapacities(capacityForAllNodes(100))
                 .build()
             ),
@@ -59,7 +59,7 @@ class TaskRouterTest {
         return Arguments.of(
             InputTestData.withoutState(BatchRouteRequest.builder()
                 .newAvailablePartitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 18))) //9(available nodes)*2 = 18
-                .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
+                .actualClusterTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
                 .nodeTaskActivities(nodeTaskActivities)
                 .availableNodeCapacities(capacityForAllNodes(100, nodeTaskActivities))
                 .build()
@@ -83,7 +83,7 @@ class TaskRouterTest {
         return Arguments.of(
             InputTestData.withoutState(BatchRouteRequest.builder()
                 .newAvailablePartitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 19))) //9 + 1 + 9
-                .actualTaskLimits(Map.of(
+                .actualClusterTaskLimits(Map.of(
                         TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS,
                         TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                     )
@@ -117,7 +117,7 @@ class TaskRouterTest {
                 updatedNumber(9, 8, 7, 6, 5, 0, 4, 3, 2, 1),
                 BatchRouteRequest.builder()
                     .newAvailablePartitionStatsToPlan(Set.of(stat(AFG_1, TASK_NAME_1, 1)))
-                    .actualTaskLimits(Map.of(
+                    .actualClusterTaskLimits(Map.of(
                             TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS,
                             TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                         )
@@ -152,7 +152,7 @@ class TaskRouterTest {
                         )
                     )
                     .nodeTaskActivities(nodeTaskActivities)
-                    .actualTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
+                    .actualClusterTaskLimits(Map.of(TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS))
                     .availableNodeCapacities(capacityForAllNodes(10, nodeTaskActivities))
                     .build()
             ),
@@ -179,7 +179,7 @@ class TaskRouterTest {
                             stat(AFG_2, TASK_NAME_2, 9)
                         )
                     )
-                    .actualTaskLimits(Map.of(
+                    .actualClusterTaskLimits(Map.of(
                             TASK_NAME_1, 1,
                             TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                         )
@@ -220,7 +220,7 @@ class TaskRouterTest {
                             stat(AFG_2, TASK_NAME_2, 100)
                         )
                     )
-                    .actualTaskLimits(Map.of(
+                    .actualClusterTaskLimits(Map.of(
                             TASK_NAME_1, 100,
                             TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                         )
@@ -256,7 +256,7 @@ class TaskRouterTest {
                             stat(AFG_2, TASK_NAME_2, 9)
                         )
                     )
-                    .actualTaskLimits(Map.of(
+                    .actualClusterTaskLimits(Map.of(
                             TASK_NAME_1, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS,
                             TASK_NAME_2, CommonSettings.PlannerSettings.UNLIMITED_PARALLEL_TASKS
                         )

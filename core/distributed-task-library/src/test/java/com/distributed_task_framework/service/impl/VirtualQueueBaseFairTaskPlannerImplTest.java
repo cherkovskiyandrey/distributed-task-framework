@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithAffinityGroupAndTaskNameAndCreatedDate;
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.oneWithCreatedDateAndWithoutAffinity;
+import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withCreatedDateAndWithoutAffinity;
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withWorkerAndWithoutAffinity;
 import static com.distributed_task_framework.TaskPopulateAndVerify.GenerationSpec.withoutAffinity;
 import static org.assertj.core.api.Assertions.assertThat;

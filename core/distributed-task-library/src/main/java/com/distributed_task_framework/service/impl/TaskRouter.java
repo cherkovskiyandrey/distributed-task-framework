@@ -62,17 +62,17 @@ public class TaskRouter {
         Map<Partition, Integer> partitionLimits = Maps.newHashMap();
         Table<String, UUID, Integer> taskNameNodeQuota = HashBasedTable.create();
 
-        Map<String, Integer> actualClusterTaskLimits = Maps.newHashMap(batchRouteRequest.getActualTaskLimits());
-        Map<String, Integer> nodeTaskLimits = batchRouteRequest.getNodeTaskLimits();
+        Map<String, Integer> actualClusterTaskLimits = Maps.newHashMap(batchRouteRequest.getActualClusterTaskLimits());
+        Map<String, Integer> nodeTaskLimits = Maps.newHashMap(batchRouteRequest.getNodeTaskLimits());
         List<NodeCapacity> nodeCapacities = Lists.newArrayList(batchRouteRequest.getAvailableNodeCapacities());
         Map<NodeTask, Integer> nodeTaskToActivity = nodeTaskToActivityAsMap(batchRouteRequest.getNodeTaskActivities());
-        Map<Partition, Integer> newTaskBatches = newTaskBatchesAsMap(batchRouteRequest.getNewAvailablePartitionStatsToPlan());
+        Map<Partition, Integer> newAvailablePartitionsToPlan = newTaskBatchesAsMap(batchRouteRequest.getNewAvailablePartitionStatsToPlan());
 
-        List<Partition> order = newTaskBatches.keySet().stream()
+        List<Partition> availablePartitionsOrder = newAvailablePartitionsToPlan.keySet().stream()
             .sorted()
             .toList();
 
-        Set<UUID> activeNodes = nodeCapacities.stream()
+        Set<UUID> availableActiveNodes = nodeCapacities.stream()
             .map(NodeCapacity::getNode)
             .collect(Collectors.toSet());
 
@@ -89,12 +89,12 @@ public class TaskRouter {
                     processed.add(availablePartitionToPlan);
                     continue;
                 }
-                if (isClusterTaskLimitReached(partitionToPlan, actualClusterTaskLimits)) {
-                    processed.add(partitionToPlan);
+                if (isClusterTaskLimitReached(availablePartitionToPlan, actualClusterTaskLimits)) {
+                    processed.add(availablePartitionToPlan);
                     continue;
                 }
                 Optional<NodeCapacity> commonCapacityOpt = lookupCapacity(
-                    partitionToPlan,
+                    availablePartitionToPlan,
                     nodeCapacities,
                     nodeTaskToActivity,
                     nodeTaskLimits
@@ -116,8 +116,8 @@ public class TaskRouter {
                 Integer currentQuota = taskNameNodeQuota.get(taskName, nodeCapacity.getNode());
                 taskNameNodeQuota.put(taskName, nodeCapacity.getNode(), currentQuota == null ? 1 : currentQuota + 1);
 
-                newTaskBatches.computeIfPresent(partitionToPlan, (key, oldVal) -> oldVal - 1);
-                partitionLimits.compute(partitionToPlan, (key, oldVal) -> oldVal == null ? 1 : oldVal + 1);
+                newAvailablePartitionsToPlan.computeIfPresent(availablePartitionToPlan, (key, oldVal) -> oldVal - 1);
+                partitionLimits.compute(availablePartitionToPlan, (key, oldVal) -> oldVal == null ? 1 : oldVal + 1);
                 actualClusterTaskLimits.computeIfPresent(taskName, (key, oldVal) ->
                     oldVal == UNLIMITED_PARALLEL_TASKS ? UNLIMITED_PARALLEL_TASKS : oldVal - 1
                 );
@@ -195,11 +195,11 @@ public class TaskRouter {
         return taskLimits.getOrDefault(partition.getTaskName(), UNLIMITED_PARALLEL_TASKS) == 0;
     }
 
-    private Optional<NodeCapacity> lookupCapacity(Partition partitionToPlan,
+    private Optional<NodeCapacity> lookupCapacity(Partition availablePartitionToPlan,
                                                   List<NodeCapacity> nodeCapacities,
                                                   Map<NodeTask, Integer> nodeTaskToActivity,
                                                   Map<String, Integer> actualNodeTaskLimits) {
-        String taskName = partitionToPlan.getTaskName();
+        String taskName = availablePartitionToPlan.getTaskName();
         var nodeTaskLimit = actualNodeTaskLimits.getOrDefault(taskName, UNLIMITED_PARALLEL_TASKS);
         return nodeCapacities.stream()
             //apply node capacity limit
@@ -226,7 +226,7 @@ public class TaskRouter {
                             0
                         )
                     )
-                    //2. least busy node
+                    //2. the least busy node
                     .thenComparingInt(NodeCapacity::getBusyCapacity)
                     //3. the earliest updated node
                     .thenComparingLong(nodeCapacity ->

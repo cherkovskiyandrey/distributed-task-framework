@@ -24,6 +24,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.apache.commons.fileupload.MultipartStream;
+import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.http.entity.ContentType;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
