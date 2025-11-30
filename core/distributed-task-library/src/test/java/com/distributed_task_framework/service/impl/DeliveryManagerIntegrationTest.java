@@ -8,8 +8,8 @@ import com.distributed_task_framework.persistence.entity.DlcEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.entity.RemoteCommandEntity;
 import com.distributed_task_framework.persistence.entity.RemoteTaskWorkerEntity;
-import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.remote_commands.ScheduleCommand;
+import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
@@ -24,7 +24,6 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.apache.commons.fileupload.MultipartStream;
-import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.http.entity.ContentType;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
@@ -241,12 +240,25 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
 
         //verify
         verifyBatch(firstBatch);
-        waitFor(() -> EqualsBuilder.reflectionEquals(
-                Lists.newArrayList(remoteCommandRepository.findAll()).toArray(),
-                foreignBatch.toArray(),
-                "createdDateUtc",
-                "sendDateUtc"
-        ));
+        waitFor(() -> {
+            final Iterable<RemoteCommandEntity> all = remoteCommandRepository.findAll();
+
+            final List<RemoteCommandEntity> actual = StreamSupport.stream(all.spliterator(), false)
+                .map(e -> e.toBuilder()
+                    .createdDateUtc(null)
+                    .sendDateUtc(null)
+                    .build()
+                )
+                .toList();
+            final List<RemoteCommandEntity> expected = foreignBatch.stream()
+                .map(e -> e.toBuilder()
+                    .createdDateUtc(null)
+                    .sendDateUtc(null)
+                    .build()
+                ).toList();
+
+            return Objects.equals(actual, expected);
+        });
     }
 
     @SneakyThrows
@@ -283,11 +295,24 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
 
         //verify
         waitFor(() -> Lists.newArrayList(remoteCommandRepository.findAll()).isEmpty());
-        waitFor(() -> EqualsBuilder.reflectionEquals(
-                Lists.newArrayList(dlcRepository.findAll()).toArray(),
-                commandMapper.mapToDlcList(batch).toArray(),
-                "createdDateUtc"
-        ));
+        waitFor(() -> {
+            final Iterable<DlcEntity> all = dlcRepository.findAll();
+
+            final List<DlcEntity> actual = StreamSupport.stream(all.spliterator(), false)
+                .map(e -> e.toBuilder()
+                    .createdDateUtc(null)
+                    .build()
+                )
+                .toList();
+            final List<DlcEntity> expected = commandMapper.mapToDlcList(batch).stream()
+                .map(e -> e.toBuilder()
+                    .createdDateUtc(null)
+                    .build()
+                )
+                .toList();
+
+            return Objects.equals(actual, expected);
+        });
     }
 
 
