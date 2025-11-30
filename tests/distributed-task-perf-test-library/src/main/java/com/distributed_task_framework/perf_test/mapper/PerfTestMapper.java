@@ -3,12 +3,12 @@ package com.distributed_task_framework.perf_test.mapper;
 import com.distributed_task_framework.perf_test.model.PerfTestRunResult;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestRun;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestState;
+import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
 import org.mapstruct.NullValueCheckStrategy;
 import org.mapstruct.NullValuePropertyMappingStrategy;
-import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
 
 import java.time.Duration;
 import java.time.LocalDateTime;

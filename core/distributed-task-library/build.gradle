@@ -1,0 +1,35 @@
+dependencies {
+    api libs.jackson.datatype.jsr310
+    api project(':common-utils')
+    // todo: has to be removed when get rid of spring in this module
+    api project(':common-spring-utils')
+
+    implementation libs.spring.boot.starter.webflux
+    implementation libs.spring.boot.starter.actuator
+    implementation libs.spring.data.jdbc
+    implementation libs.cron.utils
+
+    // For integration tests
+    testImplementation testFixtures(project(':common-spring-utils'))
+
+    testImplementation libs.spring.boot.starter
+    testImplementation libs.liquibase
+    testImplementation libs.postgresql
+    testImplementation libs.spring.boot.starter.data.jdbc
+    testImplementation libs.spring.boot.starter.webflux
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation libs.caffeine
+    testImplementation libs.testcontainers.postgresql
+    testImplementation libs.testcontainers.localstack
+    testImplementation libs.testcontainers.junit.jupiter
+    testImplementation libs.org.awaitility
+    testImplementation libs.okhttp3
+    testImplementation libs.okhttp3.mockwebserver
+    testImplementation libs.commons.fileupload
+    testImplementation libs.org.apache.httpclient
+    testImplementation libs.logback.core
+    testImplementation libs.net.logstash.logback.encoder
+    testImplementation libs.instancio.junit
+}

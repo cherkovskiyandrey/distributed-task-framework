@@ -1,39 +1,26 @@
-import org.springframework.boot.gradle.plugin.SpringBootPlugin
-
 plugins {
-    id 'org.springframework.boot' version '3.1.2'
-    id 'io.spring.dependency-management' version '1.1.4'
-    id 'org.jreleaser' version '1.17.0'
+    alias(libs.plugins.spring.boot) apply(false)
+    alias(libs.plugins.org.ajoberstar.grgit) apply(false)
+    alias(libs.plugins.org.jreleaser) apply(false)
     id "base"
-    id 'org.ajoberstar.grgit' version "5.2.2"
 }
 
-description = "The task processing framework"
+var grgitPluginId = libs.plugins.org.ajoberstar.grgit.get().pluginId
+var jreleaserPluginId = libs.plugins.org.jreleaser.get().pluginId
 
-var libs = subprojects.findAll { !it.name.contains('application') }
+description = "The task processing framework with saga supporting"
+
+var libraries = subprojects.findAll { !it.name.contains('application') }
 var apps = subprojects.findAll { it.name.contains('application') }
 
-configure(subprojects) { project ->
+allprojects {
     group = 'io.github.cherkovskiyandrey'
-    version = '1.0.0'
+    version = project.properties['version']
+    version = version == 'unspecified' ? '2.0.0' : version
 
-    ext {
-        lombokVersion = '1.18.30'
-        mapstructVersion = '1.5.5.Final'
-        lombokMapstructBindingVersion = '0.2.0'
-        springDataJdbcVersion = '3.1.2'
-        guavaVersion = '31.0.1-jre'
-        testcontainersVersion = '1.19.6'
-        cronUtilsVersion = '9.1.6'
-        caffeineVersion = '3.0.5'
-        documenterPluginVersion = '0.7.1'
-    }
-
+    apply plugin: libs.plugins.spring.boot.get().pluginId
     apply plugin: 'maven-publish'
-    apply plugin: 'org.springframework.boot'
-    apply plugin: 'io.spring.dependency-management'
     apply plugin: 'java-library'
-    apply plugin: 'java'
     apply plugin: 'base'
 
     repositories {
@@ -48,26 +35,24 @@ configure(subprojects) { project ->
     }
 
     dependencies {
-        compileOnly "org.projectlombok:lombok:${lombokVersion}"
+        //dependency management
+        implementation platform(libs.spring.boot.bom)
 
-        implementation "org.mapstruct:mapstruct:${mapstructVersion}"
-        implementation 'com.fasterxml.jackson.core:jackson-databind'
-        implementation "com.google.guava:guava:${guavaVersion}"
-        implementation 'org.apache.commons:commons-lang3'
+        //Lombok
+        compileOnly libs.org.projectlombok.lombok
+        annotationProcessor libs.org.projectlombok.lombok
+        testCompileOnly libs.org.projectlombok.lombok
+        testAnnotationProcessor libs.org.projectlombok.lombok
 
-        annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-        annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
-        annotationProcessor "org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}"
+        //Mapstruct
+        implementation libs.org.mapstruct
+        annotationProcessor libs.org.mapstruct.processor
+        annotationProcessor libs.org.lombok.mapstruct.binding
 
-        testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
-        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-    }
-
-    test {
-        useJUnitPlatform()
-        testLogging {
-            exceptionFormat = 'full'
-        }
+        //Common tools
+        implementation libs.jackson.databind
+        implementation libs.guava
+        implementation libs.commons.lang3
     }
 
     java {
@@ -77,11 +62,27 @@ configure(subprojects) { project ->
 //        withJavadocJar()
         withSourcesJar()
     }
+
+    jar {
+        enabled = false
+    }
+
+    bootJar {
+        enabled = false
+    }
+
+    test {
+        useJUnitPlatform()
+        testLogging {
+            exceptionFormat = 'full'
+        }
+    }
 }
 
-configure(libs) { project_ ->
+configure(libraries) { project_ ->
 
-    apply plugin: 'org.ajoberstar.grgit'
+    apply plugin: grgitPluginId
+    apply plugin: jreleaserPluginId
 
     bootJar {
         enabled = false
@@ -89,16 +90,6 @@ configure(libs) { project_ ->
 
     jar {
         enabled = true
-    }
-
-    build {
-        finalizedBy publishToMavenLocal
-    }
-
-    dependencyManagement {
-        imports {
-            mavenBom SpringBootPlugin.BOM_COORDINATES
-        }
     }
 
     test {
@@ -149,7 +140,7 @@ configure(libs) { project_ ->
 
                     scm {
                         url = "https://github.com/cherkovskiyandrey/distributed-task-framework"
-                        connection ="scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
+                        connection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
                         developerConnection = "scm:git://github.com/cherkovskiyandrey/distributed-task-framework.git"
                     }
 
@@ -174,20 +165,18 @@ configure(libs) { project_ ->
         }
     }
 
+    // JReleaser configuration only in root project
     jreleaser {
         dryrun = false
-        //noinspection GroovyAssignabilityCheck
         project {
             authors = ['Andrey Cherkovskiy']
             license = 'Apache-2.0'
-            //noinspection GroovyAssignabilityCheck
             links {
                 homepage = 'https://github.com/cherkovskiyandrey/distributed-task-framework'
             }
             inceptionYear = '2022'
         }
         release {
-            //noinspection GroovyAssignabilityCheck
             github {
                 skipRelease = true
                 skipTag = true
@@ -197,15 +186,12 @@ configure(libs) { project_ ->
                 overwrite = true
             }
         }
-        //noinspection GroovyAssignabilityCheck
         signing {
             active = 'ALWAYS'
             armored = true
-            verify = true
         }
         deploy {
             maven {
-                //noinspection GroovyAssignabilityCheck
                 mavenCentral {
                     sonatype {
                         active = 'ALWAYS'
@@ -218,7 +204,6 @@ configure(libs) { project_ ->
             }
         }
     }
-
 }
 
 configure(apps) { project ->
@@ -229,4 +214,12 @@ configure(apps) { project ->
     jar {
         enabled = true
     }
+}
+
+publish {
+    dependsOn libraries.publish
+}
+
+build {
+    dependsOn subprojects.build
 }

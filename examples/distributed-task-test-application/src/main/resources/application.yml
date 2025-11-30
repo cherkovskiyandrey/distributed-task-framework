@@ -19,6 +19,11 @@ distributed-task:
   enabled: true
   common:
     app-name: local-test-app
+    completion:
+      handler-initial-delay: PT1S
+      handler-fixed-delay: PT1S
+      default-task-timeout: PT1M
+      default-workflow-timeout: PT1M
     registry:
       # High value of initial delay causes foreign key constraint violation when task tried to register,
       # but current node is not yet saved in DB.
@@ -32,10 +37,7 @@ distributed-task:
       max-parallel-tasks-in-cluster-default: 100
       batch-size: 100
       polling-delay:
-        0: 1000
-        100: 500
-        1000: 250
-#      force-fair-general-task-planner: true
+        0: 100
     worker-manager:
       max-parallel-tasks-in-node: 100
     delivery-manager:
@@ -59,6 +61,10 @@ distributed-task:
           delay-period: PT5S
           max-retries: 1000
           max-delay: PT1H
+        fixed:
+          delay: PT1S
+          max-interval: PT5S
+          max-number: 5
       max-parallel-in-cluster: 100
 #      max-parallel-in-node: 1
       timeout: PT10S
@@ -66,7 +72,7 @@ distributed-task:
     task-properties:
       CRON_TEST_TASK_DEF:
         execution-guarantees: EXACTLY_ONCE
-        cron: '0 * * * * *'
+        #        cron: '0 * * * * *'
         dlt-enabled: false
         retry:
           # or backoff or retry with fixed delay

@@ -1,0 +1,28 @@
+dependencies {
+    api project(':common-utils')
+    //todo: has to be removed when get rid of spring in this module
+    api project(':common-spring-utils')
+
+    implementation project(':distributed-task-library')
+
+    implementation libs.spring.boot.starter.actuator
+    implementation libs.spring.data.jdbc
+    implementation libs.apache.commons.io
+    implementation libs.cron.utils
+
+    // For integration tests (we use spring here)
+    testImplementation project(':distributed-task-test-spring-boot-starter')
+    testImplementation testFixtures(project(':common-spring-utils'))
+
+    testImplementation libs.caffeine
+    testImplementation libs.liquibase
+    testImplementation libs.spring.boot.starter
+    testImplementation libs.postgresql
+    testImplementation libs.spring.boot.starter.data.jdbc
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation libs.testcontainers.postgresql
+    testImplementation libs.testcontainers.junit.jupiter
+    testImplementation libs.org.awaitility
+}

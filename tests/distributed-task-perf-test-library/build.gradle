@@ -1,19 +1,30 @@
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    implementation 'org.springframework.data:spring-data-jdbc'
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
-    implementation 'org.liquibase:liquibase-core'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
-    implementation 'commons-io:commons-io:2.13.0'
-    implementation 'io.micrometer:micrometer-registry-prometheus:1.9.0'
-
     implementation project(":distributed-task-spring-boot-starter")
 
-    runtimeOnly 'org.postgresql:postgresql'
+    implementation libs.spring.boot.starter
+    implementation libs.spring.boot.starter.web
+    implementation libs.spring.boot.starter.validation
+    implementation libs.spring.boot.starter.actuator
+    implementation libs.spring.data.jdbc
+    implementation libs.jackson.datatype.jsr310
+    implementation libs.liquibase
+    implementation libs.springdoc.openapi.starter.webmvc.ui
+    implementation libs.micrometer.registry.prometheus
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+    runtimeOnly libs.postgresql
+
+    // tests
+    testImplementation project(':distributed-task-test-spring-boot-starter')
+    testImplementation testFixtures(project(':common-spring-utils'))
+
+    testImplementation libs.liquibase
+    testImplementation libs.spring.boot.starter
+    testImplementation libs.postgresql
+    testImplementation libs.spring.boot.starter.data.jdbc
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation libs.testcontainers.postgresql
+    testImplementation libs.testcontainers.junit.jupiter
+    testImplementation libs.org.awaitility
 }

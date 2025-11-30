@@ -1,0 +1,55 @@
+databaseChangeLog:
+  - changeSet:
+      id: test-init
+      author: CherkovskiyAndrey
+      context: ddl
+      changes:
+        - createTable:
+            tableName: audit
+            columns:
+              - column:
+                  name: id
+                  type: int8
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: dtf_test_audit_pk
+              - column:
+                  name: who
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+                    unique: false
+              - column:
+                  name: when
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: what
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: test_data
+            columns:
+              - column:
+                  name: id
+                  type: int8
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: dtf_test_data_pk
+              - column:
+                  name: version
+                  type: int8
+                  constraints:
+                    nullable: false
+              - column:
+                  name: data
+                  type: character varying(1024)
+                  constraints:
+                    nullable: true

@@ -1,0 +1,3 @@
+dependencies {
+    api project(':distributed-task-spring-boot-starter')
+}

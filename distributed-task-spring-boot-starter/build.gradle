@@ -1,5 +1,0 @@
-dependencies {
-    api "org.springframework.boot:spring-boot-starter"
-    api "org.springframework.boot:spring-boot-starter-data-jdbc"
-    api project(':distributed-task-spring-boot-autoconfigure')
-}

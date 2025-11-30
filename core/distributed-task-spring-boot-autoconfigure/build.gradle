@@ -1,0 +1,52 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+    dependencies {
+        classpath libs.spring.configuration.property.documenter.gradle.plugin
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+apply plugin: libs.plugins.property.documenter.get().pluginId
+
+dependencies {
+    api project(':distributed-task-library')
+
+    api libs.spring.boot
+    api libs.spring.boot.autoconfigure
+    api libs.spring.data.jdbc
+    api libs.spring.boot.starter.validation
+    api libs.spring.boot.starter.actuator
+    api libs.jackson.datatype.jdk8
+    api libs.jackson.module.kotlin
+
+    implementation project(':common-spring-utils')
+
+    annotationProcessor libs.spring.boot.configuration.processor
+
+    testImplementation (libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testRuntimeOnly("com.fasterxml.jackson.module:jackson-module-kotlin")
+}
+
+tasks.register('generateAdoc') {
+    dependsOn generatePropertyDocument {
+        documentName = "DTF Spring configuration properties"
+        documentDescription = "This is a document about the configuration properties in DTF autoconfiguration module"
+        type = "MARKDOWN"
+        metadataInput = file("build/classes/java/main/META-INF/spring-configuration-metadata.json")
+        outputFile = file("config-prop.md")
+        markdownCustomization {
+            unknownGroupLocalization = "distributed-task"
+        }
+    }
+}
+
+compileJava.inputs.files(processResources)

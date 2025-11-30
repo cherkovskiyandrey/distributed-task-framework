@@ -1,0 +1,27 @@
+dependencies {
+    api project(':distributed-task-test-spring-boot-starter')
+    api project(':distributed-task-base-saga-spring-boot-starter')
+
+    api libs.spring.boot
+    api libs.spring.boot.autoconfigure
+    api libs.spring.data.jdbc
+    api libs.spring.boot.starter.validation
+    api libs.spring.boot.starter.actuator
+
+    annotationProcessor(libs.spring.boot.configuration.processor)
+
+    // For integration tests
+    testImplementation testFixtures(project(':common-spring-utils'))
+
+    testImplementation libs.liquibase
+    testImplementation libs.spring.boot.starter
+    testImplementation libs.postgresql
+    testImplementation libs.spring.boot.starter.data.jdbc
+    testImplementation libs.spring.boot.starter.webflux
+    testImplementation(libs.spring.boot.starter.test) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation libs.testcontainers.postgresql
+    testImplementation libs.testcontainers.junit.jupiter
+    testImplementation libs.org.awaitility
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "_____dtf_tasks" ADD COLUMN "local_state" BYTEA NULL;
