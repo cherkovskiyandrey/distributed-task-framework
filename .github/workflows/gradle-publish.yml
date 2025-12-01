@@ -44,7 +44,7 @@ jobs:
         JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.JRELEASER_GPG_PUBLIC_KEY }}
 
     - name: Publish to Maven Central
-      run: ./gradlew jreleaserFullRelease
+      run: ./gradlew jreleaserFullRelease --git-root-search
       env:
         JRELEASER_GPG_SECRET_KEY: ${{ secrets.JRELEASER_GPG_SECRET_KEY }}
         JRELEASER_GPG_PASSPHRASE: ${{ secrets.JRELEASER_GPG_PASSPHRASE }}
