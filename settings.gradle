@@ -35,15 +35,15 @@ include ':distributed-task-test'
 include ':distributed-task-test-spring-boot-autoconfigure'
 include ':distributed-task-test-spring-boot-starter'
 
-project(':distributed-task-test').projectDir = new File('test-utils/distributed-task-test')
-project(':distributed-task-test-spring-boot-autoconfigure').projectDir = new File('test-utils/distributed-task-test-spring-boot-autoconfigure')
-project(':distributed-task-test-spring-boot-starter').projectDir = new File('test-utils/distributed-task-test-spring-boot-starter')
+project(':distributed-task-test').projectDir = new File('test-utils/dtf/distributed-task-test')
+project(':distributed-task-test-spring-boot-autoconfigure').projectDir = new File('test-utils/dtf/distributed-task-test-spring-boot-autoconfigure')
+project(':distributed-task-test-spring-boot-starter').projectDir = new File('test-utils/dtf/distributed-task-test-spring-boot-starter')
 
 include ':distributed-task-base-saga-test-spring-boot-autoconfigure'
 include ':distributed-task-base-saga-test-spring-boot-starter'
 
-project(':distributed-task-base-saga-test-spring-boot-autoconfigure').projectDir = new File('test-utils/distributed-task-base-saga-test-spring-boot-autoconfigure')
-project(':distributed-task-base-saga-test-spring-boot-starter').projectDir = new File('test-utils/distributed-task-base-saga-test-spring-boot-starter')
+project(':distributed-task-base-saga-test-spring-boot-autoconfigure').projectDir = new File('test-utils/dsf/distributed-task-base-saga-test-spring-boot-autoconfigure')
+project(':distributed-task-base-saga-test-spring-boot-starter').projectDir = new File('test-utils/dsf/distributed-task-base-saga-test-spring-boot-starter')
 
 //Perf test
 include ':distributed-task-perf-test-library'
