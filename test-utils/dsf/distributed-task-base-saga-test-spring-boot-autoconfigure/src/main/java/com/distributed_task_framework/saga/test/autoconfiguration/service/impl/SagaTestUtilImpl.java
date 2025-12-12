@@ -13,6 +13,8 @@ import java.time.Duration;
 import java.util.List;
 
 import static com.distributed_task_framework.saga.services.impl.SagaManagerImpl.INTERNAL_SAGA_MANAGER_TASK_DEF;
+import static com.distributed_task_framework.test.autoconfigure.service.impl.DistributedTaskTestUtilImpl.DEFAULT_ATTEMPTS;
+import static com.distributed_task_framework.test.autoconfigure.service.impl.DistributedTaskTestUtilImpl.DEFAULT_DURATION;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -26,7 +28,11 @@ public class SagaTestUtilImpl implements SagaTestUtil {
     @Override
     public void reinitAndWait() throws InterruptedException {
         log.info("reinitAndWait(): begin");
-        distributedTaskTestUtil.reinitAndWait();
+        distributedTaskTestUtil.reinitAndWait(
+            DEFAULT_ATTEMPTS,
+            DEFAULT_DURATION,
+            List.of(INTERNAL_SAGA_MANAGER_TASK_DEF)
+        );
         sagaRepository.deleteAll();
         dlsSagaContextRepository.deleteAll();
         log.info("reinitAndWait(): end");
