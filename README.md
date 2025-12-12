@@ -59,8 +59,8 @@ The saga module implements the saga pattern for managing distributed transaction
 Utilities and helpers for convenient integration testing with DTF and Saga frameworks.
 
 #### Documentation:
-- **[test-utils/DTF.md](test-utils/DTF.md)** - Testing utilities documentation for DTF
-- **[test-utils/SAGA.md](test-utils/SAGA.md)** - Testing utilities documentation for DSF
+- **[test-utils/dtf/README.md](test-utils/dtf/README.md)** - Testing utilities documentation for DTF
+- **[test-utils/dsf/README.md](test-utils/dsf/README.md)** - Testing utilities documentation for DSF
 
 ## Key Features
 
@@ -87,8 +87,8 @@ Utilities and helpers for convenient integration testing with DTF and Saga frame
 For detailed information, please refer to:
 - [Complete DTF Documentation](core/README.md)
 - [Complete Saga Documentation](saga/README.md)
-- [DTF Testing Utilities](test-utils/DTF.md)
-- [Saga Testing Utilities](test-utils/SAGA.md)
+- [DTF Testing Utilities](test-utils/dtf/README.md)
+- [Saga Testing Utilities](test-utils/dsf/README.md)
 
 ## License
 
