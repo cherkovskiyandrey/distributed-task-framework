@@ -16,19 +16,21 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.aop.support.AopUtils;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
+public class SagaConfigurationDiscoveryProcessor implements ApplicationListener<ContextRefreshedEvent> {
     private static final Set<String> IGNORE_METHOD_NAMES = Set.of(
         "equals",
         "hashCode",
@@ -41,10 +43,11 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
         "clone"
     );
 
+    ApplicationContext applicationContext;
     DistributionSagaService distributionSagaService;
     DistributedSagaProperties distributedSagaProperties;
     SagaPropertiesProcessor sagaPropertiesProcessor;
-    Map<Object, com.distributed_task_framework.saga.autoconfigure.utils.ReflectionHelper.ProxyObject> beansToProxyObject = Maps.newIdentityHashMap();
+    Map<Object, ReflectionHelper.ProxyObject> beansToProxyObject = Maps.newIdentityHashMap();
 
     @PostConstruct
     public void init() {
@@ -54,12 +57,21 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
         );
     }
 
-    @SuppressWarnings("NullableProblems")
+
     @Override
-    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        registerSagaMethodIfExists(bean);
-        registerSagaRevertMethodIfExists(bean);
-        return bean;
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        forEachBean(bean -> {
+                registerSagaMethodIfExists(bean);
+                registerSagaRevertMethodIfExists(bean);
+            }
+        );
+    }
+
+    private void forEachBean(Consumer<Object> processor) {
+        Arrays.stream(applicationContext.getBeanDefinitionNames())
+            .filter(applicationContext::isSingleton)
+            .map(applicationContext::getBean)
+            .forEach(processor);
     }
 
     private void registerSagaMethodIfExists(Object bean) {
