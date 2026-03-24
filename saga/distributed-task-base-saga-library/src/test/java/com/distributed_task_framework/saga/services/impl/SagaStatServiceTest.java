@@ -29,7 +29,7 @@ import static com.distributed_task_framework.saga.persistence.entities.Aggregate
 import static com.distributed_task_framework.saga.persistence.entities.AggregatedSagaStat.State.COMPLETED_NOT_CLEANED;
 import static com.distributed_task_framework.saga.persistence.entities.AggregatedSagaStat.State.EXPIRED;
 import static com.distributed_task_framework.saga.persistence.entities.AggregatedSagaStat.State.EXPIRED_NOT_CLEANED;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -40,7 +40,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @BeforeEach
     public void init() {
         super.init();
-        when(plannerService.isActive()).thenReturn(false);
+        doReturn(false).when(plannerService).isActive();
         sagaManager.enableHandleDeprecatedSagas(false); //turn off to prevent races with these tests
         waitFor(() -> !sagaManager.isHandleDeprecatedSagasEnabled()); //wait for turning off
         setFixedTime(1000);
@@ -56,7 +56,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @Test
     void shouldCalculateStatWhenActive() {
         //when
-        when(plannerService.isActive()).thenReturn(true);
+        doReturn(true).when(plannerService).isActive();
         populateSagaEntities(ACTIVE, Map.of(0, 5, 1, 4, 2, 3, 3, 1)); //5+4+3+1=13
         populateSagaEntities(COMPLETED, Map.of(0, 4, 1, 3, 2, 2, 3, 1)); //4+3+2+1=10
         populateSagaEntities(COMPLETED_CLEANING, Map.of(0, 5, 1, 4, 2, 3, 3, 2)); //5+4+3+2=14
@@ -124,7 +124,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRemoveMetricsWhenRemovedFromTopN() {
         //when
-        when(plannerService.isActive()).thenReturn(true);
+        doReturn(true).when(plannerService).isActive();
         populateSagaEntities(ACTIVE, Map.of(0, 5, 1, 4, 2, 3, 3, 1, 4, 1));
         sagaStatService.calculateStat();
         metricTestHelper.assertMetricToContain(
@@ -159,7 +159,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRemoveMetricsWhenInactive() {
         //when
-        when(plannerService.isActive()).thenReturn(true);
+        doReturn(true).when(plannerService).isActive();
         populateSagaEntities(ACTIVE, Map.of(0, 1));
         populateSagaEntities(COMPLETED, Map.of(0, 1));
         populateSagaEntities(COMPLETED_CLEANING, Map.of(0, 1));
@@ -169,7 +169,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
         sagaStatService.calculateStat();
 
         //do
-        when(plannerService.isActive()).thenReturn(false);
+        doReturn(false).when(plannerService).isActive();
         sagaStatService.calculateStat();
 
         //verify
@@ -217,12 +217,12 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @Test
     void shouldReregisterMetricsWhenActiveAfterInactive() {
         //when
-        when(plannerService.isActive()).thenReturn(true);
+        doReturn(true).when(plannerService).isActive();
         populateSagaEntities(ACTIVE, Map.of(0, 5, 1, 4, 2, 3, 3, 1)); //5+4+3+1=13
         sagaStatService.calculateStat();
-        when(plannerService.isActive()).thenReturn(false);
+        doReturn(false).when(plannerService).isActive();
         sagaStatService.calculateStat();
-        when(plannerService.isActive()).thenReturn(true);
+        doReturn(true).when(plannerService).isActive();
 
         //do
         sagaStatService.calculateStat();
