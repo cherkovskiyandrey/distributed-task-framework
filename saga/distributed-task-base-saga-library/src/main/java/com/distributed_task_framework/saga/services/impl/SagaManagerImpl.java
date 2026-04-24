@@ -67,7 +67,6 @@ public class SagaManagerImpl implements SagaManager {
     SagaMapper sagaMapper;
     PlatformTransactionManager transactionManager;
     SagaCommonSettings sagaCommonSettings;
-    MeterRegistry meterRegistry;
     MetricHelper metricHelper;
     Clock clock;
     AtomicBoolean handleDeprecatedSagasEnabled;
@@ -81,7 +80,6 @@ public class SagaManagerImpl implements SagaManager {
                            SagaMapper sagaMapper,
                            PlatformTransactionManager transactionManager,
                            SagaCommonSettings sagaCommonSettings,
-                           MeterRegistry meterRegistry,
                            MetricHelper metricHelper,
                            Clock clock) {
         this.distributedTaskService = distributedTaskService;
@@ -98,7 +96,6 @@ public class SagaManagerImpl implements SagaManager {
         this.sagaMapper = sagaMapper;
         this.transactionManager = transactionManager;
         this.sagaCommonSettings = sagaCommonSettings;
-        this.meterRegistry = meterRegistry;
         this.metricHelper = metricHelper;
         this.handleDeprecatedSagasEnabled = new AtomicBoolean(true);
         this.isHandleDeprecatedSagasEnabled = new AtomicBoolean(true);

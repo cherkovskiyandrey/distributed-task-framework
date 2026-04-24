@@ -67,6 +67,7 @@ import com.distributed_task_framework.settings.Retry;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.DistributedTaskLifecycleSpringConfiguration;
 import com.distributed_task_framework.utils.DistributedTaskNoCacheManager;
 import com.distributed_task_framework.utils.TestClock;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -83,12 +84,27 @@ import lombok.experimental.FieldDefaults;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.auditing.DateTimeProvider;
+import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
+import org.springframework.data.jdbc.core.convert.DataAccessStrategyFactory;
+import org.springframework.data.jdbc.core.convert.InsertStrategyFactory;
+import org.springframework.data.jdbc.core.convert.JdbcConverter;
+import org.springframework.data.jdbc.core.convert.SqlGeneratorSource;
+import org.springframework.data.jdbc.core.convert.SqlParametersFactory;
+import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
+import org.springframework.data.jdbc.repository.config.DialectResolver;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
+import org.springframework.data.relational.core.dialect.Dialect;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -108,6 +124,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_ACCESS_STRATEGY;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 import static com.distributed_task_framework.service.impl.ClusterProviderImpl.CPU_LOADING_UNDEFINED;
@@ -115,16 +132,55 @@ import static org.mockito.Mockito.doReturn;
 
 @TestConfiguration
 @EnableJdbcAuditing
+@AutoConfigureAfter(
+    value = {
+        JdbcTemplateAutoConfiguration.class,
+        DataSourceTransactionManagerAutoConfiguration.class,
+        DistributedTaskLifecycleSpringConfiguration.class,
+    }
+)
 @EnableJdbcRepositories(
     basePackageClasses = NodeStateRepository.class,
     transactionManagerRef = DTF_TX_MANAGER,
-    jdbcOperationsRef = DTF_JDBC_OPS
+    jdbcOperationsRef = DTF_JDBC_OPS,
+    dataAccessStrategyRef = DTF_ACCESS_STRATEGY
 )
+@Import(DistributedTaskLifecycleSpringConfiguration.class)
 @EnableTransactionManagement
 public class BaseTestConfiguration {
     @Bean
     public TestClock distributedTaskInternalClock() {
         return new TestClock();
+    }
+
+    @Bean
+    public NamedParameterJdbcOperations dtfNamedParameterJdbcOperations(DataSource dataSource) {
+        return new NamedParameterJdbcTemplate(dataSource);
+    }
+
+    @Bean
+    public DataSourceTransactionManager dtfTransactionManager(DataSource dtfDataSource) {
+        return new DataSourceTransactionManager(dtfDataSource);
+    }
+
+    @Bean
+    public Dialect dtfJdbcDialect(NamedParameterJdbcOperations operations) {
+        return DialectResolver.getDialect(operations.getJdbcOperations());
+    }
+
+    @Bean
+    public DataAccessStrategy dtfDataAccessStrategy(
+        NamedParameterJdbcOperations operations,
+        Dialect dialect,
+        JdbcConverter jdbcConverter,
+        JdbcMappingContext context) {
+        // Используем вспомогательный метод из родительского класса
+        SqlGeneratorSource sqlGeneratorSource = new SqlGeneratorSource(context, jdbcConverter, dialect);
+        DataAccessStrategyFactory factory = new DataAccessStrategyFactory(sqlGeneratorSource, jdbcConverter, operations,
+            new SqlParametersFactory(context, jdbcConverter),
+            new InsertStrategyFactory(operations, dialect));
+
+        return factory.create();
     }
 
     @Bean
@@ -645,16 +701,5 @@ public class BaseTestConfiguration {
             clock,
             distributedTaskMetricHelper
         );
-    }
-
-    @Bean
-    public NamedParameterJdbcOperations dtfNamedParameterJdbcOperations(DataSource dataSource) {
-        return new NamedParameterJdbcTemplate(dataSource);
-    }
-
-
-    @Bean
-    public DataSourceTransactionManager dtfTransactionManager(DataSource dtfDataSource) {
-        return new DataSourceTransactionManager(dtfDataSource);
     }
 }

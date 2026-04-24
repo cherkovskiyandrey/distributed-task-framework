@@ -19,11 +19,11 @@ import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.autoconfigure.utils.ReflectionHelper;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
+import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
-import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
@@ -31,7 +31,7 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -41,7 +41,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class TaskConfigurationDiscoveryProcessor {
+public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServiceLifecycle {
     public static final BiFunction<TaskSettings, TaskDef<?>, TaskSettings> EMPTY_TASK_SETTINGS_CUSTOMIZER = (taskSettings, taskDef) -> taskSettings;
 
     DistributedTaskProperties properties;
@@ -51,6 +51,7 @@ public class TaskConfigurationDiscoveryProcessor {
     DistributedTaskPropertiesMerger distributedTaskPropertiesMerger;
     Collection<Task<?>> tasks;
     RemoteTasks remoteTasks;
+    CopyOnWriteArrayList<TaskDef<?>> cronTasksToStart;
     BiFunction<TaskSettings, TaskDef<?>, TaskSettings> taskSettingCustomizer;
 
     public TaskConfigurationDiscoveryProcessor(DistributedTaskProperties properties,
@@ -67,6 +68,7 @@ public class TaskConfigurationDiscoveryProcessor {
         this.tasks = tasks;
         this.remoteTasks = remoteTasks;
         this.taskSettingCustomizer = taskSettingCustomizer;
+        this.cronTasksToStart = Lists.newCopyOnWriteArrayList();
         this.executor = new ThreadPoolExecutor(
             0,
             1,
@@ -76,17 +78,23 @@ public class TaskConfigurationDiscoveryProcessor {
         );
     }
 
-    @SneakyThrows
-    @PostConstruct
-    public void init() {
+    @Override
+    public void init() throws Exception {
         registerLocalTasks();
         registerRemoteTasksFromCode();
         //configurations for unknown local tasks just ignore.
     }
 
+    @Override
+    public void start() throws Exception {
+        for (var taskDef : cronTasksToStart) {
+            distributedTaskService.schedule(taskDef, ExecutionContext.empty());
+        }
+    }
+
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): shutdown started");
         executor.shutdownNow();
         executor.awaitTermination(1, TimeUnit.MINUTES);
@@ -100,24 +108,9 @@ public class TaskConfigurationDiscoveryProcessor {
                 task.getDef()
             );
             distributedTaskService.registerTask(task, taskSettings);
+
             if (taskSettings.hasCron()) {
-                //we have to start recurrent task almost immediately
-                //it is important to run async, because otherwise a deadlock will happen in case when
-                //there are fewer db connections in the pool. Because ClusterProviderImpl run async
-                //updateOwnState in a transaction and try to get nodeStateRepository, which
-                //must be created as a bean from spring context, but spring context is blocked until
-                //any @PostConstruct is completed. At the same time here we get spring context lock
-                //and try to obtain transaction:
-                //TaskConfigurationDiscoveryProcessor -> __synchronize(spring factory)__ -> init() -> distributedTaskService.schedule -> taskRepository.findByName -> __getConnection__
-                //ClusterProviderImpl -> __TX(getConnection())__ -> updateOwnState() -> __synchronize(spring factory)__ -> nodeStateRepository.findById()
-                CompletableFuture.runAsync(() -> {
-                        try {
-                            distributedTaskService.schedule(task.getDef(), ExecutionContext.empty());
-                        } catch (Exception ignore) {
-                        }
-                    },
-                    executor
-                );
+                cronTasksToStart.add(task.getDef());
             }
         }
     }

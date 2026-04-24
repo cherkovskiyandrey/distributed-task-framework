@@ -6,6 +6,7 @@ import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.repository.NodeStateRepository;
 import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.google.common.collect.Lists;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class ClusterProviderTestImpl implements ClusterProvider {
+public class ClusterProviderTestImpl implements ClusterProvider, DistributedTaskServiceLifecycle {
     public static final UUID TEST_NODE_ID = UUID.randomUUID();
     public static final Double DEFAULT_CPU_LOADING = 0.01D;
 
@@ -37,11 +38,11 @@ public class ClusterProviderTestImpl implements ClusterProvider {
         this.nodeStateRepository = nodeStateRepository;
         this.capabilityRegisterProvider = capabilityRegisterProvider;
         this.clock = clock;
-        reinit();
     }
 
-    private void reinit() {
-        log.info("reinit()");
+    @Override
+    public void start() throws Exception {
+        log.info("start()");
         nodeStateRepository.deleteAll();
         nodeStateRepository.save(
             NodeStateEntity.builder()

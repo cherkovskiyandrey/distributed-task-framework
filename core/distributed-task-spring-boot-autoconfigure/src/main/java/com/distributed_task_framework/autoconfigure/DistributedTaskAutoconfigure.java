@@ -34,13 +34,13 @@ import com.distributed_task_framework.service.impl.ClusterProviderImpl;
 import com.distributed_task_framework.service.impl.CompletionServiceImpl;
 import com.distributed_task_framework.service.impl.CronService;
 import com.distributed_task_framework.service.impl.DeliveryManagerImpl;
+import com.distributed_task_framework.service.impl.DistributedTaskMetricHelperImpl;
 import com.distributed_task_framework.service.impl.DistributedTaskServiceImpl;
 import com.distributed_task_framework.service.impl.InternalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.JoinTaskPlannerImpl;
 import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
-import com.distributed_task_framework.service.impl.DistributedTaskMetricHelperImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.TaskCommandStatServiceImpl;
@@ -61,8 +61,8 @@ import com.distributed_task_framework.service.internal.CapabilityRegisterProvide
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.DeliveryManager;
-import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
+import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskCommandStatService;
@@ -78,6 +78,7 @@ import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.utils.CaffeineDistributedTaskCacheManagerImpl;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.DistributedTaskLifecycleSpringConfiguration;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -107,12 +108,22 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.AbstractEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.type.AnnotatedTypeMetadata;
+import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
+import org.springframework.data.jdbc.core.convert.DataAccessStrategyFactory;
+import org.springframework.data.jdbc.core.convert.InsertStrategyFactory;
+import org.springframework.data.jdbc.core.convert.JdbcConverter;
+import org.springframework.data.jdbc.core.convert.SqlGeneratorSource;
+import org.springframework.data.jdbc.core.convert.SqlParametersFactory;
+import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
+import org.springframework.data.jdbc.repository.config.DialectResolver;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
+import org.springframework.data.relational.core.dialect.Dialect;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -131,6 +142,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor.EMPTY_TASK_SETTINGS_CUSTOMIZER;
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_ACCESS_STRATEGY;
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_DATA_SOURCE;
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_DIALECT;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
@@ -144,15 +158,19 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 @AutoConfigureAfter(
     value = {
         JdbcTemplateAutoConfiguration.class,
-        DataSourceTransactionManagerAutoConfiguration.class
+        DataSourceTransactionManagerAutoConfiguration.class,
+        DistributedTaskLifecycleSpringConfiguration.class,
     }
 )
+// todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
 @EnableJdbcRepositories(
     basePackageClasses = NodeStateRepository.class,
     transactionManagerRef = DTF_TX_MANAGER,
-    jdbcOperationsRef = DTF_JDBC_OPS
+    jdbcOperationsRef = DTF_JDBC_OPS,
+    dataAccessStrategyRef = DTF_ACCESS_STRATEGY
 )
 @EnableTransactionManagement
+@Import(DistributedTaskLifecycleSpringConfiguration.class)
 @ComponentScan(basePackageClasses = CommonSettingsMerger.class)
 public class DistributedTaskAutoconfigure {
     private static final String INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME = "internalDistributedTaskCacheManager";
@@ -167,23 +185,49 @@ public class DistributedTaskAutoconfigure {
         return Clock.systemUTC();
     }
 
-    @Bean("dtfDataSource")
+    @Bean(DTF_DATA_SOURCE)
     @Conditional(DtfDataSourceCondition.class)
     @DtfDataSource
     public DataSource dtfDataSource(DataSource defaultDataSource) {
         return defaultDataSource;
     }
 
+    // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
     @ConditionalOnMissingBean(name = DTF_TX_MANAGER)
-    @Bean
-    public DataSourceTransactionManager dtfTransactionManager(@DtfDataSource DataSource dtfDataSource) {
+    @Bean(name = DTF_TX_MANAGER)
+    public PlatformTransactionManager dtfTransactionManager(@DtfDataSource DataSource dtfDataSource) {
         return new DataSourceTransactionManager(dtfDataSource);
     }
 
+    // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
     @ConditionalOnMissingBean(name = DTF_JDBC_OPS)
-    @Bean
+    @Bean(DTF_JDBC_OPS)
     public NamedParameterJdbcOperations dtfNamedParameterJdbcOperations(@DtfDataSource DataSource dtfDataSource) {
         return new NamedParameterJdbcTemplate(dtfDataSource);
+    }
+
+    // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
+    @ConditionalOnMissingBean(name = DTF_JDBC_DIALECT)
+    @Bean(DTF_JDBC_DIALECT)
+    public Dialect dtfJdbcDialect(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations operations) {
+        return DialectResolver.getDialect(operations.getJdbcOperations());
+    }
+
+    // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
+    @ConditionalOnMissingBean(name = DTF_ACCESS_STRATEGY)
+    @Bean(DTF_ACCESS_STRATEGY)
+    public DataAccessStrategy dtfDataAccessStrategy(
+        @Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations operations,
+        @Qualifier(DTF_JDBC_DIALECT) Dialect dialect,
+        JdbcConverter jdbcConverter,
+        JdbcMappingContext context) {
+        // Используем вспомогательный метод из родительского класса
+        SqlGeneratorSource sqlGeneratorSource = new SqlGeneratorSource(context, jdbcConverter, dialect);
+        DataAccessStrategyFactory factory = new DataAccessStrategyFactory(sqlGeneratorSource, jdbcConverter, operations,
+            new SqlParametersFactory(context, jdbcConverter),
+            new InsertStrategyFactory(operations, dialect));
+
+        return factory.create();
     }
 
     @Bean

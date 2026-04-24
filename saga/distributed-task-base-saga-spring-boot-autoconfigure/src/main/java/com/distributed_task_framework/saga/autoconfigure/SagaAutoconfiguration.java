@@ -57,6 +57,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import java.time.Clock;
 
 import static com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure.VIRTUAL_QUEUE_MANAGER_PLANNER_NAME;
+import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_ACCESS_STRATEGY;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
@@ -76,7 +77,8 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 @EnableJdbcRepositories(
     basePackageClasses = SagaRepository.class,
     transactionManagerRef = DTF_TX_MANAGER,
-    jdbcOperationsRef = DTF_JDBC_OPS
+    jdbcOperationsRef = DTF_JDBC_OPS,
+    dataAccessStrategyRef = DTF_ACCESS_STRATEGY
 )
 @EnableTransactionManagement
 @EnableConfigurationProperties(value = DistributedSagaProperties.class)
@@ -167,7 +169,6 @@ public class SagaAutoconfiguration {
                                               SagaMapper sagaMapper,
                                               @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                               SagaCommonSettings sagaCommonSettings,
-                                              MeterRegistry meterRegistry,
                                               MetricHelper metricHelper,
                                               Clock clock) {
         return new SagaManagerImpl(
@@ -179,7 +180,6 @@ public class SagaAutoconfiguration {
             sagaMapper,
             transactionManager,
             sagaCommonSettings,
-            meterRegistry,
             metricHelper,
             clock
         );

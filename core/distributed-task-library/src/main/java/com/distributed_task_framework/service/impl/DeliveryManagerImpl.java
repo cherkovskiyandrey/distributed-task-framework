@@ -3,6 +3,7 @@ package com.distributed_task_framework.service.impl;
 import com.distributed_task_framework.mapper.CommandMapper;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.utils.ExecutorUtils;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -10,6 +11,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -39,8 +41,6 @@ import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.DeliveryManager;
 import com.distributed_task_framework.settings.CommonSettings;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -63,7 +63,7 @@ import static com.distributed_task_framework.remote_commands.RemoteCommand.NAME_
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
-public class DeliveryManagerImpl implements DeliveryManager {
+public class DeliveryManagerImpl implements DeliveryManager, DistributedTaskServiceLifecycle {
     CommonSettings.DeliveryManagerSettings commandDeliverySettings;
     RemoteTaskWorkerRepository remoteTaskWorkerRepository;
     RemoteCommandRepository remoteCommandRepository;
@@ -132,21 +132,19 @@ public class DeliveryManagerImpl implements DeliveryManager {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         watchdogExecutorService.scheduleWithFixedDelay(
-                ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
-                commandDeliverySettings.getWatchdogInitialDelayMs(),
-                commandDeliverySettings.getWatchdogFixedDelayMs(),
-                TimeUnit.MILLISECONDS
+            ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
+            commandDeliverySettings.getWatchdogInitialDelayMs(),
+            commandDeliverySettings.getWatchdogFixedDelayMs(),
+            TimeUnit.MILLISECONDS
         );
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): shutdown started");
         watchdogExecutorService.shutdownNow();
         deliveryExecutorService.shutdownNow();

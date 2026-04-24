@@ -82,7 +82,8 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
     @SneakyThrows
     @AfterEach
     void destroy() {
-        plannerService.shutdown();
+        plannerService.stop();
+        plannerService.cleanup();
         executorService.shutdownNow();
         executorService.awaitTermination(1, TimeUnit.MINUTES);
     }

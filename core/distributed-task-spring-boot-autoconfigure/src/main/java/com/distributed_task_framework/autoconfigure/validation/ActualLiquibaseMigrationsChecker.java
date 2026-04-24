@@ -1,14 +1,15 @@
 package com.distributed_task_framework.autoconfigure.validation;
 
+import com.google.common.collect.Sets;
 import liquibase.integration.spring.SpringLiquibase;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.SingleColumnRowMapper;
 
 import java.net.URL;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
@@ -29,10 +30,10 @@ public class ActualLiquibaseMigrationsChecker implements InitializingBean {
         Set<String> deployedMigrationFileNames;
         try {
             knownMigrationFileNames = knownMigrationFileNames(springLiquibase);
-            log.debug("Known Liquibase migrations: {}", knownMigrationFileNames);
+            log.info("Known Liquibase migrations: {}", knownMigrationFileNames);
 
             deployedMigrationFileNames = deployedMigrationFileNames(springLiquibase);
-            log.debug("Deployed Liquibase migrations: {}", deployedMigrationFileNames);
+            log.info("Deployed Liquibase migrations: {}", deployedMigrationFileNames);
 
         } catch (Exception e) {
             log.warn("Unable to check liquibase migrations. Skipping...", e);
@@ -59,7 +60,6 @@ public class ActualLiquibaseMigrationsChecker implements InitializingBean {
 
     private String parseJarFileName(URL resourceName) {
         var path = resourceName.getPath();
-        System.out.println(path);
         // path looks like 'file:absolute-path-to-file.jar!',
         // so we need to take only 'absolute-path-to-file.jar'
         return path.substring(5, path.indexOf("!"));
@@ -82,11 +82,18 @@ public class ActualLiquibaseMigrationsChecker implements InitializingBean {
     }
 
     private Set<String> deployedMigrationFileNames(SpringLiquibase springLiquibase) {
-        var jdbcTemplate = new JdbcTemplate(springLiquibase.getDataSource());
-        var fileNames = jdbcTemplate.query(
-            SELECT_FILENAMES_QUERY.formatted(springLiquibase.getDatabaseChangeLogTable()),
-            new SingleColumnRowMapper<>(String.class)
-        );
-        return new HashSet<>(fileNames);
+        var sql = SELECT_FILENAMES_QUERY.formatted(springLiquibase.getDatabaseChangeLogTable());
+        var result = Sets.<String>newHashSet();
+        try (var connection = springLiquibase.getDataSource().getConnection();
+             var preparedStatement = connection.prepareStatement(sql);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+
+            while (resultSet.next()) {
+                result.add(resultSet.getString("filename"));
+            }
+        } catch (SQLException exception) {
+            log.warn("deployedMigrationFileNames(): error to read databaseChangeLogTable for liquibase", exception);
+        }
+        return result;
     }
 }

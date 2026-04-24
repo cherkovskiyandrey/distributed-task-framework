@@ -1,5 +1,6 @@
 package com.distributed_task_framework.autoconfigure;
 
+import lombok.extern.slf4j.Slf4j;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -14,14 +15,14 @@ import java.sql.SQLException;
 
 import static org.mockito.Mockito.when;
 
-
+@Slf4j
 @TestConfiguration
 @ActiveProfiles("test")
 public class DefaultDataSourceConfiguration {
     @Primary
     @Bean
     public DataSource primaryDataSource() throws SQLException {
-        final DataSource dataSource = mockDataSource();
+        final DataSource dataSource = mockDataSource("primary");
         when(dataSource.toString()).thenReturn("primary");
         return dataSource;
     }
@@ -29,17 +30,23 @@ public class DefaultDataSourceConfiguration {
     @Bean
     @Qualifier("secondaryDataSource")
     public DataSource secondaryDataSource() throws SQLException {
-        final DataSource dataSource = mockDataSource();
+        final DataSource dataSource = mockDataSource("secondary");
         when(dataSource.toString()).thenReturn("secondary");
         return dataSource;
     }
 
-    private DataSource mockDataSource() throws SQLException {
+    private DataSource mockDataSource(String dsName) throws SQLException {
         final DataSource dataSource = Mockito.mock(DataSource.class);
         final Connection connection = Mockito.mock(Connection.class);
         final DatabaseMetaData metadata = Mockito.mock(DatabaseMetaData.class);
 
-        when(dataSource.getConnection()).thenReturn(connection);
+        when(dataSource.getConnection()).then(invocation -> {
+                log.info("mockDataSource(): dsName=[{}], stack trace:", dsName, new Exception("Debug stack trace"));
+                return connection;
+            }
+        );
+
+
         when(connection.getMetaData()).thenReturn(metadata);
         when(metadata.getDatabaseProductName()).thenReturn("PostgreSQL");
 

@@ -14,17 +14,18 @@ import com.distributed_task_framework.service.internal.CapabilityRegisterProvide
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.sun.management.OperatingSystemMXBean;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.ReflectionUtils;
@@ -49,7 +50,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class ClusterProviderImpl implements ClusterProvider {
+public class ClusterProviderImpl implements ClusterProvider, DistributedTaskServiceLifecycle {
     public static final double CPU_LOADING_UNDEFINED = -1.D;
     public static final double MIN_CPU_LOADING = 0.D;
 
@@ -118,8 +119,8 @@ public class ClusterProviderImpl implements ClusterProvider {
         return result;
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         log.info("init(): nodeId=[{}]", nodeId);
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
@@ -127,6 +128,21 @@ public class ClusterProviderImpl implements ClusterProvider {
             commonSettings.getRegistrySettings().getUpdateFixedDelayMs(),
             TimeUnit.MILLISECONDS
         );
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
+        log.info("shutdown(): nodeId=[{}] shutdown started", nodeId);
+        scheduledExecutorService.shutdownNow();
+        scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
+        log.info("shutdown(): nodeId=[{}] shutdown completed", nodeId);
+    }
+
+    @Override
+    public void cleanup() {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.executeWithoutResult(status -> nodeStateRepository.deleteById(nodeId));
     }
 
     public void watchdog() {
@@ -218,25 +234,6 @@ public class ClusterProviderImpl implements ClusterProvider {
             nodeStateRepository.deleteAllById(lostNodes);
             log.info("cleanObsoleteNodes(): lost nodes has been cleaned [{}]", lostNodes);
         }
-    }
-
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
-        log.info("shutdown(): nodeId=[{}] shutdown started", nodeId);
-        scheduledExecutorService.shutdownNow();
-        scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
-        unregisterItself();
-        log.info("shutdown(): nodeId=[{}] shutdown completed", nodeId);
-    }
-
-    private void unregisterItself() {
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.executeWithoutResult(status -> {
-            nodeStateRepository.deleteById(nodeId);
-        });
     }
 
     @Override

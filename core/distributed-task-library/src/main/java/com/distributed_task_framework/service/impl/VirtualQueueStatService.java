@@ -13,6 +13,7 @@ import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -26,7 +27,6 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -48,7 +48,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class VirtualQueueStatService {
+public class VirtualQueueStatService implements DistributedTaskServiceLifecycle {
     @Getter
     @RequiredArgsConstructor
     public enum NodeLoading {
@@ -115,8 +115,8 @@ public class VirtualQueueStatService {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         watchdogExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::calculateAggregatedStat),
             commonSettings.getStatSettings().getCalcInitialDelayMs(),
@@ -125,11 +125,9 @@ public class VirtualQueueStatService {
         );
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): start of shutdown stat calculator");
         watchdogExecutorService.shutdownNow();
         watchdogExecutorService.awaitTermination(1, TimeUnit.MINUTES);

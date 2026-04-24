@@ -8,13 +8,13 @@ import com.distributed_task_framework.service.internal.DistributedTaskMetricHelp
 import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.utils.ExecutorUtils;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PROTECTED)
-public abstract class AbstractPlannerImpl implements PlannerService {
+public abstract class AbstractPlannerImpl implements PlannerService, DistributedTaskServiceLifecycle {
     CommonSettings commonSettings;
     PlannerRepository plannerRepository;
     PlatformTransactionManager transactionManager;
@@ -110,8 +110,8 @@ public abstract class AbstractPlannerImpl implements PlannerService {
     protected void afterStartLoop() {
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         watchdogExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
             commonSettings.getPlannerSettings().getWatchdogInitialDelayMs(),
@@ -120,17 +120,19 @@ public abstract class AbstractPlannerImpl implements PlannerService {
         );
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): \"{}\" shutdown started", name());
         watchdogExecutorService.shutdownNow();
         plannerExecutorService.shutdownNow();
         watchdogExecutorService.awaitTermination(1, TimeUnit.MINUTES);
         plannerExecutorService.awaitTermination(1, TimeUnit.MINUTES);
         log.info("shutdown(): \"{}\" shutdown completed", name());
+    }
+
+    @Override
+    public void cleanup() {
         plannerRepository.deleteById(clusterProvider.nodeId());
     }
 

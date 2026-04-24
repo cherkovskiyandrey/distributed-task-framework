@@ -115,7 +115,6 @@ public class BaseTestConfiguration {
                                               SagaMapper sagaMapper,
                                               @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                               SagaCommonSettings sagaCommonSettings,
-                                              MeterRegistry meterRegistry,
                                               MetricHelper metricHelper,
                                               Clock clock) {
         return new SagaManagerImpl(
@@ -127,7 +126,6 @@ public class BaseTestConfiguration {
             sagaMapper,
             transactionManager,
             sagaCommonSettings,
-            meterRegistry,
             metricHelper,
             clock
         );
