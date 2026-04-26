@@ -1,6 +1,5 @@
 package com.distributed_task_framework.autoconfigure;
 
-import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
 import com.distributed_task_framework.autoconfigure.mapper.CommonSettingsMerger;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
@@ -79,6 +78,7 @@ import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.utils.CaffeineDistributedTaskCacheManagerImpl;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.utils.DistributedTaskLifecycleSpringConfiguration;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -115,19 +115,12 @@ import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
-import org.springframework.data.jdbc.core.convert.DataAccessStrategyFactory;
-import org.springframework.data.jdbc.core.convert.InsertStrategyFactory;
 import org.springframework.data.jdbc.core.convert.JdbcConverter;
-import org.springframework.data.jdbc.core.convert.SqlGeneratorSource;
-import org.springframework.data.jdbc.core.convert.SqlParametersFactory;
 import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
-import org.springframework.data.jdbc.repository.config.DialectResolver;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.data.relational.core.dialect.Dialect;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -142,11 +135,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor.EMPTY_TASK_SETTINGS_CUSTOMIZER;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_ACCESS_STRATEGY;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_DATA_SOURCE;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_DIALECT;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Slf4j
 @AutoConfiguration
@@ -165,9 +153,7 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
 // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
 @EnableJdbcRepositories(
     basePackageClasses = NodeStateRepository.class,
-    transactionManagerRef = DTF_TX_MANAGER,
-    jdbcOperationsRef = DTF_JDBC_OPS,
-    dataAccessStrategyRef = DTF_ACCESS_STRATEGY
+    repositoryFactoryBeanClass = DtfJdbcRepositoryFactoryBean.class
 )
 @EnableTransactionManagement
 @Import(DistributedTaskLifecycleSpringConfiguration.class)
@@ -185,49 +171,28 @@ public class DistributedTaskAutoconfigure {
         return Clock.systemUTC();
     }
 
-    @Bean(DTF_DATA_SOURCE)
-    @Conditional(DtfDataSourceCondition.class)
-    @DtfDataSource
-    public DataSource dtfDataSource(DataSource defaultDataSource) {
-        return defaultDataSource;
-    }
-
-    // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
-    @ConditionalOnMissingBean(name = DTF_TX_MANAGER)
-    @Bean(name = DTF_TX_MANAGER)
-    public PlatformTransactionManager dtfTransactionManager(@DtfDataSource DataSource dtfDataSource) {
-        return new DataSourceTransactionManager(dtfDataSource);
-    }
-
-    // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
-    @ConditionalOnMissingBean(name = DTF_JDBC_OPS)
-    @Bean(DTF_JDBC_OPS)
-    public NamedParameterJdbcOperations dtfNamedParameterJdbcOperations(@DtfDataSource DataSource dtfDataSource) {
-        return new NamedParameterJdbcTemplate(dtfDataSource);
-    }
-
-    // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
-    @ConditionalOnMissingBean(name = DTF_JDBC_DIALECT)
-    @Bean(DTF_JDBC_DIALECT)
-    public Dialect dtfJdbcDialect(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations operations) {
-        return DialectResolver.getDialect(operations.getJdbcOperations());
-    }
-
-    // todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
-    @ConditionalOnMissingBean(name = DTF_ACCESS_STRATEGY)
-    @Bean(DTF_ACCESS_STRATEGY)
-    public DataAccessStrategy dtfDataAccessStrategy(
-        @Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations operations,
-        @Qualifier(DTF_JDBC_DIALECT) Dialect dialect,
+    // todo: fix config in tests of dtf and get rid of
+    // The idea of DtfJdbcInfrastructure to give an ability to application to
+    // override default DataSource, PlatformTransactionManager, NamedParameterJdbcOperations, Dialect, DataAccessStrategy
+    // only for dtf
+    @Bean
+    @ConditionalOnMissingBean(DtfJdbcInfrastructure.class)
+    public DtfJdbcInfrastructure dtfJdbcInfrastructure(
+        PlatformTransactionManager platformTransactionManager,
+        NamedParameterJdbcOperations namedParameterJdbcOperations,
+        Dialect dialect,
+        DataAccessStrategy dataAccessStrategy,
         JdbcConverter jdbcConverter,
-        JdbcMappingContext context) {
-        // Используем вспомогательный метод из родительского класса
-        SqlGeneratorSource sqlGeneratorSource = new SqlGeneratorSource(context, jdbcConverter, dialect);
-        DataAccessStrategyFactory factory = new DataAccessStrategyFactory(sqlGeneratorSource, jdbcConverter, operations,
-            new SqlParametersFactory(context, jdbcConverter),
-            new InsertStrategyFactory(operations, dialect));
-
-        return factory.create();
+        JdbcMappingContext jdbcMappingContext
+    ) {
+        return new DtfJdbcInfrastructure(
+            platformTransactionManager,
+            namedParameterJdbcOperations,
+            dialect,
+            dataAccessStrategy,
+            jdbcMappingContext,
+            jdbcConverter
+        );
     }
 
     @Bean
@@ -382,10 +347,9 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(name = DTF_TX_MANAGER)
     public ClusterProvider clusterProvider(CommonSettings commonSettings,
                                            @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
-                                           @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                           DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                            @Qualifier(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager cacheManager,
                                            NodeStateMapper nodeStateMapper,
                                            NodeStateRepository nodeStateRepository,
@@ -395,7 +359,7 @@ public class DistributedTaskAutoconfigure {
         return new ClusterProviderImpl(
             commonSettings,
             capabilityRegisterProvider,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             cacheManager,
             nodeStateMapper,
             nodeStateRepository,
@@ -407,17 +371,16 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(name = DTF_TX_MANAGER)
     public TaskRegistryService taskRegistryService(CommonSettings commonSettings,
                                                    RegisteredTaskRepository registeredTaskRepository,
-                                                   @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                   DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                    @Qualifier(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager distributedTaskCacheManager,
                                                    ClusterProvider clusterProvider,
                                                    CronService cronService) {
         return new TaskRegistryServiceImpl(
             commonSettings,
             registeredTaskRepository,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             distributedTaskCacheManager,
             clusterProvider,
             cronService
@@ -503,7 +466,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean(name = VIRTUAL_QUEUE_MANAGER_PLANNER_NAME)
     public VirtualQueueManagerPlannerImpl virtualQueueManagerPlanner(CommonSettings commonSettings,
                                                                      PlannerRepository plannerRepository,
-                                                                     @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                                     DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                                      ClusterProvider clusterProvider,
                                                                      TaskRepository taskRepository,
                                                                      PartitionTracker partitionTracker,
@@ -513,7 +476,7 @@ public class DistributedTaskAutoconfigure {
         return new VirtualQueueManagerPlannerImpl(
             commonSettings,
             plannerRepository,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             clusterProvider,
             taskRepository,
             partitionTracker,
@@ -534,7 +497,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean(name = VIRTUAL_QUEUE_BASE_FAIR_TASK_PLANNER_NAME)
     public VirtualQueueBaseFairTaskPlannerImpl virtualQueueBaseFairTaskPlanner(CommonSettings commonSettings,
                                                                                PlannerRepository plannerRepository,
-                                                                               @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                                               DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                                                ClusterProvider clusterProvider,
                                                                                TaskRepository taskRepository,
                                                                                PartitionTracker partitionTracker,
@@ -546,7 +509,7 @@ public class DistributedTaskAutoconfigure {
         return new VirtualQueueBaseFairTaskPlannerImpl(
             commonSettings,
             plannerRepository,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             clusterProvider,
             taskRepository,
             partitionTracker,
@@ -563,7 +526,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean(name = JOIN_TASK_PLANNER_SERVICE_NAME)
     public JoinTaskPlannerImpl joinTaskPlannerService(CommonSettings commonSettings,
                                                       PlannerRepository plannerRepository,
-                                                      @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                      DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                       ClusterProvider clusterProvider,
                                                       TaskLinkManager taskLinkManager,
                                                       TaskRepository taskRepository,
@@ -573,7 +536,7 @@ public class DistributedTaskAutoconfigure {
         return new JoinTaskPlannerImpl(
             commonSettings,
             plannerRepository,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             clusterProvider,
             taskLinkManager,
             taskRepository,
@@ -591,14 +554,14 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
-    public PartitionTracker partitionTracker(@Qualifier(DTF_TX_MANAGER) PlatformTransactionManager platformTransactionManager,
+    public PartitionTracker partitionTracker(DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                              TaskRepository taskRepository,
                                              PartitionRepository partitionRepository,
                                              PartitionMapper partitionMapper,
                                              CommonSettings commonSettings,
                                              Clock clock) {
         return new PartitionTrackerImpl(
-            platformTransactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             taskRepository,
             partitionRepository,
             partitionMapper,
@@ -652,7 +615,7 @@ public class DistributedTaskAutoconfigure {
     @Bean
     @ConditionalOnMissingBean
     public TaskCommandWithDetectorService localTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
-                                                                              @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                                              DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                                               TaskRepository taskRepository,
                                                                               TaskMapper taskMapper,
                                                                               TaskRegistryService taskRegistryService,
@@ -665,7 +628,7 @@ public class DistributedTaskAutoconfigure {
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             taskRepository,
             taskMapper,
             taskRegistryService,
@@ -682,14 +645,14 @@ public class DistributedTaskAutoconfigure {
     @Bean
     @ConditionalOnMissingBean
     public RemoteTaskCommandServiceImpl remoteTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
-                                                                             @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                                             DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                                              RemoteCommandRepository remoteCommandRepository,
                                                                              TaskSerializer taskSerializer,
                                                                              TaskRegistryService taskRegistryService,
                                                                              Clock clock) {
         return new RemoteTaskCommandServiceImpl(
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             remoteCommandRepository,
             taskSerializer,
             taskRegistryService,
@@ -740,7 +703,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public LocalAtLeastOnceWorker localAtLeastOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
-                                                         @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                         DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                          InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
@@ -755,7 +718,7 @@ public class DistributedTaskAutoconfigure {
         return new LocalAtLeastOnceWorker(
             clusterProvider,
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             internalTaskCommandService,
             taskRepository,
             remoteCommandRepository,
@@ -774,7 +737,7 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public LocalExactlyOnceWorker localExactlyOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
-                                                         @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                                         DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                          InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
@@ -789,7 +752,7 @@ public class DistributedTaskAutoconfigure {
         return new LocalExactlyOnceWorker(
             clusterProvider,
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             internalTaskCommandService,
             taskRepository,
             remoteCommandRepository,
@@ -842,7 +805,7 @@ public class DistributedTaskAutoconfigure {
                                            ClusterProvider clusterProvider,
                                            CommandMapper commandMapper,
                                            TaskSerializer taskSerializer,
-                                           @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                           DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                            Clock clock) {
         return new DeliveryManagerImpl(
             commonSettings,
@@ -852,7 +815,7 @@ public class DistributedTaskAutoconfigure {
             clusterProvider,
             commandMapper,
             taskSerializer,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             clock
         );
     }

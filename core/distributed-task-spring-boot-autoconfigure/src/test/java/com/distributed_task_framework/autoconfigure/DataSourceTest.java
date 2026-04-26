@@ -1,6 +1,5 @@
 package com.distributed_task_framework.autoconfigure;
 
-import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
 import com.distributed_task_framework.autoconfigure.persistence.repository.TestDataRepository;
 import com.distributed_task_framework.persistence.repository.NodeStateRepository;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
@@ -8,6 +7,7 @@ import com.distributed_task_framework.persistence.repository.jdbc.TaskStatReposi
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
@@ -47,7 +47,8 @@ public class DataSourceTest {
     DataSource primaryDataSource;
 
     @Autowired
-    @DtfDataSource
+    //@DtfDataSource
+    @Qualifier
     DataSource dtfDataSource;
 
     @Autowired
