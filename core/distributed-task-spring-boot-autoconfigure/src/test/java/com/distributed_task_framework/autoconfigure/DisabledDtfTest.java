@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         })
 @EnableAutoConfiguration
 @ContextConfiguration(classes = {
-        DistributedTaskAutoconfigure.class
+        DistributedTaskAutoConfiguration.class
 })
 public class DisabledDtfTest {
     @Autowired

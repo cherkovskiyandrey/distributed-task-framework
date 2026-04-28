@@ -17,6 +17,8 @@ spring:
 
 distributed-task:
   enabled: true
+  common:
+    app-name: "saga-test"
   saga:
     enabled: true
     # Common properties for library.

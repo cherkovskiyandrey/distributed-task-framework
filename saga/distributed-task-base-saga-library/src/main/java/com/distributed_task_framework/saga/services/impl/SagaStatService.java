@@ -6,6 +6,7 @@ import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaStatSettings;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PlannerService;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashBasedTable;
@@ -19,10 +20,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
-import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.ReflectionUtils;
@@ -41,7 +39,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class SagaStatService {
+public class SagaStatService implements DistributedTaskServiceLifecycle {
     PlannerService plannerService;
     MeterRegistry meterRegistry;
     SagaRepository sagaRepository;
@@ -112,8 +110,8 @@ public class SagaStatService {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() throws Exception {
         executorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::calculateStat),
             sagaStatSettings.getCalcInitialDelay().toMillis(),
@@ -122,12 +120,9 @@ public class SagaStatService {
         );
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @SneakyThrows
-    @PreDestroy
-    public void shutdown() {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): start of shutdown saga stat calculator");
         executorService.shutdownNow();
         executorService.awaitTermination(1, TimeUnit.MINUTES);

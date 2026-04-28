@@ -100,8 +100,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -114,18 +112,10 @@ import org.springframework.core.env.AbstractEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.type.AnnotatedTypeMetadata;
-import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
-import org.springframework.data.jdbc.core.convert.JdbcConverter;
-import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
-import org.springframework.data.relational.core.dialect.Dialect;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-import javax.sql.DataSource;
 import java.lang.management.ManagementFactory;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -139,26 +129,21 @@ import static com.distributed_task_framework.autoconfigure.TaskConfigurationDisc
 @Slf4j
 @AutoConfiguration
 @ConditionalOnClass(DistributedTaskService.class)
-@EnableConfigurationProperties({
-    DistributedTaskProperties.class
-})
+@EnableConfigurationProperties(DistributedTaskProperties.class)
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "true")
 @AutoConfigureAfter(
     value = {
-        JdbcTemplateAutoConfiguration.class,
-        DataSourceTransactionManagerAutoConfiguration.class,
+        DistributedTaskSpringInfrastructureAutoconfiguration.class,
         DistributedTaskLifecycleSpringConfiguration.class,
     }
 )
-// todo: https://github.com/cherkovskiyandrey/distributed-task-framework/issues/65
 @EnableJdbcRepositories(
     basePackageClasses = NodeStateRepository.class,
     repositoryFactoryBeanClass = DtfJdbcRepositoryFactoryBean.class
 )
-@EnableTransactionManagement
 @Import(DistributedTaskLifecycleSpringConfiguration.class)
 @ComponentScan(basePackageClasses = CommonSettingsMerger.class)
-public class DistributedTaskAutoconfigure {
+public class DistributedTaskAutoConfiguration {
     private static final String INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME = "internalDistributedTaskCacheManager";
 
     public static final String VIRTUAL_QUEUE_MANAGER_PLANNER_NAME = "virtualQueueManagerPlanner";
@@ -169,30 +154,6 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public Clock distributedTaskInternalClock() {
         return Clock.systemUTC();
-    }
-
-    // todo: fix config in tests of dtf and get rid of
-    // The idea of DtfJdbcInfrastructure to give an ability to application to
-    // override default DataSource, PlatformTransactionManager, NamedParameterJdbcOperations, Dialect, DataAccessStrategy
-    // only for dtf
-    @Bean
-    @ConditionalOnMissingBean(DtfJdbcInfrastructure.class)
-    public DtfJdbcInfrastructure dtfJdbcInfrastructure(
-        PlatformTransactionManager platformTransactionManager,
-        NamedParameterJdbcOperations namedParameterJdbcOperations,
-        Dialect dialect,
-        DataAccessStrategy dataAccessStrategy,
-        JdbcConverter jdbcConverter,
-        JdbcMappingContext jdbcMappingContext
-    ) {
-        return new DtfJdbcInfrastructure(
-            platformTransactionManager,
-            namedParameterJdbcOperations,
-            dialect,
-            dataAccessStrategy,
-            jdbcMappingContext,
-            jdbcConverter
-        );
     }
 
     @Bean

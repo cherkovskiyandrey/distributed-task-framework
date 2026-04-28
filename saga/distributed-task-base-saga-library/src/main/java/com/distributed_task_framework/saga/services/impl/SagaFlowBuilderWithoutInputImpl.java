@@ -3,6 +3,7 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
+import com.distributed_task_framework.saga.exceptions.SagaNotStartedException;
 import com.distributed_task_framework.saga.functions.SagaConsumer;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.functions.SagaRevertibleBiConsumer;
@@ -22,16 +23,13 @@ import com.distributed_task_framework.saga.utils.SagaSchemaArguments;
 import com.distributed_task_framework.service.DistributedTaskService;
 import jakarta.annotation.Nullable;
 import lombok.Builder;
-import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.UUID;
-
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Slf4j
 @Value
@@ -163,8 +161,6 @@ public class SagaFlowBuilderWithoutInputImpl<ROOT_INPUT> implements SagaFlowBuil
             .build();
     }
 
-    @Transactional(transactionManager = DTF_TX_MANAGER)
-    @SneakyThrows
     @Override
     public SagaFlowWithoutResult start() {
         UUID sagaId = sagaParentPipeline.getSagaId();
@@ -172,19 +168,27 @@ public class SagaFlowBuilderWithoutInputImpl<ROOT_INPUT> implements SagaFlowBuil
         sagaParentPipeline.moveToNext();
         SagaAction currentSagaAction = sagaParentPipeline.getCurrentAction();
 
-        TaskId taskId = distributedTaskService.schedule(
-            sagaResolver.resolveByTaskName(currentSagaAction.getSagaMethodTaskName()),
-            makeContext(sagaParentPipeline)
-        );
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                TaskId taskId;
+                try {
+                    taskId = distributedTaskService.schedule(
+                        sagaResolver.resolveByTaskName(currentSagaAction.getSagaMethodTaskName()),
+                        makeContext(sagaParentPipeline)
+                    );
+                } catch (Exception e) {
+                    throw new SagaNotStartedException(e);
+                }
 
-        log.info("start(): sagaId=[{}], sagaParentPipeline=[{}]", sagaId, sagaParentPipeline);
-        var sagaContext = CreateSagaRequest.builder()
-            .sagaId(sagaId)
-            .name(name)
-            .rootTaskId(taskId)
-            .sagaPipeline(sagaParentPipeline)
-            .build();
-        sagaManager.create(sagaContext, sagaSettings);
+                log.info("start(): sagaId=[{}], sagaParentPipeline=[{}]", sagaId, sagaParentPipeline);
+                var sagaContext = CreateSagaRequest.builder()
+                    .sagaId(sagaId)
+                    .name(name)
+                    .rootTaskId(taskId)
+                    .sagaPipeline(sagaParentPipeline)
+                    .build();
+                sagaManager.create(sagaContext, sagaSettings);
+            }
+        );
 
         return SagaFlowWithoutResultImpl.builderWithoutResult()
             .distributedTaskService(distributedTaskService)

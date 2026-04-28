@@ -23,7 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
     TaskSerializerConfiguration.class,
     DataSourceAutoConfiguration.class,
     JdbcTemplateAutoConfiguration.class,
-    DistributedTaskAutoconfigure.class
+    DistributedTaskAutoConfiguration.class
 })
 @EnableAutoConfiguration
 public class TaskSerializerTest {

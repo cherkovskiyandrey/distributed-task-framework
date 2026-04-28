@@ -2,7 +2,7 @@ package com.distributed_task_framework.utils;
 
 /**
  * Interface to place all logic connected with
- * start, stop and cleanup for any service/bean in dtf and extended libraries.</br>
+ * init, start, stop and cleanup for any service/bean in dtf and extended libraries.</br>
  * </br>
  * Framework which is responsible to create an application context
  * have to provide guarantees that method {@link DistributedTaskServiceLifecycle#start()}
@@ -12,9 +12,11 @@ package com.distributed_task_framework.utils;
  * </br>
  * Also, framework have to provide guarantees about ordering:
  * <ol>
+ *     <li>ordering for {@link DistributedTaskServiceLifecycle#init()} = ordering for create bean/service</li>
  *     <li>ordering for {@link DistributedTaskServiceLifecycle#start()} = ordering for create bean/service</li>
  *     <li>ordering for {@link DistributedTaskServiceLifecycle#stop()} = reverse order for create bean/service</li>
  *     <li>ordering for {@link DistributedTaskServiceLifecycle#cleanup()} = reverse order for create bean/service</li>
+ *     <li>invoke all {@link DistributedTaskServiceLifecycle#init()} before invoking any {@link DistributedTaskServiceLifecycle#start()}</li>
  *     <li>invoke all {@link DistributedTaskServiceLifecycle#stop()} before invoking any {@link DistributedTaskServiceLifecycle#cleanup()}</li>
  * </ol>
  */
@@ -22,7 +24,10 @@ public interface DistributedTaskServiceLifecycle {
 
     /**
      * Is invoked during service is creating to initialize it.</br>
-     * TODO: full description
+     * </br>
+     * Warning: don't use here other services, because they can't be initialized yet.
+     * Only simple logic before application is started.
+     * </br>
      *
      * @throws Exception
      */

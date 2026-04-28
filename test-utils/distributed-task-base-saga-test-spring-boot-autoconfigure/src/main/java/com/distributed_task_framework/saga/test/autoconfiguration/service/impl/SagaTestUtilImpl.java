@@ -26,7 +26,7 @@ public class SagaTestUtilImpl implements SagaTestUtil {
     @Override
     public void reinitAndWait() throws InterruptedException {
         log.info("reinitAndWait(): begin");
-        distributedTaskTestUtil.reinitAndWait();
+        distributedTaskTestUtil.reinitAndWait(List.of(INTERNAL_SAGA_MANAGER_TASK_DEF));
         sagaRepository.deleteAll();
         dlsSagaContextRepository.deleteAll();
         log.info("reinitAndWait(): end");

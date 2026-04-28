@@ -35,10 +35,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
         "distributed-task.common.app-name=test"
     })
 @ContextConfiguration(classes = {
-    DataSourceConfiguration.class,
+    PrimaryDataSourceConfiguration.class,
+    SecondaryDataSourceConfiguration.class,
+    DtfDataSourceAsSecondaryConfiguration.class,
     DataSourceAutoConfiguration.class,
     JdbcTemplateAutoConfiguration.class,
-    DistributedTaskAutoconfigure.class
+    DistributedTaskSpringInfrastructureAutoconfiguration.class,
+    DistributedTaskAutoConfiguration.class
 })
 @EnableJdbcRepositories(basePackageClasses = TestDataRepository.class)
 @EnableAutoConfiguration
@@ -47,9 +50,8 @@ public class DataSourceTest {
     DataSource primaryDataSource;
 
     @Autowired
-    //@DtfDataSource
     @Qualifier
-    DataSource dtfDataSource;
+    DataSource secondaryDataSource;
 
     @Autowired
     TaskStatRepositoryImpl taskStatRepository;
@@ -65,8 +67,8 @@ public class DataSourceTest {
 
     @SneakyThrows
     @Test
-    void shouldUsePrimaryDataSourceInNotDtfRepository() throws SQLException {
-        clearInvocations(primaryDataSource, dtfDataSource);
+    void shouldUsePrimaryDataSourceInNotDtfRepository() {
+        clearInvocations(primaryDataSource, secondaryDataSource);
 
         try {
             testDataRepository.findById(UUID.randomUUID());
@@ -74,13 +76,13 @@ public class DataSourceTest {
             // expected NPE from mock
         }
 
-        assertUsedDefault();
+        assertUsedPrimary();
     }
 
     @SneakyThrows
     @Test
-    void shouldUseAnnotatedDataSourceInCustomRepository() {
-        clearInvocations(primaryDataSource, dtfDataSource);
+    void shouldUseSecondaryDataSourceInCustomRepository() {
+        clearInvocations(primaryDataSource, secondaryDataSource);
 
         try {
             taskStatRepository.getAggregatedTaskStat(Set.of("task1"));
@@ -88,12 +90,12 @@ public class DataSourceTest {
             // expected NPE from mock
         }
 
-        assertUsedDtf();
+        assertUsedSecondary();
     }
 
     @Test
-    void shouldUseAnnotatedDataSourceInCrudRepository() throws SQLException {
-        clearInvocations(primaryDataSource, dtfDataSource);
+    void shouldUseSecondaryDataSourceInCrudRepository() throws SQLException {
+        clearInvocations(primaryDataSource, secondaryDataSource);
 
         try {
             commandRepository.findCommandsToSend("test", LocalDateTime.now(), 100);
@@ -101,20 +103,19 @@ public class DataSourceTest {
             // expected NPE from mock
         }
 
-        assertUsedDtf();
+        assertUsedSecondary();
     }
 
-    private void assertUsedDtf() throws SQLException {
-        assertThat(primaryDataSource).isNotSameAs(dtfDataSource);
+    private void assertUsedSecondary() throws SQLException {
+        assertThat(primaryDataSource).isNotSameAs(secondaryDataSource);
 
-        verify(dtfDataSource, atLeastOnce()).getConnection();
+        verify(secondaryDataSource, atLeastOnce()).getConnection();
         verifyNoInteractions(primaryDataSource);
     }
 
-    private void assertUsedDefault() throws SQLException {
-        assertThat(primaryDataSource).isNotSameAs(dtfDataSource);
+    private void assertUsedPrimary() throws SQLException {
+        assertThat(primaryDataSource).isNotSameAs(secondaryDataSource);
 
         verify(primaryDataSource, atLeastOnce()).getConnection();
     }
-
 }

@@ -1,6 +1,6 @@
 package com.distributed_task_framework.test.autoconfigure;
 
-import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
+import com.distributed_task_framework.autoconfigure.DistributedTaskAutoConfiguration;
 import com.distributed_task_framework.autoconfigure.DistributedTaskProperties;
 import com.distributed_task_framework.autoconfigure.RemoteTasks;
 import com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor;
@@ -71,7 +71,7 @@ import java.util.stream.Collectors;
  * </ol>
  */
 @Profile("test")
-@AutoConfiguration(before = DistributedTaskAutoconfigure.class)
+@AutoConfiguration(before = DistributedTaskAutoConfiguration.class)
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "true")
 @ConditionalOnClass(DistributedTaskService.class)
 public class TestDistributedTaskAutoconfiguration {

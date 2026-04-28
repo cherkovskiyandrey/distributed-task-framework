@@ -2,15 +2,9 @@ package com.distributed_task_framework.perf_test.service.impl;
 
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.perf_test.mapper.PerfTestMapper;
-import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.perf_test.model.PerfTestRunResult;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestRun;
 import com.distributed_task_framework.perf_test.persistence.entity.PerfTestSummary;
-import com.distributed_task_framework.perf_test.persistence.repository.StressTestRunRepository;
-import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;
-import com.distributed_task_framework.perf_test.tasks.PerfTestTaskDefinitions;
-import com.distributed_task_framework.perf_test.tasks.dto.PerfTestGeneratedSpecDto;
-import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestRunRepository;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;
 import com.distributed_task_framework.perf_test.service.PerfTestService;
@@ -22,15 +16,12 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.distributed_task_framework.perf_test.mapper.PerfTestMapper;
-import com.distributed_task_framework.perf_test.service.PerfTestService;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.distributed_task_framework.perf_test.tasks.PerfTestTaskDefinitions.STRESS_TEST_GENERATED_TASK;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Slf4j
 @Service
@@ -42,7 +33,7 @@ public class PerfTestServiceImpl implements PerfTestService {
     DistributedTaskService distributedTaskService;
     PerfTestMapper perfTestMapper;
 
-    @Transactional(transactionManager = DTF_TX_MANAGER)
+    @Transactional
     @Override
     public void run(PerfTestGeneratedSpecDto specDto) throws Exception {
         PerfTestRun testRun = perfTestMapper.toRun(specDto);
@@ -53,7 +44,7 @@ public class PerfTestServiceImpl implements PerfTestService {
         );
     }
 
-    @Transactional(transactionManager = DTF_TX_MANAGER, readOnly = true)
+    @Transactional(readOnly = true)
     @Override
     public PerfTestRunResult stat(String name) {
         var run = runRepository.findByName(name).orElseThrow();
@@ -72,7 +63,7 @@ public class PerfTestServiceImpl implements PerfTestService {
         return perfTestMapper.toTestResult(run, completedAt, summaryStates);
     }
 
-    @Transactional(transactionManager = DTF_TX_MANAGER)
+    @Transactional
     @Override
     public void delete(String name) {
         runRepository.deleteByName(name);

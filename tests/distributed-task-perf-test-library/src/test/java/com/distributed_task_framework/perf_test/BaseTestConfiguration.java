@@ -7,15 +7,10 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
-
 @SpringBootConfiguration
 @EnableAutoConfiguration
 @EnableJdbcRepositories(
-    basePackageClasses = StressTestSummaryRepository.class,
-    transactionManagerRef = DTF_TX_MANAGER,
-    jdbcOperationsRef = DTF_JDBC_OPS
+    basePackageClasses = StressTestSummaryRepository.class
 )
 @EnableTransactionManagement
 @ComponentScan(basePackageClasses = PerfTestRootPackage.class)

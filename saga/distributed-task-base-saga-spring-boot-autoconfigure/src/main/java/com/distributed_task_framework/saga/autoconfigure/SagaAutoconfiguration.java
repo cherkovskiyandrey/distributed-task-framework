@@ -1,7 +1,7 @@
 package com.distributed_task_framework.saga.autoconfigure;
 
 
-import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
+import com.distributed_task_framework.autoconfigure.DistributedTaskAutoConfiguration;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMapper;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaCommonPropertiesMerger;
 import com.distributed_task_framework.saga.autoconfigure.mappers.SagaMethodPropertiesMapper;
@@ -37,6 +37,7 @@ import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.utils.CaffeineDistributedTaskCacheManagerImpl;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.MetricHelper;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.mapstruct.factory.Mappers;
@@ -51,15 +52,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.time.Clock;
 
-import static com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure.VIRTUAL_QUEUE_MANAGER_PLANNER_NAME;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_ACCESS_STRATEGY;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
+import static com.distributed_task_framework.autoconfigure.DistributedTaskAutoConfiguration.VIRTUAL_QUEUE_MANAGER_PLANNER_NAME;
 
 @AutoConfiguration
 @ConditionalOnClass(DistributionSagaService.class)
@@ -71,15 +68,8 @@ import static com.distributed_task_framework.persistence.repository.DtfRepositor
     },
     havingValue = "true"
 )
-@AutoConfigureAfter(
-    DistributedTaskAutoconfigure.class
-)
-@EnableJdbcRepositories(
-    basePackageClasses = SagaRepository.class,
-    transactionManagerRef = DTF_TX_MANAGER,
-    jdbcOperationsRef = DTF_JDBC_OPS,
-    dataAccessStrategyRef = DTF_ACCESS_STRATEGY
-)
+@AutoConfigureAfter(DistributedTaskAutoConfiguration.class)
+@EnableJdbcRepositories(basePackageClasses = SagaRepository.class)
 @EnableTransactionManagement
 @EnableConfigurationProperties(value = DistributedSagaProperties.class)
 @ComponentScan(basePackageClasses = SagaMethodPropertiesMapper.class)
@@ -167,7 +157,7 @@ public class SagaAutoconfiguration {
                                               @Qualifier(INTERNAL_SAGA_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager distributedTaskCacheManager,
                                               SagaHelper sagaHelper,
                                               SagaMapper sagaMapper,
-                                              @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+                                              DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                               SagaCommonSettings sagaCommonSettings,
                                               MetricHelper metricHelper,
                                               Clock clock) {
@@ -178,7 +168,7 @@ public class SagaAutoconfiguration {
             distributedTaskCacheManager,
             sagaHelper,
             sagaMapper,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             sagaCommonSettings,
             metricHelper,
             clock
@@ -217,14 +207,14 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public DistributionSagaService distributionSagaService(@Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
+    public DistributionSagaService distributionSagaService(DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                            SagaResolver sagaResolver,
                                                            SagaRegisterService sagaRegisterService,
                                                            DistributedTaskService distributedTaskService,
                                                            SagaManager sagaManager,
                                                            SagaHelper sagaHelper) {
         return new DistributionSagaServiceImpl(
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             sagaResolver,
             sagaRegisterService,
             distributedTaskService,

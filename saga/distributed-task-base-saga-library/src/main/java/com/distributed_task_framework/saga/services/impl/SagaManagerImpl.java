@@ -23,16 +23,14 @@ import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.utils.DistributedTaskCache;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.MetricHelper;
 import com.distributed_task_framework.utils.TaskGenerator;
 import com.fasterxml.jackson.databind.JavaType;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +53,7 @@ import java.util.function.Supplier;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class SagaManagerImpl implements SagaManager {
+public class SagaManagerImpl implements SagaManager, DistributedTaskServiceLifecycle {
     private static final String SAGA_MANAGER_CACHE = "sagaManagerCache";
     public static final TaskDef<Void> INTERNAL_SAGA_MANAGER_TASK_DEF = TaskDef.privateTaskDef("INTERNAL_SAGA_MANAGER_TASK");
 
@@ -101,8 +99,8 @@ public class SagaManagerImpl implements SagaManager {
         this.isHandleDeprecatedSagasEnabled = new AtomicBoolean(true);
     }
 
-    @PostConstruct
-    public void init() throws Exception {
+    @Override
+    public void init() {
         var taskSettings = TaskSettings.builder()
             .retry(Retry.builder()
                 .retryMode(RetryMode.OFF)
@@ -121,12 +119,15 @@ public class SagaManagerImpl implements SagaManager {
             ),
             taskSettings
         );
-        //todo: may be should be scheduled async?
+    }
+
+    @Override
+    public void start() throws Exception {
         distributedTaskService.schedule(INTERNAL_SAGA_MANAGER_TASK_DEF, ExecutionContext.empty());
     }
 
-    @PreDestroy
-    public void shutdown() {
+    @Override
+    public void stop() {
         distributedTaskService.unregisterTask(INTERNAL_SAGA_MANAGER_TASK_DEF);
     }
 
