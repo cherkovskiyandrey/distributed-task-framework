@@ -13,8 +13,8 @@ package com.distributed_task_framework.utils;
  * Also, framework have to provide guarantees about ordering:
  * <ol>
  *     <li>ordering for {@link DistributedTaskServiceLifecycle#init()} = ordering for create bean/service</li>
- *     <li>ordering for {@link DistributedTaskServiceLifecycle#start()} = ordering for create bean/service</li>
- *     <li>ordering for {@link DistributedTaskServiceLifecycle#stop()} = reverse order for create bean/service</li>
+ *     <li>ordering for {@link DistributedTaskServiceLifecycle#start()} = ordering for start bean/service</li>
+ *     <li>ordering for {@link DistributedTaskServiceLifecycle#stop()} = reverse order for start bean/service</li>
  *     <li>ordering for {@link DistributedTaskServiceLifecycle#cleanup()} = reverse order for create bean/service</li>
  *     <li>invoke all {@link DistributedTaskServiceLifecycle#init()} before invoking any {@link DistributedTaskServiceLifecycle#start()}</li>
  *     <li>invoke all {@link DistributedTaskServiceLifecycle#stop()} before invoking any {@link DistributedTaskServiceLifecycle#cleanup()}</li>
@@ -25,7 +25,7 @@ public interface DistributedTaskServiceLifecycle {
     /**
      * Is invoked during service is creating to initialize it.</br>
      * </br>
-     * Warning: don't use here other services, because they can't be initialized yet.
+     * Warning: pay attention when use other services from this method, because they can't be initialized yet.
      * Only simple logic before application is started.
      * </br>
      *
@@ -35,7 +35,7 @@ public interface DistributedTaskServiceLifecycle {
     }
 
     /**
-     * Is invoked after application context is started.</br>
+     * Is invoked after application context is fully initialized but before started.</br>
      * </br>
      * Place here post initialization logic.
      * Like starting background threads.
@@ -53,6 +53,7 @@ public interface DistributedTaskServiceLifecycle {
      * </br>
      * Place here pre-destroy logic.
      * Like stop background threads.</br>
+     * On this phase application context hasn't been destroyed yet.</br>
      * </br>
      * Throwing exception from this method should not prevent to gracefully shutdown (invoking stop method for other services).
      */

@@ -8,8 +8,8 @@ import com.distributed_task_framework.saga.autoconfigure.services.SagaProperties
 import com.distributed_task_framework.saga.autoconfigure.utils.ReflectionHelper;
 import com.distributed_task_framework.saga.autoconfigure.utils.SagaNamingUtils;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.google.common.collect.Maps;
-import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -17,8 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Method;
@@ -27,10 +25,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
+/**
+ * Don't implement BeanPostProcessor.
+ * It leads to early creating of dependencies graph of service and MeterRegistry too.
+ * As result a major of metrics will not be created. Usually injecting of MeterRegistry too
+ * BeanPostProcessor is distinguished via {@link io.micrometer.core.instrument.binder.MeterBinder}
+ */
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class SagaConfigurationDiscoveryProcessor implements ApplicationListener<ContextRefreshedEvent> {
+public class SagaConfigurationDiscoveryProcessor implements DistributedTaskServiceLifecycle {
     private static final Set<String> IGNORE_METHOD_NAMES = Set.of(
         "equals",
         "hashCode",
@@ -49,7 +53,7 @@ public class SagaConfigurationDiscoveryProcessor implements ApplicationListener<
     SagaPropertiesProcessor sagaPropertiesProcessor;
     Map<Object, ReflectionHelper.ProxyObject> beansToProxyObject = Maps.newIdentityHashMap();
 
-    @PostConstruct
+    @Override
     public void init() {
         sagaPropertiesProcessor.registerConfiguredSagas(
             distributionSagaService,
@@ -57,9 +61,14 @@ public class SagaConfigurationDiscoveryProcessor implements ApplicationListener<
         );
     }
 
-
+    /**
+     * We register in this phase because only on this phase we have all singleton beans already created and initialised.
+     * If bean is lazy created after spring context is started - we can't handle it. This behavior is by design:
+     * it is dangerous to allow lazy beans, because can lead potentially to case when beans
+     * will not be initialised and as result this node will not be able to handle corresponded DTF tasks.
+     */
     @Override
-    public void onApplicationEvent(ContextRefreshedEvent event) {
+    public void start() {
         forEachBean(bean -> {
                 registerSagaMethodIfExists(bean);
                 registerSagaRevertMethodIfExists(bean);
