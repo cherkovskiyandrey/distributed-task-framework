@@ -1,10 +1,12 @@
 package com.distributed_task_framework.persistence.repository;
 
 import com.distributed_task_framework.exception.BatchUpdateException;
+import com.distributed_task_framework.model.AffinityGroupAndAffinity;
 import com.distributed_task_framework.model.AffinityGroupStat;
 import com.distributed_task_framework.model.AffinityGroupWrapper;
 import com.distributed_task_framework.persistence.entity.IdVersionEntity;
 import com.distributed_task_framework.exception.OptimisticLockException;
+import com.distributed_task_framework.persistence.entity.IdVersionWithAffinityEntity;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
@@ -28,7 +30,9 @@ public interface VirtualQueueManagerPlannerRepository {
 
     List<ShortTaskEntity> moveNewToReady(Set<AffinityGroupStat> affinityGroupStats);
 
-    Set<IdVersionEntity> readyToHardDelete(int batchSize);
+    Set<IdVersionWithAffinityEntity> readyToHardDelete(int batchSize);
+
+    List<IdVersionEntity> readyToMoveFromParkedToReady(Collection<AffinityGroupAndAffinity> idVersionEntities);
 
     List<ShortTaskEntity> moveParkedToReady(Collection<IdVersionEntity> idVersionEntities);
 

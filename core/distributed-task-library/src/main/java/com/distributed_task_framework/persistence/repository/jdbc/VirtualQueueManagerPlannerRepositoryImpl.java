@@ -3,9 +3,11 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 import com.distributed_task_framework.exception.BatchUpdateException;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.exception.UnknownTaskException;
+import com.distributed_task_framework.model.AffinityGroupAndAffinity;
 import com.distributed_task_framework.model.AffinityGroupStat;
 import com.distributed_task_framework.model.AffinityGroupWrapper;
 import com.distributed_task_framework.persistence.entity.IdVersionEntity;
+import com.distributed_task_framework.persistence.entity.IdVersionWithAffinityEntity;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
@@ -312,81 +314,75 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
     }
 
 
-    private static final String MOVE_PARKED_TO_READY = """
-        WITH filter AS (
-            SELECT id, version
-            FROM UNNEST(:id::uuid[], :version::int[])
-            AS tmp(id, version)
-        ),
-        deleted_portion AS (
-            SELECT
-                id,
-                affinity_group,
-                affinity,
-                virtual_queue AS target_virtual_queue
-            FROM _____dtf_tasks
-            WHERE
-                (id, version) IN (
-                    SELECT id, version
-                    FROM filter
-                )
-                AND affinity_group NOTNULL
-        ),
-        deleted_afg_af AS (
-            SELECT distinct affinity_group, affinity
-            FROM deleted_portion
-        ),
-        is_in_ready AS (
-                SELECT distinct affinity_group, affinity
-                FROM deleted_afg_af
-                WHERE
-                    (affinity_group, affinity, 'READY') IN (
-                        SELECT affinity_group, affinity, virtual_queue
-                        FROM _____dtf_tasks
-                )
+    private static final String READY_TO_MOVE_FROM_PARKED_TO_READY = """
+        WITH deleted_afg_af AS (
+            SELECT affinity_group, affinity
+            FROM UNNEST(:affinity_group::text[], :affinity::text[])
+            AS tmp(affinity_group, affinity)
+            WHERE affinity IS NOT NULL
         ),
         free_afg_af AS (
-            SELECT affinity_group, affinity FROM deleted_afg_af
-            EXCEPT
-            SELECT affinity_group, affinity FROM is_in_ready
-        ),
-        to_unpark_wcd AS (
-            SELECT
-                affinity_group,
-                affinity,
-                first_value(workflow_id) OVER (PARTITION BY
-                    affinity_group, affinity
-                    ORDER BY workflow_created_date_utc, workflow_id
-                    ) AS min_workflow_id
-            FROM _____dtf_tasks
-            WHERE (affinity_group, affinity, virtual_queue) IN
-                  (
-                      SELECT distinct affinity_group, affinity, 'PARKED'::_____dtf_virtual_queue_type
-                      FROM free_afg_af
-                  )
-        ),
-        to_unpark AS (
-            SELECT
-                id,
-                affinity_group,
-                affinity,
-                virtual_queue,
-                version
-            FROM _____dtf_tasks
-            WHERE (affinity_group, affinity, virtual_queue, workflow_id) IN
-                  (
-                      SELECT affinity_group, affinity, 'PARKED'::_____dtf_virtual_queue_type, min_workflow_id
-                      FROM to_unpark_wcd
-                  )
+            SELECT d.affinity_group, d.affinity
+            FROM deleted_afg_af d
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM _____dtf_tasks t
+                WHERE t.affinity_group = d.affinity_group
+                AND t.affinity       = d.affinity
+                AND t.virtual_queue  = 'READY'
+            )
         )
-        UPDATE _____dtf_tasks dt
-        SET
-            virtual_queue = 'READY'::_____dtf_virtual_queue_type,
-            version = version + 1
-        WHERE (dt.id, dt.version) IN (SELECT id, version FROM to_unpark ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
-        RETURNING dt.id, dt.task_name, dt.version, 'READY'::_____dtf_virtual_queue_type AS virtual_queue, dt.affinity_group, dt.affinity;
+        SELECT t.id, t.version
+        FROM free_afg_af f
+        CROSS JOIN LATERAL (
+            SELECT id, version
+            FROM _____dtf_tasks
+            WHERE affinity_group = f.affinity_group
+            AND affinity       = f.affinity
+            AND virtual_queue  = 'PARKED'
+            ORDER BY workflow_created_date_utc, workflow_id
+            LIMIT 1
+        ) t
+        ORDER BY t.id;
         """;
 
+    //todo
+    //SUPPOSED USED INDEXES: _____dtf_tasks_parked_ag_a_wcdu_wid_idx, _____dtf_tasks_ag_a_vq_wid_idx
+    @Override
+    public List<IdVersionEntity> readyToMoveFromParkedToReady(Collection<AffinityGroupAndAffinity> idVersionEntities) {
+        List<UUID> ids = idVersionEntities.stream().map(IdVersionEntity::getId).toList();
+        List<Long> versions = idVersionEntities.stream().map(IdVersionEntity::getVersion).toList();
+        return Lists.newArrayList(namedParameterJdbcTemplate.query(
+                READY_TO_MOVE_FROM_PARKED_TO_READY,
+                SqlParameters.of(
+                    IdVersionEntity.Fields.id, JdbcTools.UUIDsToStringArray(ids), Types.ARRAY,
+                    IdVersionEntity.Fields.version, JdbcTools.toLongArray(versions), Types.ARRAY
+                ),
+                IdVersionEntity.ID_VERSION_ROW_MAPPER
+            )
+        );
+    }
+
+    //todo
+    private static final String MOVE_PARKED_TO_READY = """
+          UPDATE _____dtf_tasks dt
+          SET
+              virtual_queue = 'READY'::_____dtf_virtual_queue_type,
+              version = version + 1
+          WHERE (dt.id, dt.version) IN (
+              SELECT id, version
+              FROM UNNEST(:id::uuid[], :version::int[]) AS t(id, version)
+          )
+          RETURNING
+              dt.id,
+              dt.task_name,
+              dt.version,
+              'READY'::_____dtf_virtual_queue_type AS virtual_queue,
+              dt.affinity_group,
+              dt.affinity;
+        """;
+
+    //todo
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey, _____dtf_tasks_ag_a_vq_idx, _____dtf_tasks_vq_ag_wcdu_idx, _____dtf_tasks_da_vq_idx
     @Override
     public List<ShortTaskEntity> moveParkedToReady(Collection<IdVersionEntity> idVersionEntities) {
@@ -405,7 +401,11 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
 
 
     private static final String READY_TO_HARD_DELETE = """
-        SELECT id, version
+        SELECT 
+            id, 
+            version,
+            affinity_group,
+            affinity
         FROM _____dtf_tasks
         WHERE virtual_queue = 'DELETED'
         ORDER BY deleted_at
@@ -413,11 +413,11 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         """;
 
     @Override
-    public Set<IdVersionEntity> readyToHardDelete(int batchSize) {
+    public Set<IdVersionWithAffinityEntity> readyToHardDelete(int batchSize) {
         return Sets.newHashSet(namedParameterJdbcTemplate.query(
                 READY_TO_HARD_DELETE,
                 SqlParameters.of("limit", batchSize, Types.BIGINT),
-                IdVersionEntity.ID_VERSION_ROW_MAPPER
+                IdVersionWithAffinityEntity.ID_VERSION_WITH_AFFINITY_ROW_MAPPER
             )
         );
     }
