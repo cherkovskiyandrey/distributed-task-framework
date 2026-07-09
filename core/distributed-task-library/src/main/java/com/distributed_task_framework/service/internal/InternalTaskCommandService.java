@@ -22,7 +22,7 @@ public interface InternalTaskCommandService {
 
     void forceReschedule(TaskEntity taskEntity);
 
-    void forceRescheduleAll(List<TaskEntity> taskEntities);
+    void forceRescheduleAll(Collection<TaskEntity> taskEntities);
 
     int forceRescheduleAll(TaskDef<?> taskDef, Duration delay, Collection<TaskId> excludes);
 

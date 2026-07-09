@@ -73,6 +73,7 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
             taskRepository,
             partitionTracker,
             taskMapper,
+            idVersionMapper,
             virtualQueueStatService,
             distributedTaskMetricHelper
         ));
@@ -108,6 +109,7 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
         assertThat(plannerService.hasToBeActive()).isTrue();
     }
 
+    //todo
     @Test
     void shouldMoveTasks() {
         //when

@@ -44,7 +44,7 @@ public class TaskStatRepositoryImpl implements TaskStatRepository {
     private static final BeanPropertyRowMapper<AggregatedTaskStat> AGGREGATED_TASK_STAT_ROW_MAPPER =
         new BeanPropertyRowMapper<>(AggregatedTaskStat.class);
 
-    //SUPPOSED USED INDEXES: don't use any indexes because of scan all history
+    //SUPPOSED USED INDEXES: _____dtf_tasks_s_idx or _____dtf_tasks_tn_afg_vq_edu_idx
     @Override
     public List<AggregatedTaskStat> getAggregatedTaskStat(Set<String> knownTaskNames) {
         return dtfNamedParameterJdbcTemplate.query(

@@ -9,9 +9,9 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.FieldNameConstants;
 import org.springframework.data.relational.core.mapping.Table;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.UUID;
 
 @Table("_____dtf_tasks")
@@ -22,7 +22,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder(toBuilder = true)
 public class ShortTaskEntity {
-    public static Comparator<ShortTaskEntity> COMPARATOR = Comparator.comparing(ShortTaskEntity::getId);
+    public static final BeanPropertyRowMapper<ShortTaskEntity> SHORT_TASK_ROW_MAPPER =
+        new BeanPropertyRowMapper<>(ShortTaskEntity.class);
 
     UUID id;
     String taskName;

@@ -57,7 +57,7 @@ public class InternalTaskCommandServiceImpl implements InternalTaskCommandServic
     }
 
     @Override
-    public void forceRescheduleAll(List<TaskEntity> taskEntities) {
+    public void forceRescheduleAll(Collection<TaskEntity> taskEntities) {
         virtualQueueBaseTaskCommandService.forceRescheduleAll(taskEntities);
         taskCommandStatService.forceRescheduleAll(taskEntities);
     }

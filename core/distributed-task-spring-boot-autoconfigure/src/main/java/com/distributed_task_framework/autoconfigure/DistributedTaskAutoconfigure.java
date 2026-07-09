@@ -5,6 +5,7 @@ import com.distributed_task_framework.autoconfigure.mapper.CommonSettingsMerger;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
 import com.distributed_task_framework.mapper.CommandMapper;
+import com.distributed_task_framework.mapper.IdVersionMapper;
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.mapper.PartitionMapper;
 import com.distributed_task_framework.mapper.TaskMapper;
@@ -28,6 +29,7 @@ import com.distributed_task_framework.persistence.repository.RemoteTaskWorkerRep
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.persistence.repository.jdbc.TaskRepositoryHelper;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
@@ -299,6 +301,13 @@ public class DistributedTaskAutoconfigure {
     }
 
     @Bean
+    @ConditionalOnMissingBean
+    public IdVersionMapper idVersionMapper() {
+        return Mappers.getMapper(IdVersionMapper.class);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public PartitionMapper partitionMapper() {
         return Mappers.getMapper(PartitionMapper.class);
     }
@@ -334,6 +343,12 @@ public class DistributedTaskAutoconfigure {
     @ConditionalOnMissingBean
     public OperatingSystemMXBeanHolder dtfOperatingSystemMXBean() {
         return new OperatingSystemMXBeanHolder((OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public TaskRepositoryHelper taskRepositoryHelper(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
+        return new TaskRepositoryHelper(namedParameterJdbcTemplate);
     }
 
     @Bean
@@ -464,6 +479,7 @@ public class DistributedTaskAutoconfigure {
                                                                      TaskRepository taskRepository,
                                                                      PartitionTracker partitionTracker,
                                                                      TaskMapper taskMapper,
+                                                                     IdVersionMapper idVersionMapper,
                                                                      VirtualQueueStatService virtualQueueStatService,
                                                                      DistributedTaskMetricHelper distributedTaskMetricHelper) {
         return new VirtualQueueManagerPlannerImpl(
@@ -474,6 +490,7 @@ public class DistributedTaskAutoconfigure {
             taskRepository,
             partitionTracker,
             taskMapper,
+            idVersionMapper,
             virtualQueueStatService,
             distributedTaskMetricHelper
         );

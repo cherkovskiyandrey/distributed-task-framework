@@ -1,6 +1,7 @@
 package com.distributed_task_framework;
 
 import com.distributed_task_framework.mapper.CommandMapper;
+import com.distributed_task_framework.mapper.IdVersionMapper;
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.mapper.PartitionMapper;
 import com.distributed_task_framework.mapper.TaskMapper;
@@ -21,6 +22,7 @@ import com.distributed_task_framework.persistence.repository.RemoteCommandReposi
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.persistence.repository.jdbc.TaskRepositoryHelper;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
@@ -83,6 +85,7 @@ import lombok.experimental.FieldDefaults;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Lazy;
@@ -239,6 +242,11 @@ public class BaseTestConfiguration {
     }
 
     @Bean
+    public IdVersionMapper idVersionMapper() {
+        return Mappers.getMapper(IdVersionMapper.class);
+    }
+
+    @Bean
     public PartitionMapper partitionMapper() {
         return Mappers.getMapper(PartitionMapper.class);
     }
@@ -314,6 +322,11 @@ public class BaseTestConfiguration {
         //in order to be independent of real environment during tests
         doReturn(CPU_LOADING_UNDEFINED).when(operatingSystemMXBean).getCpuLoad();
         return operatingSystemMXBean;
+    }
+
+    @Bean
+    public TaskRepositoryHelper taskRepositoryHelper(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
+        return new TaskRepositoryHelper(namedParameterJdbcTemplate);
     }
 
     @Bean

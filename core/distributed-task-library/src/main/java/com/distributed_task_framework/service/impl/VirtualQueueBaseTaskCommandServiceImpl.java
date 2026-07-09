@@ -59,7 +59,7 @@ public class VirtualQueueBaseTaskCommandServiceImpl implements VirtualQueueBaseT
     }
 
     @Override
-    public void forceRescheduleAll(List<TaskEntity> taskEntities) {
+    public void forceRescheduleAll(Collection<TaskEntity> taskEntities) {
         taskEntities = taskEntities.stream()
             .map(this::routeAsScheduled)
             .toList();

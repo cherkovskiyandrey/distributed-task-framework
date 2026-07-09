@@ -9,6 +9,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskIdEntity;
 import com.distributed_task_framework.persistence.repository.TaskCommandRepository;
 import com.distributed_task_framework.utils.JdbcTools;
+import com.distributed_task_framework.utils.PgComparatorUtils;
 import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -33,12 +34,40 @@ import static java.lang.String.format;
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class TaskCommandRepositoryImpl implements TaskCommandRepository {
+    public static final String WHERE_CONDITION_PLACEHOLDER = "{WHERE_CONDITION}";
+    public static final String SET_STATEMENTS_PLACEHOLDER = "{SET_STATEMENTS}";
+    public static final String RETURNING_EXPRESSION = "{RETURNING_EXPRESSION}";
+    public static final String NONE_RETURNING = "";
+
+    //language=postgresql
+    public static final String ORDERED_UPDATE_OPERATION_TEMPLATE = """
+        WITH to_update AS (
+            SELECT id FROM _____dtf_tasks
+            WHERE
+            (
+                {WHERE_CONDITION}
+            )
+            ORDER BY id
+            FOR UPDATE
+        )
+        UPDATE _____dtf_tasks dt
+        SET
+           {SET_STATEMENTS}
+        FROM to_update tu
+        WHERE dt.id = tu.id
+        {RETURNING_EXPRESSION}
+        """;
+
     NamedParameterJdbcOperations namedParameterJdbcTemplate;
+    TaskRepositoryHelper taskRepositoryHelper;
     Clock clock;
 
+
     public TaskCommandRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate,
+                                     TaskRepositoryHelper taskRepositoryHelper,
                                      Clock clock) {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+        this.taskRepositoryHelper = taskRepositoryHelper;
         this.clock = clock;
     }
 
@@ -73,16 +102,16 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
         }
 
         UUID taskId = taskEntity.getId();
-        if (!filerExisted(List.of(taskId)).isEmpty()) {
+        if (!taskRepositoryHelper.filerExisted(List.of(taskId)).isEmpty()) {
             throw new OptimisticLockException(format("Can't reschedule=[%s]", taskEntity), TaskEntity.class);
         }
         throw new UnknownTaskException(taskId);
     }
 
-
-    //todo: integration test
+    //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public void rescheduleAll(Collection<TaskEntity> taskEntities) {
+        taskEntities = PgComparatorUtils.sortTaskEntities(taskEntities);
         var batchArgs = SqlParameters.convert(taskEntities, this::toSqlParameterToReschedule);
         int[] result = namedParameterJdbcTemplate.batchUpdate(RESCHEDULE, batchArgs);
         var notAffected = JdbcTools.filterNotAffected(Lists.newArrayList(taskEntities), result);
@@ -91,31 +120,13 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
         }
 
         var notAffectedIds = notAffected.stream().map(TaskEntity::getId).toList();
-        var optimisticLockIds = filerExisted(notAffectedIds);
+        var optimisticLockIds = taskRepositoryHelper.filerExisted(notAffectedIds);
         var unknownTaskIds = Sets.difference(Sets.newHashSet(notAffectedIds), Sets.newHashSet(optimisticLockIds));
 
         throw BatchUpdateException.builder()
             .optimisticLockTaskIds(optimisticLockIds)
             .unknownTaskIds(Lists.newArrayList(unknownTaskIds))
             .build();
-    }
-
-
-    //language=postgresql
-    private static final String FILTER_EXISTED = """
-        SELECT id
-        FROM _____dtf_tasks
-        WHERE
-            id = ANY( (:taskIds)::uuid[] )
-            AND deleted_at IS NULL
-        """;
-
-    private List<UUID> filerExisted(List<UUID> taskIds) {
-        return namedParameterJdbcTemplate.queryForList(
-            FILTER_EXISTED,
-            SqlParameters.of("taskIds", JdbcTools.UUIDsToStringArray(taskIds), Types.ARRAY),
-            UUID.class
-        );
     }
 
 
@@ -144,7 +155,8 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
-    public void forceRescheduleAll(List<TaskEntity> tasksToSave) {
+    public void forceRescheduleAll(Collection<TaskEntity> tasksToSave) {
+        tasksToSave = PgComparatorUtils.sortTaskEntities(tasksToSave);
         var batchArgs = SqlParameters.convert(tasksToSave, this::toSqlParameterToReschedule);
         namedParameterJdbcTemplate.batchUpdate(FORCE_RESCHEDULE, batchArgs);
     }
@@ -162,40 +174,35 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
 
 
     //language=postgresql
-    private static final String FORCE_RESCHEDULE_ALL_BY_TASK_NAME = """
-        UPDATE _____dtf_tasks
-        SET version = version + 1,
-            assigned_worker = null,
-            last_assigned_date_utc = null,
-            execution_date_utc = execution_date_utc + make_interval(secs => :duration)
-        WHERE
-        (
-            _____dtf_tasks.task_name = :taskName
-            AND deleted_at ISNULL
-        )
+    private static final String FORCE_RESCHEDULE_ALL_BY_TASK_NAME_WHERE_CONDITION = """
+        task_name = :taskName 
+        AND deleted_at ISNULL
         """;
 
     //language=postgresql
-    private static final String FORCE_RESCHEDULE_ALL_BY_TASK_NAME_AND_EXCLUDE = """
-        UPDATE _____dtf_tasks
-        SET version = version + 1,
-            assigned_worker = null,
-            last_assigned_date_utc = null,
-            execution_date_utc = execution_date_utc + make_interval(secs => :duration)
-        WHERE
-        (
-            _____dtf_tasks.task_name = :taskName
-            AND NOT (id = ANY( (:ids)::uuid[] ))
-            AND deleted_at ISNULL
-        )
+    private static final String FORCE_RESCHEDULE_ALL_BY_TASK_NAME_SET_STATEMENT = """
+        version = version + 1,
+        assigned_worker = null,
+        last_assigned_date_utc = null,
+        execution_date_utc = execution_date_utc + make_interval(secs => :duration)
         """;
 
+    //language=postgresql
+    private static final String FORCE_RESCHEDULE_ALL_BY_TASK_NAME_AND_EXCLUDE_WHERE_CONDITION = """
+        task_name = :taskName
+        AND NOT (id = ANY( (:ids)::uuid[] ))    
+        AND deleted_at ISNULL
+        """;
 
     @Override
     public int forceRescheduleAll(TaskDef<?> taskDef, Duration delay, Collection<TaskId> excludes) {
         if (excludes.isEmpty()) {
+            var query = ORDERED_UPDATE_OPERATION_TEMPLATE
+                .replace(WHERE_CONDITION_PLACEHOLDER, FORCE_RESCHEDULE_ALL_BY_TASK_NAME_WHERE_CONDITION)
+                .replace(SET_STATEMENTS_PLACEHOLDER, FORCE_RESCHEDULE_ALL_BY_TASK_NAME_SET_STATEMENT)
+                .replace(RETURNING_EXPRESSION, NONE_RETURNING);
             return namedParameterJdbcTemplate.update(
-                FORCE_RESCHEDULE_ALL_BY_TASK_NAME,
+                query,
                 SqlParameters.of(
                     TaskEntity.Fields.taskName, taskDef.getTaskName(), Types.VARCHAR,
                     "duration", delay.toSeconds(), Types.INTEGER
@@ -203,8 +210,12 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
             );
         }
 
+        var query = ORDERED_UPDATE_OPERATION_TEMPLATE
+            .replace(WHERE_CONDITION_PLACEHOLDER, FORCE_RESCHEDULE_ALL_BY_TASK_NAME_AND_EXCLUDE_WHERE_CONDITION)
+            .replace(SET_STATEMENTS_PLACEHOLDER, FORCE_RESCHEDULE_ALL_BY_TASK_NAME_SET_STATEMENT)
+            .replace(RETURNING_EXPRESSION, NONE_RETURNING);
         return namedParameterJdbcTemplate.update(
-            FORCE_RESCHEDULE_ALL_BY_TASK_NAME_AND_EXCLUDE,
+            query,
             SqlParameters.of(
                 TaskEntity.Fields.taskName, taskDef.getTaskName(), Types.VARCHAR,
                 "duration", delay.toSeconds(), Types.INTEGER,
@@ -241,6 +252,7 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public void cancelAll(Collection<UUID> taskIds) {
+        taskIds = PgComparatorUtils.sortTaskIds(taskIds);
         var batchArgs = SqlParameters.convert(taskIds, this::toSqlParameterToCancel);
         namedParameterJdbcTemplate.batchUpdate(CANCEL_TASK_BY_TASK_ID, batchArgs);
     }
@@ -255,37 +267,34 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
 
 
     //language=postgresql
-    private static final String CANCEL_ALL_BY_TASK_NAME = """
-        UPDATE _____dtf_tasks
-        SET version = version + 1,
-            canceled = TRUE,
-            execution_date_utc = :executionDateUtc
-        WHERE
-        (
-            _____dtf_tasks.task_name = :taskName
-            AND deleted_at ISNULL
-        )
+    private static final String CANCEL_ALL_BY_TASK_NAME_WHERE_CONDITIONS = """
+        _____dtf_tasks.task_name = :taskName
+        AND deleted_at ISNULL
         """;
 
     //language=postgresql
-    private static final String CANCEL_ALL_BY_TASK_NAME_AND_EXCLUDE = """
-        UPDATE _____dtf_tasks
-        SET version = version + 1,
-            canceled = TRUE,
-            execution_date_utc = :executionDateUtc
-        WHERE
-        (
-            _____dtf_tasks.task_name = :taskName
-            AND NOT (id = ANY( (:ids)::uuid[] ))
-            AND deleted_at ISNULL
-        )
+    private static final String CANCEL_ALL_BY_TASK_NAME_SET_STATEMENTS = """
+        version = version + 1,
+        canceled = TRUE,
+        execution_date_utc = :executionDateUtc
+        """;
+
+    //language=postgresql
+    private static final String CANCEL_ALL_BY_TASK_NAME_AND_EXCLUDE_WHERE_CONDITION = """
+        _____dtf_tasks.task_name = :taskName
+        AND NOT (id = ANY( (:ids)::uuid[] ))
+        AND deleted_at ISNULL
         """;
 
     @Override
     public int cancelAll(TaskDef<?> taskDef, Collection<TaskId> excludes) {
         if (excludes.isEmpty()) {
+            var query = ORDERED_UPDATE_OPERATION_TEMPLATE
+                .replace(WHERE_CONDITION_PLACEHOLDER, CANCEL_ALL_BY_TASK_NAME_WHERE_CONDITIONS)
+                .replace(SET_STATEMENTS_PLACEHOLDER, CANCEL_ALL_BY_TASK_NAME_SET_STATEMENTS)
+                .replace(RETURNING_EXPRESSION, NONE_RETURNING);
             return namedParameterJdbcTemplate.update(
-                CANCEL_ALL_BY_TASK_NAME,
+                query,
                 SqlParameters.of(
                     TaskEntity.Fields.taskName, taskDef.getTaskName(), Types.VARCHAR,
                     TaskEntity.Fields.executionDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP
@@ -293,8 +302,12 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
             );
         }
 
+        var query = ORDERED_UPDATE_OPERATION_TEMPLATE
+            .replace(WHERE_CONDITION_PLACEHOLDER, CANCEL_ALL_BY_TASK_NAME_AND_EXCLUDE_WHERE_CONDITION)
+            .replace(SET_STATEMENTS_PLACEHOLDER, CANCEL_ALL_BY_TASK_NAME_SET_STATEMENTS)
+            .replace(RETURNING_EXPRESSION, NONE_RETURNING);
         return namedParameterJdbcTemplate.update(
-            CANCEL_ALL_BY_TASK_NAME_AND_EXCLUDE,
+            query,
             SqlParameters.of(
                 TaskEntity.Fields.taskName, taskDef.getTaskName(), Types.VARCHAR,
                 TaskEntity.Fields.executionDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP,
@@ -305,39 +318,39 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
 
 
     //language=postgresql
-    private static final String CANCEL_ALL_BY_WORKFLOWS = """
-        UPDATE _____dtf_tasks
-        SET version = version + 1,
-            canceled = TRUE,
-            execution_date_utc = :executionDateUtc
-        WHERE
-        (
-            _____dtf_tasks.workflow_id = ANY( (:workflowId)::uuid[] )
-            AND deleted_at ISNULL
-        )
-        RETURNING id, task_name, workflow_id
+    private static final String CANCEL_ALL_BY_WORKFLOWS_WHERE_CONDITION = """
+        _____dtf_tasks.workflow_id = ANY( (:workflowId)::uuid[] )
+        AND deleted_at ISNULL
         """;
 
     //language=postgresql
-    private static final String CANCEL_ALL_BY_WORKFLOWS_AND_EXCLUDE = """
-        UPDATE _____dtf_tasks
-        SET version = version + 1,
-            canceled = TRUE,
-            execution_date_utc = :executionDateUtc
-        WHERE
-        (
-            workflow_id = ANY( (:workflowId)::uuid[] )
-            AND NOT (id = ANY( (:ids)::uuid[] ))
-            AND deleted_at ISNULL
-        )
-        RETURNING id, task_name, workflow_id
+    private static final String CANCEL_ALL_BY_WORKFLOWS_SET_STATEMENT = """
+        version = version + 1,
+        canceled = TRUE,
+        execution_date_utc = :executionDateUtc
+        """;
+
+    //language=postgresql
+    private static final String CANCEL_ALL_BY_WORKFLOWS_RETURNING_FIELDS = """
+        RETURNING dt.id, task_name, workflow_id
+        """;
+
+    //language=postgresql
+    private static final String CANCEL_ALL_BY_WORKFLOWS_AND_EXCLUDE_WHERE_CONDITION = """
+        workflow_id = ANY( (:workflowId)::uuid[] )
+        AND NOT (id = ANY( (:ids)::uuid[] ))
+        AND deleted_at ISNULL
         """;
 
     @Override
     public Collection<TaskIdEntity> cancelAll(Collection<UUID> workflows, Collection<TaskId> excludes) {
         if (excludes.isEmpty()) {
+            var query = ORDERED_UPDATE_OPERATION_TEMPLATE
+                .replace(WHERE_CONDITION_PLACEHOLDER, CANCEL_ALL_BY_WORKFLOWS_WHERE_CONDITION)
+                .replace(SET_STATEMENTS_PLACEHOLDER, CANCEL_ALL_BY_WORKFLOWS_SET_STATEMENT)
+                .replace(RETURNING_EXPRESSION, CANCEL_ALL_BY_WORKFLOWS_RETURNING_FIELDS);
             return namedParameterJdbcTemplate.query(
-                CANCEL_ALL_BY_WORKFLOWS,
+                query,
                 SqlParameters.of(
                     TaskEntity.Fields.workflowId, JdbcTools.UUIDsToStringArray(workflows), Types.ARRAY,
                     TaskEntity.Fields.executionDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP
@@ -346,8 +359,12 @@ public class TaskCommandRepositoryImpl implements TaskCommandRepository {
             );
         }
 
+        var query = ORDERED_UPDATE_OPERATION_TEMPLATE
+            .replace(WHERE_CONDITION_PLACEHOLDER, CANCEL_ALL_BY_WORKFLOWS_AND_EXCLUDE_WHERE_CONDITION)
+            .replace(SET_STATEMENTS_PLACEHOLDER, CANCEL_ALL_BY_WORKFLOWS_SET_STATEMENT)
+            .replace(RETURNING_EXPRESSION, CANCEL_ALL_BY_WORKFLOWS_RETURNING_FIELDS);
         return namedParameterJdbcTemplate.query(
-            CANCEL_ALL_BY_WORKFLOWS_AND_EXCLUDE,
+            query,
             SqlParameters.of(
                 TaskEntity.Fields.workflowId, JdbcTools.UUIDsToStringArray(workflows), Types.ARRAY,
                 TaskEntity.Fields.executionDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP,

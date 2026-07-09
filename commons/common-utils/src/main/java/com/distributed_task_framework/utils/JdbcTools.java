@@ -38,7 +38,11 @@ public class JdbcTools {
         return longs.toArray(new Long[0]);
     }
 
-    public <T extends Enum<T>> String[] toEnumArray(EnumSet<T> enumValues) {
+    public Integer[] toIntegerArray(Collection<Integer> integers) {
+        return integers.toArray(new Integer[0]);
+    }
+
+    public <T extends Enum<T>> String[] toEnumArray(Collection<T> enumValues) {
         return enumValues.stream()
                 .map(Enum::toString)
                 .toArray(String[]::new);

@@ -19,7 +19,9 @@ import java.util.UUID;
 @FieldNameConstants
 @Builder(toBuilder = true)
 public class IdVersionWithAffinityEntity {
-    public static final BeanPropertyRowMapper<IdVersionWithAffinityEntity> ID_VERSION_WITH_AFFINITY_ROW_MAPPER = new BeanPropertyRowMapper<>(IdVersionWithAffinityEntity.class);
+    public static final BeanPropertyRowMapper<IdVersionWithAffinityEntity> ID_VERSION_WITH_AFFINITY_ROW_MAPPER =
+        new BeanPropertyRowMapper<>(IdVersionWithAffinityEntity.class);
+
     UUID id;
     Long version;
     @Nullable

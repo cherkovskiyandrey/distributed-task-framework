@@ -9,7 +9,6 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.FieldNameConstants;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 
-import java.util.Comparator;
 import java.util.UUID;
 
 @Data
@@ -19,8 +18,8 @@ import java.util.UUID;
 @FieldNameConstants
 @Builder(toBuilder = true)
 public class IdVersionEntity {
-    public static Comparator<IdVersionEntity> COMPARATOR = Comparator.comparing(IdVersionEntity::getId);
-    public static BeanPropertyRowMapper<IdVersionEntity> ID_VERSION_ROW_MAPPER = new BeanPropertyRowMapper<>(IdVersionEntity.class);
+    public static BeanPropertyRowMapper<IdVersionEntity> ID_VERSION_ROW_MAPPER =
+        new BeanPropertyRowMapper<>(IdVersionEntity.class);
 
     UUID id;
     Long version;
