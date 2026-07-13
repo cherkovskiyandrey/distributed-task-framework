@@ -10,3 +10,5 @@ CREATE INDEX _____dtf_tasks_delete_purge_idx
     ON _____dtf_tasks (deleted_at)
     INCLUDE (id, version, affinity_group, affinity)
     WHERE virtual_queue = 'DELETED';
+
+DROP INDEX _____dtf_tasks_da_vq_idx;

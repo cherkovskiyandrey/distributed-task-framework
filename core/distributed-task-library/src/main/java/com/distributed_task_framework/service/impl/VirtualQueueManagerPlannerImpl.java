@@ -270,9 +270,9 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
         var deletedTaskIdVersions = Objects.requireNonNull(deleteByIdVersionTime.recordCallable(
             () -> taskRepository.deleteByIdVersion(idVersionToHardDelete))
         );
-        var conflictedTaskIdVersions = Sets.difference(idVersionWithAffinityReadyToHardDelete, Sets.newHashSet(deletedTaskIdVersions));
+        var conflictedTaskIdVersions = Sets.difference(Sets.newHashSet(idVersionToHardDelete), Sets.newHashSet(deletedTaskIdVersions));
         if (!conflictedTaskIdVersions.isEmpty()) {
-            log.error("processDeletedQueue(): CONFLICTED conflictedTaskIdVersions=[{}]", conflictedTaskIdVersions);
+            log.warn("processDeletedQueue(): CONFLICTED conflictedTaskIdVersions=[{}]", conflictedTaskIdVersions);
         }
 
         return numMovedToReadyTasks;

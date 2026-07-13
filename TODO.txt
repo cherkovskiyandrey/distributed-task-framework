@@ -1,0 +1,22 @@
+1. Так как SagaConfigurationDiscoveryProcessor наследует ApplicationListener то он инициализируется тоже рано - проверить
+2. Ранняя инициализация происходит под глобальном локом контекста спринга и входит в дэдлок в момент обращения в БД,
+    например в SagaManagerImpl.java:128 в init методе
+3. Так же это будет значить что и MeterRegister в зависимостях SagaConfigurationDiscoveryProcessor
+    так же не будет проинициализирован? - проверить
+
+Почему дэдлок?
+Поток main:
+    инициализирует спринг ->
+    захватывает глобальный лок создания бинов (0x00000000a2e4add0) ->
+    вызывает init из SagaManagerImpl.java:128 ->
+    scheduleBase LocalTaskCommandServiceImpl.java:373 ->
+    после вызывается нотификация MeterRegister (ранняя) который еще не создан (afterInvocation$0(MetricsRepositoryMethodInvocationListener.java:74) ->
+    пытаемся захватить лок для создания синглтонов лениво через SingletonSupplier (0x00000000f6327bb8)
+
+Поток node-st-upd-0
+    вызывается асинхронно и параллельно с созданием контекста спринга ->
+    лезет в базу через getAllWithCapabilities ->
+    после вызывается нотификация MeterRegister (ранняя) который еще не создан (afterInvocation$0(MetricsRepositoryMethodInvocationListener.java:74) ->
+    получает лок для создания синглтонов лениво через SingletonSupplier (0x00000000f6327bb8) ->
+    начинает создавать бин MeterRegister ->
+    пытается захватить глобальный лок создания синглтонов singletonObjects (0x00000000a2e4add0)

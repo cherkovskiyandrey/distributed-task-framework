@@ -63,13 +63,13 @@ distributed-task:
     planner:
       watchdog-initial-delay-ms: 5000
       watchdog-fixed-delay-ms: 5000
-      max-parallel-tasks-in-cluster-default: 100
-      batch-size: 100
+      max-parallel-tasks-in-cluster-default: 300
+      batch-size: 300
       polling-delay:
         0: 500
         1: 10
-      new-batch-size: 100
-      deleted-batch-size: 100
+      new-batch-size: 300
+      deleted-batch-size: 300
     worker-manager:
       max-parallel-tasks-in-node: 200
       manage-delay:

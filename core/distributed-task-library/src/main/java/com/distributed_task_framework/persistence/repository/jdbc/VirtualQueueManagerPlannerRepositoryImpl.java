@@ -228,6 +228,27 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
                     ORDER BY workflow_created_date_utc, workflow_id
                 ) AS min_workflow_id
             FROM new_raw_extended_portion
+        ),
+        candidate_groups AS (
+            SELECT DISTINCT affinity_group, affinity
+            FROM new_portion
+            WHERE affinity_group IS NOT NULL AND affinity IS NOT NULL
+        ),
+        occupied_groups AS (
+            SELECT g.affinity_group, g.affinity
+            FROM candidate_groups g
+            WHERE EXISTS (
+                SELECT 1 FROM _____dtf_tasks t
+                WHERE t.affinity_group = g.affinity_group
+                    AND t.affinity       = g.affinity
+                    AND t.virtual_queue  = 'READY'::_____dtf_virtual_queue_type
+            )
+            OR EXISTS (
+                SELECT 1 FROM _____dtf_tasks t
+                WHERE t.affinity_group = g.affinity_group
+                    AND t.affinity       = g.affinity
+                    AND t.virtual_queue  = 'PARKED'::_____dtf_virtual_queue_type
+            )
         )
         SELECT 
             np.id AS id, 
@@ -236,27 +257,14 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
                 WHEN np.affinity IS NOT NULL
                     AND np.workflow_id <> np.min_workflow_id
                 THEN 'PARKED'::_____dtf_virtual_queue_type
-        
                 WHEN np.affinity_group IS NOT NULL
                     AND np.affinity IS NOT NULL
-                    AND (
-                        EXISTS (
-                            SELECT 1 FROM _____dtf_tasks t
-                            WHERE 
-                                t.affinity_group = np.affinity_group
-                                AND t.affinity       = np.affinity
-                                AND t.virtual_queue  = 'PARKED'::_____dtf_virtual_queue_type
-                        )
-                        OR EXISTS (
-                            SELECT 1 FROM _____dtf_tasks t
-                            WHERE 
-                                t.affinity_group = np.affinity_group
-                                AND t.affinity       = np.affinity
-                                AND t.virtual_queue  = 'READY'::_____dtf_virtual_queue_type
-                        )
+                    AND EXISTS (
+                        SELECT 1 FROM occupied_groups o
+                        WHERE o.affinity_group = np.affinity_group
+                          AND o.affinity       = np.affinity
                     )
                 THEN 'PARKED'::_____dtf_virtual_queue_type
-        
                 ELSE 'READY'::_____dtf_virtual_queue_type
             END AS virtual_queue
         FROM new_portion np
