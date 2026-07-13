@@ -946,10 +946,10 @@ todo
 
 ### Results
 
-| Nodes | max-parallel-tasks-in-cluster-default | batch-size | polling-delay | new-batch-size | deleted-batch-size | max-parallel-tasks-in-node | manage-delay | Total tasks | Total time                                     | RPM                                        | RPS |
-|-------|---------------------------------------|------------|---------------|----------------|--------------------|----------------------------|--------------|-------------|------------------------------------------------|--------------------------------------------|-----|
-| 1     | 300                                   | 300        | 10 ms         | 300            | 300                | 200                        | 10 ms        | 12_021      | 43 sec  | <span style="color:green"> **16744** </span> |<span style="color:green"> **279** </span>|
-| 1     | 300                                   | 300        | 10 ms         | 300            | 300                | 200                        | 10 ms        | 120_201     | 390 sec | <span style="color:green"> **18480** </span> |<span style="color:green"> **308** </span>|
+| Nodes | max-parallel-tasks-in-cluster-default | batch-size | polling-delay | new-batch-size | deleted-batch-size | max-parallel-tasks-in-node | manage-delay | Total tasks | Total time | RPM                                        | RPS                                        |
+|-------|---------------------------------------|------------|---------------|----------------|--------------------|----------------------------|--------------|-------------|------------|--------------------------------------------|--------------------------------------------|
+| 1     | 300                                   | 300        | 10 ms         | 300            | 300                | 200                        | 10 ms        | 12_021      | 43 sec     | <span style="color:green"> **16744** </span> | <span style="color:green"> **279** </span> |
+| 1     | 300                                   | 300        | 10 ms         | 300            | 300                | 200                        | 10 ms        | 120_201     | 382 sec    | <span style="color:green"> **18480** </span> | <span style="color:green"> **314** </span> |
 
 ## How it works?
 
