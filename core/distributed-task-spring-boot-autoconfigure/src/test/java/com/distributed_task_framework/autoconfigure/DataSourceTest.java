@@ -117,5 +117,6 @@ public class DataSourceTest {
         assertThat(primaryDataSource).isNotSameAs(secondaryDataSource);
 
         verify(primaryDataSource, atLeastOnce()).getConnection();
+        verifyNoInteractions(secondaryDataSource);
     }
 }

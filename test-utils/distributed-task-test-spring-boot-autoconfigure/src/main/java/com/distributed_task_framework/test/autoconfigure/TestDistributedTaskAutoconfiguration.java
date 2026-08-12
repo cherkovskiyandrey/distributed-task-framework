@@ -12,7 +12,6 @@ import com.distributed_task_framework.persistence.repository.DltRepository;
 import com.distributed_task_framework.persistence.repository.NodeStateRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
-import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
@@ -30,7 +29,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
@@ -123,10 +121,8 @@ public class TestDistributedTaskAutoconfiguration {
     }
 
     @Bean
-    public ClusterProvider clusterProvider(NodeStateRepository nodeStateRepository,
-                                           @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
-                                           Clock clock) {
-        return new ClusterProviderTestImpl(nodeStateRepository, capabilityRegisterProvider, clock);
+    public ClusterProvider clusterProvider(NodeStateRepository nodeStateRepository, Clock clock) {
+        return new ClusterProviderTestImpl(nodeStateRepository, clock);
     }
 
     @Bean

@@ -6,6 +6,7 @@ import com.distributed_task_framework.saga.models.CreateSagaRequest;
 import com.distributed_task_framework.saga.models.SagaPipeline;
 import com.distributed_task_framework.saga.persistence.entities.AggregatedSagaStat;
 import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
+import com.distributed_task_framework.service.internal.PlannerGroup;
 import io.micrometer.core.instrument.Meter;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
@@ -29,6 +30,7 @@ import static com.distributed_task_framework.saga.persistence.entities.Aggregate
 import static com.distributed_task_framework.saga.persistence.entities.AggregatedSagaStat.State.COMPLETED_NOT_CLEANED;
 import static com.distributed_task_framework.saga.persistence.entities.AggregatedSagaStat.State.EXPIRED;
 import static com.distributed_task_framework.saga.persistence.entities.AggregatedSagaStat.State.EXPIRED_NOT_CLEANED;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 
 @Slf4j
@@ -40,7 +42,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @BeforeEach
     public void init() {
         super.init();
-        doReturn(false).when(plannerService).isActive();
+        doReturn(false).when(plannerState).isActive(eq(PlannerGroup.VQB_MANAGER));
         sagaManager.enableHandleDeprecatedSagas(false); //turn off to prevent races with these tests
         waitFor(() -> !sagaManager.isHandleDeprecatedSagasEnabled()); //wait for turning off
         setFixedTime(1000);
@@ -56,7 +58,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @Test
     void shouldCalculateStatWhenActive() {
         //when
-        doReturn(true).when(plannerService).isActive();
+        doReturn(true).when(plannerState).isActive(eq(PlannerGroup.VQB_MANAGER));
         populateSagaEntities(ACTIVE, Map.of(0, 5, 1, 4, 2, 3, 3, 1)); //5+4+3+1=13
         populateSagaEntities(COMPLETED, Map.of(0, 4, 1, 3, 2, 2, 3, 1)); //4+3+2+1=10
         populateSagaEntities(COMPLETED_CLEANING, Map.of(0, 5, 1, 4, 2, 3, 3, 2)); //5+4+3+2=14
@@ -124,7 +126,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRemoveMetricsWhenRemovedFromTopN() {
         //when
-        doReturn(true).when(plannerService).isActive();
+        doReturn(true).when(plannerState).isActive(eq(PlannerGroup.VQB_MANAGER));
         populateSagaEntities(ACTIVE, Map.of(0, 5, 1, 4, 2, 3, 3, 1, 4, 1));
         sagaStatService.calculateStat();
         metricTestHelper.assertMetricToContain(
@@ -159,7 +161,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @Test
     void shouldRemoveMetricsWhenInactive() {
         //when
-        doReturn(true).when(plannerService).isActive();
+        doReturn(true).when(plannerState).isActive(eq(PlannerGroup.VQB_MANAGER));
         populateSagaEntities(ACTIVE, Map.of(0, 1));
         populateSagaEntities(COMPLETED, Map.of(0, 1));
         populateSagaEntities(COMPLETED_CLEANING, Map.of(0, 1));
@@ -169,7 +171,7 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
         sagaStatService.calculateStat();
 
         //do
-        doReturn(false).when(plannerService).isActive();
+        doReturn(false).when(plannerState).isActive(eq(PlannerGroup.VQB_MANAGER));
         sagaStatService.calculateStat();
 
         //verify
@@ -217,12 +219,12 @@ class SagaStatServiceTest extends BaseSpringIntegrationTest {
     @Test
     void shouldReregisterMetricsWhenActiveAfterInactive() {
         //when
-        doReturn(true).when(plannerService).isActive();
+        doReturn(true).when(plannerState).isActive(eq(PlannerGroup.VQB_MANAGER));
         populateSagaEntities(ACTIVE, Map.of(0, 5, 1, 4, 2, 3, 3, 1)); //5+4+3+1=13
         sagaStatService.calculateStat();
-        doReturn(false).when(plannerService).isActive();
+        doReturn(false).when(plannerState).isActive(eq(PlannerGroup.VQB_MANAGER));
         sagaStatService.calculateStat();
-        doReturn(true).when(plannerService).isActive();
+        doReturn(true).when(plannerState).isActive(eq(PlannerGroup.VQB_MANAGER));
 
         //do
         sagaStatService.calculateStat();

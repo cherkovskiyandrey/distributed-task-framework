@@ -4,8 +4,9 @@ import com.distributed_task_framework.saga.persistence.entities.AggregatedSagaSt
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaStatSettings;
+import com.distributed_task_framework.service.PlannerState;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
-import com.distributed_task_framework.service.internal.PlannerService;
+import com.distributed_task_framework.service.internal.PlannerGroup;
 import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -40,7 +41,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SagaStatService implements DistributedTaskServiceLifecycle {
-    PlannerService plannerService;
+    PlannerState plannerState;
     MeterRegistry meterRegistry;
     SagaRepository sagaRepository;
     SagaStatSettings sagaStatSettings;
@@ -67,13 +68,13 @@ public class SagaStatService implements DistributedTaskServiceLifecycle {
     String undefinedTopNSagasGaugeName;
     ScheduledExecutorService executorService;
 
-    public SagaStatService(PlannerService plannerService,
+    public SagaStatService(PlannerState plannerState,
                            DistributedTaskMetricHelper distributedTaskMetricHelper,
                            MeterRegistry meterRegistry,
                            SagaRepository sagaRepository,
                            SagaCommonSettings sagaCommonSettings,
                            SagaStatSettings sagaStatSettings) {
-        this.plannerService = plannerService;
+        this.plannerState = plannerState;
         this.meterRegistry = meterRegistry;
         this.sagaRepository = sagaRepository;
         this.sagaStatSettings = sagaStatSettings;
@@ -131,7 +132,7 @@ public class SagaStatService implements DistributedTaskServiceLifecycle {
 
     @VisibleForTesting
     void calculateStat() {
-        if (plannerService.isActive()) {
+        if (plannerState.isActive(PlannerGroup.VQB_MANAGER)) {
             calculateAggregatedSagaStat();
             calculateAggregatedTopNSagaStat();
         } else {

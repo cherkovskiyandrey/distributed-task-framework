@@ -6,13 +6,12 @@ import com.distributed_task_framework.persistence.repository.TaskExtendedReposit
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
-import com.distributed_task_framework.utils.ExecutorUtils;
 import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
+import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -49,14 +48,14 @@ public class CompletionServiceImpl implements CompletionService, DistributedTask
         this.taskExtendedRepository = taskExtendedRepository;
         this.workerContextManager = workerContextManager;
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-                new ThreadFactoryBuilder()
-                        .setDaemon(false)
-                        .setNameFormat("tsk-completion")
-                        .setUncaughtExceptionHandler((t, e) -> {
-                            log.error("scheduleWatchdog(): error when handle completion of tasks", e);
-                            ReflectionUtils.rethrowRuntimeException(e);
-                        })
-                        .build()
+            new ThreadFactoryBuilder()
+                .setDaemon(false)
+                .setNameFormat("tsk-completion")
+                .setUncaughtExceptionHandler((t, e) -> {
+                    log.error("scheduleWatchdog(): error when handle completion of tasks", e);
+                    ReflectionUtils.rethrowRuntimeException(e);
+                })
+                .build()
         );
     }
 
@@ -145,15 +144,15 @@ public class CompletionServiceImpl implements CompletionService, DistributedTask
         var existedIds = filter.apply(requestedIds);
         var completedOrNotExistedIds = Sets.difference(requestedIds, existedIds);
         completedOrNotExistedIds.forEach(id ->
-                //use compute in order to protect from parallel registration of feature by the same key
-                idMap.compute(
-                        id,
-                        (k, feature) -> {
-                            if (feature != null) {
-                                feature.complete(null);
-                            }
-                            return null; //remove mapping
-                        })
+            //use compute in order to protect from parallel registration of feature by the same key
+            idMap.compute(
+                id,
+                (k, feature) -> {
+                    if (feature != null) {
+                        feature.complete(null);
+                    }
+                    return null; //remove mapping
+                })
         );
     }
 }

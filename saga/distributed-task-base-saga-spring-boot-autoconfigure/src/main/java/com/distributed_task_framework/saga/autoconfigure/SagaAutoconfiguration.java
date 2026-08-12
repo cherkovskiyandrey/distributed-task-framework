@@ -31,9 +31,9 @@ import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
 import com.distributed_task_framework.saga.settings.SagaCommonSettings;
 import com.distributed_task_framework.saga.settings.SagaStatSettings;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.PlannerState;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
-import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.utils.CaffeineDistributedTaskCacheManagerImpl;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
@@ -42,13 +42,13 @@ import com.distributed_task_framework.utils.MetricHelper;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
@@ -225,12 +225,12 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaConfigurationDiscoveryProcessor sagaConfigurationDiscoveryProcessor(ApplicationContext applicationContext,
+    public SagaConfigurationDiscoveryProcessor sagaConfigurationDiscoveryProcessor(ConfigurableListableBeanFactory beanFactory,
                                                                                    DistributionSagaService distributionSagaService,
                                                                                    DistributedSagaProperties distributedSagaProperties,
                                                                                    SagaPropertiesProcessor sagaPropertiesProcessor) {
         return new SagaConfigurationDiscoveryProcessor(
-            applicationContext,
+            beanFactory,
             distributionSagaService,
             distributedSagaProperties,
             sagaPropertiesProcessor
@@ -239,14 +239,14 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaStatService sagaStatService(@Qualifier(VIRTUAL_QUEUE_MANAGER_PLANNER_NAME) PlannerService plannerService,
+    public SagaStatService sagaStatService(PlannerState plannerState,
                                            DistributedTaskMetricHelper distributedTaskMetricHelper,
                                            MeterRegistry meterRegistry,
                                            SagaRepository sagaRepository,
                                            SagaCommonSettings sagaCommonSettings,
                                            SagaStatSettings sagaStatSettings) {
         return new SagaStatService(
-            plannerService,
+            plannerState,
             distributedTaskMetricHelper,
             meterRegistry,
             sagaRepository,

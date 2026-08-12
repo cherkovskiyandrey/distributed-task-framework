@@ -20,10 +20,12 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+//todo: make a corrections of description
 
 /**
  * Service to integrate DTF lifecycle into Spring lifecycle.
@@ -45,9 +47,12 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  */
 @Slf4j
-public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle, DestructionAwareBeanPostProcessor, ApplicationContextAware {
+public class DistributedTaskLifecycleSpringInitializer implements
+    SmartLifecycle,
+    DestructionAwareBeanPostProcessor,
+    ApplicationContextAware {
     private final AtomicReference<SimpleSpringPhase> simpleSpringPhaseRef;
-    private final Map<String, ServiceWithState> orderedServicesToDeferredStart;
+    private final LinkedHashMap<String, ServiceDefinition> orderedServicesToDeferredStart;
     private ConfigurableListableBeanFactory configurableListableBeanFactory;
     private volatile boolean isRunning;
 
@@ -69,8 +74,6 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         if (isApplicableService(bean, beanName)) {
             var service = (DistributedTaskServiceLifecycle) bean;
-
-            //todo: don't init in destroy too! because of can't invoke cleanup!
             initService(service, beanName);
             regAndStartServiceIfApplicable(service, beanName);
         }
@@ -82,11 +85,11 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
             return false;
         }
 
-        var beanDefinition = configurableListableBeanFactory.getBeanDefinition(beanName);
-        if (!beanDefinition.isSingleton()) {
+        var beanDefinition = configurableListableBeanFactory.getMergedBeanDefinition(beanName);
+        if (!beanDefinition.isSingleton() || beanDefinition.isAbstract()) {
             log.warn(
-                "isApplicableService(): service [{}] is implemented [{}] but isn't singleton! Will not be started. "
-                    + "Only singleton services can implement DistributedTaskServiceLifecycle.",
+                "isApplicableService(): service [{}] is implemented [{}] but isn't singleton or abstract! " +
+                    "Will not be started. Only not abstract singleton services can implement DistributedTaskServiceLifecycle.",
                 beanName,
                 DistributedTaskServiceLifecycle.class.getSimpleName()
             );
@@ -99,7 +102,7 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
     private void initService(DistributedTaskServiceLifecycle service, String beanName) {
         try {
             service.init();
-            log.info("postProcessBeforeInitialization(): service [{}] has been inited successfully", beanName);
+            log.info("initService(): service [{}] has been initialized successfully", beanName);
         } catch (Exception exception) {
             throw new BeanCreationException(
                 "Error during DistributedTaskServiceLifecycle#init() for service=[%s]".formatted(beanName),
@@ -111,23 +114,19 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
     private void regAndStartServiceIfApplicable(DistributedTaskServiceLifecycle service, String serviceName) {
         var phase = simpleSpringPhaseRef.get();
         switch (phase) {
-            case INIT -> orderedServicesToDeferredStart.put(serviceName, ServiceWithState.of(serviceName));
+            case INIT -> orderedServicesToDeferredStart.put(serviceName, ServiceDefinition.of(serviceName));
 
             // for lazy beans or lazy init beans
             case PRE_STARTED, RUNNING -> {
-                var serviceWithState = ServiceWithState.of(serviceName);
+                var serviceWithState = ServiceDefinition.of(serviceName);
                 serviceWithState = startService(service, serviceWithState);
                 orderedServicesToDeferredStart.put(serviceName, serviceWithState);
             }
 
-            case DESTROY -> {
-                //todo ????
-                orderedServicesToDeferredStart.put(serviceName, ServiceWithState.of(serviceName));
-                log.warn(
-                    "regService(): don't invoke DistributedTaskServiceLifecycle#start() for bean [{}] in DESTROY phase",
-                    serviceName
-                );
-            }
+            case DESTROY -> log.warn(
+                "regService(): don't invoke DistributedTaskServiceLifecycle#start() for bean [{}] in DESTROY phase",
+                serviceName
+            );
         }
     }
 
@@ -149,12 +148,12 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
 
     private void startServices() {
         log.info("startServices(): starting");
-        //take into account orderedServices can growth during traverse, for example for lazy beans creating in start phase
-        //current bean, that's why we fix currentSize in order not to traverse already started services again
-        var currentSize = orderedServicesToDeferredStart.size();
-        for (int idx = 0; idx < currentSize; ++idx) {
-            var serviceDefinition = orderedServicesToDeferredStart.get(idx);
-            if (serviceDefinition.serviceState != SimpleServiceState.NOT_STARTED) {
+        //take into account orderedServicesToDeferredStart can growth during traverse,
+        //for example for lazy beans creating in start phase current bean,
+        // that's why we fix currentSize in order not to traverse already started services again
+        var fixedOrderedServicesToDeferredStart = Maps.newLinkedHashMap(orderedServicesToDeferredStart);
+        for (var serviceDefinition : fixedOrderedServicesToDeferredStart.values()) {
+            if (Objects.requireNonNull(serviceDefinition).serviceState != SimpleServiceState.NOT_STARTED) {
                 continue;
             }
 
@@ -164,20 +163,20 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
 
             var service = (DistributedTaskServiceLifecycle) configurableListableBeanFactory.getBean(serviceDefinition.serviceName);
             serviceDefinition = startService(service, serviceDefinition);
-            orderedServicesToDeferredStart.set(idx, serviceDefinition);
+            orderedServicesToDeferredStart.put(serviceDefinition.serviceName, serviceDefinition);
         }
         log.info("startServices(): completed");
     }
 
-    private ServiceWithState startService(DistributedTaskServiceLifecycle service,
-                                          ServiceWithState serviceWithState) {
-        var serviceName = serviceWithState.serviceName;
+    private ServiceDefinition startService(DistributedTaskServiceLifecycle service,
+                                           ServiceDefinition serviceDefinition) {
+        var serviceName = serviceDefinition.serviceName;
         try {
             log.info("startServices(): going to start service [{}]", serviceName);
             service.start();
             log.info("startServices(): service [{}] has been started successfully.", serviceName);
 
-            return serviceWithState.toBuilder()
+            return serviceDefinition.toBuilder()
                 .serviceState(SimpleServiceState.STARTED)
                 .build();
         } catch (Throwable throwable) {
@@ -224,26 +223,39 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
 
     @Override
     public void stop() {
-        var reverseOrderedServicesToStop = SpringGraphHelper.topologyReverseOrderByType(
+        var reverseOrderedServicesToStop = SpringGraphHelper.singletonTopologyReverseOrderByType(
             configurableListableBeanFactory,
             DistributedTaskServiceLifecycle.class
         );
         stopServices(reverseOrderedServicesToStop);
-
-//        //todo: incorrect!!! - move to native Destroy!!!!
-//        cleanupServices();
     }
 
+    // don't protect orderedServicesToDeferredStart by creating of copy because of in stop phase, that's why
+    // orderedServicesToDeferredStart will not be able to change
     private void stopServices(List<SpringGraphHelper.SimpleServiceDefinition<DistributedTaskServiceLifecycle>> reverseOrderedServicesToStop) {
         log.info("stopServices(): starting");
-        for (var serviceDefinition : reverseOrderedServicesToStop) {
+        for (var simpleServiceDefinition : reverseOrderedServicesToStop) {
+            var serviceDefinition = orderedServicesToDeferredStart.get(simpleServiceDefinition.getServiceName());
+            if (serviceDefinition == null) {
+                log.error(
+                    "stopServices(): can't stop service [{}] because it hasn't been registered " +
+                        "in orderedServicesToDeferredStart, but exists in spring graph to stop",
+                    simpleServiceDefinition.getServiceName()
+                );
+                continue;
+            }
             if (serviceDefinition.serviceState != SimpleServiceState.STARTED) {
+                log.warn(
+                    "stopServices(): can't stop service [{}] because it is in [{}] state",
+                    serviceDefinition.serviceName,
+                    serviceDefinition.serviceState
+                );
                 continue;
             }
 
-            var serviceName = serviceDefinition.serviceName;
+            var serviceName = simpleServiceDefinition.getServiceName();
             try {
-                ((DistributedTaskServiceLifecycle) configurableListableBeanFactory.getBean(serviceName)).stop();
+                simpleServiceDefinition.getService().stop();
                 serviceDefinition = serviceDefinition.toBuilder()
                     .serviceState(SimpleServiceState.STOPPED)
                     .build();
@@ -254,14 +266,15 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
                     .serviceState(SimpleServiceState.STOPPED_FAIL)
                     .build();
             }
-            orderedServicesToDeferredStart.set(idx, serviceDefinition);
+            orderedServicesToDeferredStart.put(serviceName, serviceDefinition);
         }
         log.info("stopServices(): completed");
     }
 
+    @SuppressWarnings("NullableProblems")
     @Override
     public void postProcessBeforeDestruction(Object bean, String beanName) throws BeansException {
-        cleanupService((DistributedTaskServiceLifecycle)bean, beanName);
+        cleanupService((DistributedTaskServiceLifecycle) bean, beanName);
     }
 
     @Override
@@ -282,8 +295,8 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
             log.error("cleanupService(): error during cleaned service: [{}]. Ignoring...", serviceName, throwable);
         }
         serviceWithState = serviceWithState.toBuilder()
-                .serviceState(SimpleServiceState.CLEANED)
-                .build();
+            .serviceState(SimpleServiceState.CLEANED)
+            .build();
         orderedServicesToDeferredStart.put(serviceName, serviceWithState);
     }
 
@@ -319,14 +332,14 @@ public class DistributedTaskLifecycleSpringInitializer implements SmartLifecycle
 
     @Value
     @Builder(toBuilder = true)
-    private static class ServiceWithState {
+    private static class ServiceDefinition {
         String serviceName;
         @EqualsAndHashCode.Exclude
         @Builder.Default
         SimpleServiceState serviceState = SimpleServiceState.NOT_STARTED;
 
-        static ServiceWithState of(String serviceName) {
-            return ServiceWithState.builder().serviceName(serviceName).build();
+        static ServiceDefinition of(String serviceName) {
+            return ServiceDefinition.builder().serviceName(serviceName).build();
         }
     }
 }

@@ -22,6 +22,7 @@ import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.PlannerState;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
 import com.distributed_task_framework.service.impl.CompletionServiceImpl;
@@ -33,6 +34,7 @@ import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
+import com.distributed_task_framework.service.impl.PlannerStateImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.TaskCommandStatServiceImpl;
 import com.distributed_task_framework.service.impl.TaskLinkManagerImpl;
@@ -44,14 +46,11 @@ import com.distributed_task_framework.service.impl.WorkerContextManagerImpl;
 import com.distributed_task_framework.service.impl.WorkerManagerImpl;
 import com.distributed_task_framework.service.impl.workers.LocalAtLeastOnceWorker;
 import com.distributed_task_framework.service.impl.workers.LocalExactlyOnceWorker;
-import com.distributed_task_framework.service.internal.CapabilityRegister;
-import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.PartitionTracker;
-import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskCommandStatService;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
@@ -78,21 +77,16 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import lombok.experimental.FieldDefaults;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
 import org.springframework.data.jdbc.core.convert.JdbcConverter;
@@ -102,7 +96,6 @@ import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.data.relational.core.dialect.Dialect;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -110,7 +103,6 @@ import java.net.URL;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -328,18 +320,6 @@ public class BaseTestConfiguration {
             .build();
     }
 
-    @Component
-    @RequiredArgsConstructor
-    @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-    public static class CapabilityRegisterProviderImpl implements CapabilityRegisterProvider {
-        List<CapabilityRegister> capabilityRegisters;
-
-        @Override
-        public Collection<CapabilityRegister> getAllCapabilityRegister() {
-            return capabilityRegisters;
-        }
-    }
-
     @Bean
     public OperatingSystemMXBean operatingSystemMXBean() {
         var operatingSystemMXBean = Mockito.mock(OperatingSystemMXBean.class);
@@ -350,7 +330,6 @@ public class BaseTestConfiguration {
 
     @Bean
     public ClusterProvider clusterProvider(CommonSettings commonSettings,
-                                           @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
                                            PlatformTransactionManager transactionManager,
                                            NodeStateMapper nodeStateMapper,
                                            DistributedTaskCacheManager cacheManager,
@@ -360,7 +339,6 @@ public class BaseTestConfiguration {
                                            Clock clock) {
         return new ClusterProviderImpl(
             commonSettings,
-            capabilityRegisterProvider,
             transactionManager,
             cacheManager,
             nodeStateMapper,
@@ -430,20 +408,12 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    @Qualifier("fairGeneralTaskPlannerService")
-    public PlannerService fairGeneralTaskPlannerService() {
-        return Mockito.mock(PlannerService.class);
+    public PlannerStateImpl plannerStateRegistry() {
+        return new PlannerStateImpl();
     }
 
     @Bean
-    @Qualifier("virtualQueueManagerPlanner")
-    public PlannerService virtualQueueManagerPlanner() {
-        return Mockito.mock(PlannerService.class);
-    }
-
-    @Bean
-    public VirtualQueueStatService virtualQueueStatHelper(@Lazy @Qualifier("virtualQueueManagerPlanner")
-                                                          PlannerService plannerService,
+    public VirtualQueueStatService virtualQueueStatHelper(PlannerState plannerState,
                                                           CommonSettings commonSettings,
                                                           TaskRegistryService taskRegistryService,
                                                           TaskRepository taskRepository,
@@ -451,7 +421,7 @@ public class BaseTestConfiguration {
                                                           DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                           MeterRegistry meterRegistry) {
         return new VirtualQueueStatService(
-            plannerService,
+            plannerState,
             commonSettings,
             taskRegistryService,
             taskRepository,

@@ -1,26 +1,22 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.model.Capabilities;
 import com.distributed_task_framework.model.NodeLoading;
-import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.persistence.entity.CapabilityEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
 import com.distributed_task_framework.persistence.repository.NodeStateRepository;
-import com.distributed_task_framework.service.internal.CapabilityRegister;
-import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.google.common.collect.Lists;
 import com.sun.management.OperatingSystemMXBean;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -56,8 +52,6 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
     NodeStateRepository nodeStateRepository;
     @Autowired
     ClusterProviderImpl clusterProvider;
-    @SpyBean
-    CapabilityRegisterProvider capabilityRegisterProvider;
     @Autowired
     PlatformTransactionManager transactionManager;
     @MockBean
@@ -348,12 +342,8 @@ class ClusterProviderImplTest extends BaseSpringIntegrationTest {
     }
 
     private void prepareLocalCapabilities() {
-        var firstSource = mock(CapabilityRegister.class);
-        var secondSource = mock(CapabilityRegister.class);
-
-        when(firstSource.capabilities()).thenReturn(EnumSet.of(Capabilities.___TEST_1));
-        when(secondSource.capabilities()).thenReturn(EnumSet.of(Capabilities.___TEST_2, Capabilities.UNKNOWN));
-        doReturn(List.of(firstSource, secondSource)).when(capabilityRegisterProvider).getAllCapabilityRegister();
+        clusterProvider.registerCapabilities(EnumSet.of(Capabilities.___TEST_1));
+        clusterProvider.registerCapabilities(EnumSet.of(Capabilities.___TEST_2, Capabilities.UNKNOWN));
     }
 
     private NodeStateEntity createNode(double cpuLoading) {

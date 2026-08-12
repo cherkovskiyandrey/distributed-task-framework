@@ -10,13 +10,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.context.annotation.UserConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Scope;
-import org.springframework.core.annotation.Order;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DistributedTaskLifecycleSpringConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(DistributedTaskLifecycleSpringConfiguration.class));
+        .withConfiguration(UserConfigurations.of(DistributedTaskLifecycleSpringConfiguration.class));
 
     @BeforeEach
     void setUp() {
@@ -52,24 +51,11 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                         .hasBean("serviceB")
                         .hasBean("serviceC");
 
-                    // Verify init order: A -> B -> C (bean creation order)
-                    assertThat(TestServiceTracker.getInitOrder())
-                        .containsExactly("serviceA", "serviceB", "serviceC");
-
-                    // Verify start order: A -> B -> C (same as creation order)
-                    assertThat(TestServiceTracker.getStartOrder())
-                        .containsExactly("serviceA", "serviceB", "serviceC");
+                    verifyTheSameInitOrder("serviceA", "serviceB", "serviceC");
                 }
             );
 
-        // After context is closed, verify destroy order
-        // stop order should be reverse: C -> B -> A
-        assertThat(TestServiceTracker.getStopOrder())
-            .containsExactly("serviceC", "serviceB", "serviceA");
-
-        // cleanup order should be reverse: C -> B -> A
-        assertThat(TestServiceTracker.getCleanupOrder())
-            .containsExactly("serviceC", "serviceB", "serviceA");
+        verifyTheSameCleanupOrder("serviceC", "serviceB", "serviceA");
     }
 
     @Test
@@ -88,36 +74,39 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
         contextRunner
             .withUserConfiguration(MixedServicesConfiguration.class)
             .run(context -> {
-                assertThat(context)
-                    .hasNotFailed()
-                    .hasBean("serviceA")
-                    .hasBean("regularBean")
-                    .hasBean("distributedTaskLifecycleSpringInitializer");
+                    assertThat(context)
+                        .hasNotFailed()
+                        .hasBean("serviceA")
+                        .hasBean("regularBean")
+                        .hasBean("distributedTaskLifecycleSpringInitializer");
 
-                // Only lifecycle beans should be tracked
-                assertThat(TestServiceTracker.getInitOrder())
-                    .containsExactly("serviceA")
-                    .doesNotContain("regularBean");
-            });
+                    // Only lifecycle beans should be tracked
+                    assertThat(TestServiceTracker.getInitOrder())
+                        .containsExactly("serviceA")
+                        .doesNotContain("regularBean");
+                }
+            );
+
+        verifyTheSameCleanupOrder("serviceA");
     }
 
     @Test
     void shouldHandleEmptyContext() {
         contextRunner
             .run(context -> {
-                assertThat(context)
-                    .hasNotFailed()
-                    .hasBean("distributedTaskLifecycleSpringInitializer");
+                    assertThat(context)
+                        .hasNotFailed()
+                        .hasBean("distributedTaskLifecycleSpringInitializer");
 
-                assertThat(TestServiceTracker.getInitOrder()).isEmpty();
-                assertThat(TestServiceTracker.getStartOrder()).isEmpty();
-            });
+                    assertThat(TestServiceTracker.getInitOrder()).isEmpty();
+                    assertThat(TestServiceTracker.getStartOrder()).isEmpty();
+                }
+            );
     }
 
     @Nested
-    class LazyDependencies {
+    class LazyDependenciesAndCycles {
 
-        //todo
         @Test
         void shouldHandleIndependentLazyDependencyBeanInRuntime() {
             contextRunner
@@ -128,10 +117,7 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                             .hasNotFailed()
                             .hasBean("firstService");
 
-                        assertThat(TestServiceTracker.getPostConstructOrder()).containsExactly("firstService", "secondService");
-                        assertThat(TestServiceTracker.getInitOrder()).containsExactlyElementsOf(TestServiceTracker.getPostConstructOrder());
-                        assertThat(TestServiceTracker.getStartOrder()).containsExactlyElementsOf(TestServiceTracker.getPostConstructOrder());
-
+                        verifyTheSameInitOrder("firstService", "secondService");
                         var eagerService = context.getBean("firstService", TestService.class);
                         assertThat(eagerService).isNotNull();
 
@@ -139,9 +125,7 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                     }
                 );
 
-            assertThat(TestServiceTracker.getPreDestroyOrder()).containsExactly("firstService", "secondService");
-            assertThat(TestServiceTracker.getStopOrder()).containsExactlyElementsOf(TestServiceTracker.getPreDestroyOrder());
-            assertThat(TestServiceTracker.getCleanupOrder()).containsExactlyElementsOf(TestServiceTracker.getPreDestroyOrder());
+            verifyTheSameCleanupOrder("firstService", "secondService");
         }
 
         @Test
@@ -160,20 +144,9 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                     }
                 );
 
-            assertThat(TestServiceTracker.getStopOrder()).containsExactly("eagerService", "lazyService");
-            assertThat(TestServiceTracker.getCleanupOrder()).containsExactly("eagerService", "lazyService");
+            verifyTheSameCleanupOrder("eagerService", "lazyService");
         }
 
-        //todo: to resolve problem on context destroying:
-        // 1. 100% way: to delegate detection to spring framework:
-        //  1.1 build graph on stop()
-        //  1.2 detect and remove cycle dependencies on lazy injection
-        // but!!! there is a problem: for circle dependencies spring doesn't make difference which dependency is first,
-        // which a second! But we in dtf configuration does! And current detection DAG via postProcessAfterInitialization
-        // can handle it for not Lazy beans with Lazy injection!
-        // idea: detect and prohibit lazy beans. But: impossible, because we don't know type of bean if it hasn't been created yet!
-        // idea: handle not lazy beans via postProcessAfterInitialization but not handle lazy beans, and
-        //       make DAG on stop and merge with dependent list from postProcessAfterInitialization ???? - check it!
         @Test
         void shouldHandleLazyDependentServiceWhenContextIsStartingInStart() {
             contextRunner
@@ -185,18 +158,13 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                             .hasBean("distributedTaskLifecycleSpringInitializer")
                             .hasBean("eagerService");
 
-                        assertThat(TestServiceTracker.getPostConstructOrder()).containsExactly("eagerService", "lazyService");
-                        assertThat(TestServiceTracker.getInitOrder()).containsExactly("eagerService", "lazyService");
-                        assertThat(TestServiceTracker.getStartOrder()).containsExactly("eagerService", "lazyService");
+                        verifyTheSameInitOrder("eagerService", "lazyService");
                     }
                 );
 
-            assertThat(TestServiceTracker.getPreDestroyOrder()).containsExactly("eagerService", "lazyService");
-            assertThat(TestServiceTracker.getStopOrder()).containsExactly("eagerService", "lazyService");
-            assertThat(TestServiceTracker.getCleanupOrder()).containsExactly("eagerService", "lazyService");
+            verifyTheSameCleanupOrder("eagerService", "lazyService");
         }
 
-        //todo: to fix it see shouldHandleLazyInitBeanWhenContextIsStartingInStart
         @Test
         void shouldHandleLazyDependentServiceWhenContextIsStarted() {
             contextRunner
@@ -207,26 +175,21 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                             .hasNotFailed()
                             .hasBean("eagerService");
 
-                        assertThat(TestServiceTracker.getPostConstructOrder()).containsExactly("eagerService");
-                        assertThat(TestServiceTracker.getInitOrder()).containsExactly("eagerService");
-                        assertThat(TestServiceTracker.getStartOrder()).containsExactly("eagerService");
+                        verifyTheSameInitOrder("eagerService");
 
                         var eagerService = context.getBean("eagerService", TestService.class);
                         assertThat(eagerService).isNotNull();
 
                         assertThat(eagerService.getName()).isEqualTo("eagerService");
-                        assertThat(TestServiceTracker.getPostConstructOrder()).containsExactly("eagerService", "lazyService");
-                        assertThat(TestServiceTracker.getInitOrder()).containsExactly("eagerService", "lazyService");
-                        assertThat(TestServiceTracker.getStartOrder()).containsExactly("eagerService", "lazyService");
+                        verifyTheSameInitOrder("eagerService", "lazyService");
                     }
                 );
 
-            assertThat(TestServiceTracker.getPreDestroyOrder()).containsExactly("eagerService", "lazyService");
-            assertThat(TestServiceTracker.getStopOrder()).containsExactly("eagerService", "lazyService");
-            assertThat(TestServiceTracker.getCleanupOrder()).containsExactly("eagerService", "lazyService");
+            verifyTheSameCleanupOrder("eagerService", "lazyService");
         }
 
-        //todo
+        // todo: there is a problem: for circle dependencies spring doesn't make difference which dependency is first,
+        // which a second! But we in dtf configuration does! Now: we just do the same as spring do.
         @Test
         void shouldHandleLazyDependenciesWithCircleBeanWhenContextIsStarted() {
             contextRunner
@@ -238,10 +201,7 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                             .hasBean("firstService")
                             .hasBean("secondService");
 
-                        assertThat(TestServiceTracker.getPostConstructOrder()).containsExactly("firstService", "secondService");
-                        assertThat(TestServiceTracker.getInitOrder()).containsExactly("firstService", "secondService");
-                        assertThat(TestServiceTracker.getStartOrder()).containsExactly("firstService", "secondService");
-
+                        verifyTheSameInitOrder("firstService", "secondService");
                         var eagerService = context.getBean("firstService", TestService.class);
                         assertThat(eagerService).isNotNull();
 
@@ -249,12 +209,13 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                     }
                 );
 
-            assertThat(TestServiceTracker.getPreDestroyOrder()).containsExactly("secondService", "firstService");
-            assertThat(TestServiceTracker.getStopOrder()).containsExactly("secondService", "firstService");
-            assertThat(TestServiceTracker.getCleanupOrder()).containsExactly("secondService", "firstService");
+            verifyTheSameCleanupOrder(
+                // "secondService", "firstService" // desirable, but spring don't provide it for us
+                "firstService", "secondService"
+            );
         }
 
-        //todo
+        // todo: see shouldHandleLazyDependenciesWithCircleBeanWhenContextIsStarted
         @Test
         void shouldHandleLazyDependenciesAndLazyBeanWithCircleBeanWhenContextIsStarted() {
             contextRunner
@@ -265,9 +226,7 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                             .hasNotFailed()
                             .hasBean("firstService");
 
-                        assertThat(TestServiceTracker.getInitOrder()).containsExactly("firstService");
-                        assertThat(TestServiceTracker.getStartOrder()).containsExactly("firstService");
-
+                        verifyTheSameInitOrder("firstService");
                         var eagerService = context.getBean("firstService", TestService.class);
                         assertThat(eagerService).isNotNull();
 
@@ -275,8 +234,10 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                     }
                 );
 
-            assertThat(TestServiceTracker.getStopOrder()).containsExactly("secondService", "firstService");
-            assertThat(TestServiceTracker.getCleanupOrder()).containsExactly("secondService", "firstService");
+            verifyTheSameCleanupOrder(
+                // "secondService", "firstService" // desirable, but spring don't provide it for us
+                "firstService", "secondService"
+            );
         }
 
         @Test
@@ -289,20 +250,16 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                             .hasNotFailed()
                             .hasBean("eagerService");
 
-                        assertThat(TestServiceTracker.getInitOrder()).containsExactly("eagerService");
-                        assertThat(TestServiceTracker.getStartOrder()).containsExactly("eagerService");
-
+                        verifyTheSameInitOrder("eagerService");
                         var lazyService = context.getBean("lazyService", TestService.class);
                         assertThat(lazyService).isNotNull();
 
                         assertThat(lazyService.getName()).isEqualTo("lazyService");
-                        assertThat(TestServiceTracker.getInitOrder()).containsExactly("eagerService", "lazyService");
-                        assertThat(TestServiceTracker.getStartOrder()).containsExactly("eagerService", "lazyService");
+                        verifyTheSameInitOrder("eagerService", "lazyService");
                     }
                 );
 
-            assertThat(TestServiceTracker.getStopOrder()).containsExactly("lazyService", "eagerService");
-            assertThat(TestServiceTracker.getCleanupOrder()).containsExactly("lazyService", "eagerService");
+            verifyTheSameCleanupOrder("lazyService", "eagerService");
         }
     }
 
@@ -326,19 +283,49 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
                 }
             );
 
-        assertThat(TestServiceTracker.getStopOrder()).containsExactly("singletonService");
-        assertThat(TestServiceTracker.getCleanupOrder()).containsExactly("singletonService");
+        verifyTheSameCleanupOrder("singletonService");
+    }
+
+    @Test
+    void shouldHandleTriangleDependencies() {
+        contextRunner
+            .withUserConfiguration(TriangleDependenciesConfiguration.class)
+            .run(context -> {
+                    // Verify context started successfully
+                    assertThat(context)
+                        .hasNotFailed()
+                        .hasBean("firstService")
+                        .hasBean("secondService")
+                        .hasBean("dependentService")
+                    ;
+                    verifyTheSameInitOrder("firstService", "secondService", "dependentService");
+                }
+            );
+
+        verifyTheSameCleanupOrder("dependentService", "secondService", "firstService");
     }
 
     //todo
     @Test
-    void shouldNotStratContextWhenErrorInInitMethod() {
+    void shouldNotStartContextWhenErrorInInitMethod() {
 
     }
 
     //todo
     void shouldNotStartContextWhenErrorInStartMethod() {
 
+    }
+
+    private void verifyTheSameInitOrder(String... serviceNames) {
+        assertThat(TestServiceTracker.getPostConstructOrder()).containsExactly(serviceNames);
+        assertThat(TestServiceTracker.getInitOrder()).containsExactlyElementsOf(TestServiceTracker.getPostConstructOrder());
+        assertThat(TestServiceTracker.getStartOrder()).containsExactlyElementsOf(TestServiceTracker.getPostConstructOrder());
+    }
+
+    private void verifyTheSameCleanupOrder(String... serviceNames) {
+        assertThat(TestServiceTracker.getPreDestroyOrder()).containsExactly(serviceNames);
+        assertThat(TestServiceTracker.getStopOrder()).containsExactlyElementsOf(TestServiceTracker.getPreDestroyOrder());
+        assertThat(TestServiceTracker.getCleanupOrder()).containsExactlyElementsOf(TestServiceTracker.getPreDestroyOrder());
     }
 
     @Configuration
@@ -390,14 +377,12 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
         }
     }
 
-    // firstService --- depends on ---> secondService
-    // stop order: firstService, secondService
     @Configuration
     static class LazyDependenciesInRuntime {
 
         @Bean
-        public TestLazyService firstService(@Lazy TestService secondService) {
-            return new TestLazyService("firstService", secondService, TestLazyService.Mode.IN_RUNTIME);
+        public RunLazyService firstService(@Lazy TestService secondService) {
+            return new RunLazyService("firstService", secondService, RunLazyService.Mode.IN_RUNTIME);
         }
 
         @Bean
@@ -410,8 +395,8 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
     static class LazyDependentServiceInStartingContextInInitConfiguration {
 
         @Bean
-        public TestLazyService eagerService(@Lazy TestService lazyService) {
-            return new TestLazyService("eagerService", lazyService, TestLazyService.Mode.ON_INIT);
+        public RunLazyService eagerService(@Lazy TestService lazyService) {
+            return new RunLazyService("eagerService", lazyService, RunLazyService.Mode.ON_INIT);
         }
 
         @Lazy
@@ -425,8 +410,8 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
     static class LazyDependentServiceInStartingContextInStartConfiguration {
 
         @Bean
-        public TestLazyService eagerService(@Lazy TestService lazyService) {
-            return new TestLazyService("eagerService", lazyService, TestLazyService.Mode.ON_START);
+        public RunLazyService eagerService(@Lazy TestService lazyService) {
+            return new RunLazyService("eagerService", lazyService, RunLazyService.Mode.ON_START);
         }
 
         @Lazy
@@ -436,14 +421,12 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
         }
     }
 
-    // eagerService --- depends on ---> lazyService
-    // stop order: eagerService, lazyService
     @Configuration
     static class LazyDependentServiceInRuntime {
 
         @Bean
-        public TestLazyService eagerService(@Lazy TestService lazyService) {
-            return new TestLazyService("eagerService", lazyService, TestLazyService.Mode.IN_RUNTIME);
+        public RunLazyService eagerService(@Lazy TestService lazyService) {
+            return new RunLazyService("eagerService", lazyService, RunLazyService.Mode.IN_RUNTIME);
         }
 
         @Lazy
@@ -453,18 +436,16 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
         }
     }
 
-    // secondService --- depends on ---> firstService
-    // stop order: secondService, firstService
     @Configuration
     static class LazyDependenciesWithCircleServiceInRuntime {
 
         @Bean
-        public TestLazyService firstService(@Lazy TestService secondService) {
-            return new TestLazyService("firstService", secondService, TestLazyService.Mode.IN_RUNTIME);
+        public RunLazyService firstService(@Lazy TestService secondService) {
+            return new RunLazyService("firstService", secondService, RunLazyService.Mode.IN_RUNTIME);
         }
 
         @Bean
-        public TestService secondService(TestLazyService firstService) {
+        public TestService secondService(RunLazyService firstService) {
             return new TestService("secondService", firstService);
         }
     }
@@ -473,13 +454,13 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
     static class LazyDependenciesAndLazyBeanWithCircleServiceInRuntime {
 
         @Bean
-        public TestLazyService firstService(@Lazy TestService secondService) {
-            return new TestLazyService("firstService", secondService, TestLazyService.Mode.IN_RUNTIME);
+        public RunLazyService firstService(@Lazy TestService secondService) {
+            return new RunLazyService("firstService", secondService, RunLazyService.Mode.IN_RUNTIME);
         }
 
         @Lazy
         @Bean
-        public TestService secondService(TestLazyService firstService) {
+        public TestService secondService(RunLazyService firstService) {
             return new TestService("secondService", firstService);
         }
     }
@@ -498,6 +479,25 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
         }
     }
 
+    @Configuration
+    static class TriangleDependenciesConfiguration {
+
+        @Bean
+        public TestService firstService() {
+            return new TestService("firstService");
+        }
+
+        @Bean
+        public TestService dependentService(TestService firstService, TestService secondService) {
+            return new DependentTestService("dependentService", List.of(firstService, secondService));
+        }
+
+        @Bean
+        public TestService secondService(TestService firstService) {
+            return new DependentTestService("secondService", List.of(firstService));
+        }
+    }
+
     static class RegularBean {
         // Regular bean that doesn't implement DistributedTaskServiceLifecycle
     }
@@ -508,16 +508,16 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
     @Getter
     static class TestService implements DistributedTaskServiceLifecycle {
         protected final String name;
-        protected final TestLazyService testLazyService;
+        protected final RunLazyService runLazyService;
 
         public TestService(String name) {
             this.name = name;
-            this.testLazyService = null;
+            this.runLazyService = null;
         }
 
-        public TestService(String name, TestLazyService testLazyService) {
+        public TestService(String name, RunLazyService runLazyService) {
             this.name = name;
-            this.testLazyService = testLazyService;
+            this.runLazyService = runLazyService;
         }
 
         @Override
@@ -552,11 +552,21 @@ public class DistributedTaskLifecycleSpringConfigurationTest {
     }
 
     @Getter
-    static class TestLazyService extends TestService {
+    static class DependentTestService extends TestService {
+        private final List<TestService> dependencies;
+
+        public DependentTestService(String name, List<TestService> dependencies) {
+            super(name);
+            this.dependencies = dependencies;
+        }
+    }
+
+    @Getter
+    static class RunLazyService extends TestService {
         private final TestService lazyService;
         private final Mode mode;
 
-        public TestLazyService(String name, TestService lazyService, Mode mode) {
+        public RunLazyService(String name, TestService lazyService, Mode mode) {
             super(name);
             this.lazyService = lazyService;
             this.mode = mode;

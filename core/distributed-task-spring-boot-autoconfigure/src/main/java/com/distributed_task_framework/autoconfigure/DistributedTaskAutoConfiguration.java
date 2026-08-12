@@ -28,6 +28,7 @@ import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.PlannerState;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
 import com.distributed_task_framework.service.impl.CompletionServiceImpl;
@@ -41,6 +42,7 @@ import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
+import com.distributed_task_framework.service.impl.PlannerStateImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.TaskCommandStatServiceImpl;
 import com.distributed_task_framework.service.impl.TaskLinkManagerImpl;
@@ -55,15 +57,13 @@ import com.distributed_task_framework.service.impl.WorkerContextManagerImpl;
 import com.distributed_task_framework.service.impl.WorkerManagerImpl;
 import com.distributed_task_framework.service.impl.workers.LocalAtLeastOnceWorker;
 import com.distributed_task_framework.service.impl.workers.LocalExactlyOnceWorker;
-import com.distributed_task_framework.service.internal.CapabilityRegister;
-import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.DeliveryManager;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.PartitionTracker;
-import com.distributed_task_framework.service.internal.PlannerService;
+import com.distributed_task_framework.service.internal.PlannerStateRegistry;
 import com.distributed_task_framework.service.internal.TaskCommandStatService;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
@@ -88,9 +88,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -107,14 +104,12 @@ import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.AbstractEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
-import org.springframework.stereotype.Component;
 
 import java.lang.management.ManagementFactory;
 import java.time.Clock;
@@ -133,8 +128,7 @@ import static com.distributed_task_framework.autoconfigure.TaskConfigurationDisc
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "true")
 @AutoConfigureAfter(
     value = {
-        DistributedTaskSpringInfrastructureAutoconfiguration.class,
-        DistributedTaskLifecycleSpringConfiguration.class,
+        DistributedTaskSpringInfrastructureAutoconfiguration.class
     }
 )
 @EnableJdbcRepositories(
@@ -283,18 +277,6 @@ public class DistributedTaskAutoConfiguration {
         );
     }
 
-    @Component
-    @RequiredArgsConstructor
-    @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-    public static class CapabilityRegisterProviderImpl implements CapabilityRegisterProvider {
-        List<CapabilityRegister> capabilityRegisters;
-
-        @Override
-        public Collection<CapabilityRegister> getAllCapabilityRegister() {
-            return capabilityRegisters;
-        }
-    }
-
     //use in order to escape conflict with beans form other standard libraries like spring-boot-starter-actuator
     //because simple using of conditional doesn't work
     public record OperatingSystemMXBeanHolder(OperatingSystemMXBean operatingSystemMXBean) {
@@ -309,7 +291,6 @@ public class DistributedTaskAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public ClusterProvider clusterProvider(CommonSettings commonSettings,
-                                           @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
                                            DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                            @Qualifier(INTERNAL_DISTRIBUTED_TASK_CACHE_MANAGER_NAME) DistributedTaskCacheManager cacheManager,
                                            NodeStateMapper nodeStateMapper,
@@ -319,7 +300,6 @@ public class DistributedTaskAutoConfiguration {
                                            Clock clock) {
         return new ClusterProviderImpl(
             commonSettings,
-            capabilityRegisterProvider,
             dtfJdbcInfrastructure.getPlatformTransactionManager(),
             cacheManager,
             nodeStateMapper,
@@ -396,9 +376,14 @@ public class DistributedTaskAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean({PlannerState.class, PlannerStateRegistry.class})
+    public PlannerStateImpl plannerStateRegistry() {
+        return new PlannerStateImpl();
+    }
+
+    @Bean
     @ConditionalOnMissingBean
-    public VirtualQueueStatService virtualQueueStatHelper(@Lazy @Qualifier(VIRTUAL_QUEUE_MANAGER_PLANNER_NAME)
-                                                          PlannerService plannerService,
+    public VirtualQueueStatService virtualQueueStatHelper(PlannerState plannerState,
                                                           CommonSettings commonSettings,
                                                           TaskRegistryService taskRegistryService,
                                                           TaskRepository taskRepository,
@@ -406,7 +391,7 @@ public class DistributedTaskAutoConfiguration {
                                                           DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                           MeterRegistry meterRegistry) {
         return new VirtualQueueStatService(
-            plannerService,
+            plannerState,
             commonSettings,
             taskRegistryService,
             taskRepository,
@@ -432,6 +417,7 @@ public class DistributedTaskAutoConfiguration {
                                                                      TaskRepository taskRepository,
                                                                      PartitionTracker partitionTracker,
                                                                      TaskMapper taskMapper,
+                                                                     PlannerStateRegistry plannerStateRegistry,
                                                                      VirtualQueueStatService virtualQueueStatService,
                                                                      DistributedTaskMetricHelper distributedTaskMetricHelper) {
         return new VirtualQueueManagerPlannerImpl(
@@ -443,6 +429,7 @@ public class DistributedTaskAutoConfiguration {
             partitionTracker,
             taskMapper,
             virtualQueueStatService,
+            plannerStateRegistry,
             distributedTaskMetricHelper
         );
     }
@@ -464,6 +451,7 @@ public class DistributedTaskAutoConfiguration {
                                                                                PartitionTracker partitionTracker,
                                                                                TaskRegistryService taskRegistryService,
                                                                                TaskRouter taskRouter,
+                                                                               PlannerStateRegistry plannerStateRegistry,
                                                                                VirtualQueueStatService virtualQueueStatService,
                                                                                Clock clock,
                                                                                DistributedTaskMetricHelper distributedTaskMetricHelper) {
@@ -478,6 +466,7 @@ public class DistributedTaskAutoConfiguration {
             taskRouter,
             virtualQueueStatService,
             clock,
+            plannerStateRegistry,
             distributedTaskMetricHelper
         );
     }
@@ -493,6 +482,7 @@ public class DistributedTaskAutoConfiguration {
                                                       TaskRepository taskRepository,
                                                       DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                       JoinTaskStatHelper statHelper,
+                                                      PlannerStateRegistry plannerStateRegistry,
                                                       Clock clock) {
         return new JoinTaskPlannerImpl(
             commonSettings,
@@ -503,6 +493,7 @@ public class DistributedTaskAutoConfiguration {
             taskRepository,
             distributedTaskMetricHelper,
             statHelper,
+            plannerStateRegistry,
             clock
         );
     }

@@ -10,6 +10,7 @@ import com.distributed_task_framework.autoconfigure.annotation.TaskSchedule;
 import com.distributed_task_framework.autoconfigure.annotation.TaskTimeout;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
+import com.distributed_task_framework.autoconfigure.utils.ReflectionHelper;
 import com.distributed_task_framework.exception.TaskConfigurationException;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
@@ -18,11 +19,9 @@ import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
-import com.distributed_task_framework.autoconfigure.utils.ReflectionHelper;
 import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
-import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -32,9 +31,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -46,7 +42,6 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
 
     DistributedTaskProperties properties;
     DistributedTaskService distributedTaskService;
-    ThreadPoolExecutor executor;
     DistributedTaskPropertiesMapper distributedTaskPropertiesMapper;
     DistributedTaskPropertiesMerger distributedTaskPropertiesMerger;
     Collection<Task<?>> tasks;
@@ -69,13 +64,6 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
         this.remoteTasks = remoteTasks;
         this.taskSettingCustomizer = taskSettingCustomizer;
         this.cronTasksToStart = Lists.newCopyOnWriteArrayList();
-        this.executor = new ThreadPoolExecutor(
-            0,
-            1,
-            1L,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>()
-        );
     }
 
     @Override
@@ -90,15 +78,6 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
         for (var taskDef : cronTasksToStart) {
             distributedTaskService.schedule(taskDef, ExecutionContext.empty());
         }
-    }
-
-    @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Override
-    public void stop() throws Exception {
-        log.info("shutdown(): shutdown started");
-        executor.shutdownNow();
-        executor.awaitTermination(1, TimeUnit.MINUTES);
-        log.info("shutdown(): shutdown completed");
     }
 
     private void registerLocalTasks() {
