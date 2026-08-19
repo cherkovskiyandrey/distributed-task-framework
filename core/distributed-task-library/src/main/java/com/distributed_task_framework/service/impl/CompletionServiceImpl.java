@@ -136,7 +136,7 @@ public class CompletionServiceImpl implements CompletionService, DistributedTask
 
     private void handleBase(ConcurrentMap<UUID, CompletableFuture<Void>> idMap,
                             Function<Set<UUID>, Set<UUID>> filter) {
-        var requestedIds = idMap.keySet();
+        var requestedIds = Set.copyOf(idMap.keySet());
         if (requestedIds.isEmpty()) {
             return;
         }
