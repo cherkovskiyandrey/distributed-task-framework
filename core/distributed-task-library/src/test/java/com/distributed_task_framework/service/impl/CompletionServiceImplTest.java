@@ -2,27 +2,40 @@ package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.AdditionalAnswers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.internal.stubbing.answers.Returns;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ExtendWith(MockitoExtension.class)
-@Slf4j
 class CompletionServiceImplTest {
+
+    private static final Duration REGISTER_TIMEOUT = Duration.ofMillis(1);
+    private static final Duration WAIT_TIMEOUT = Duration.ofSeconds(2);
+
+    private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryBuilder()
+        .setNameFormat("completion-service-test-%d")
+        .build();
 
     @Mock
     TaskExtendedRepository taskExtendedRepository;
@@ -32,61 +45,67 @@ class CompletionServiceImplTest {
     CompletionServiceImpl completionService;
 
     @Test
+    @Timeout(10)
     void waitCompletionAllWorkflow() throws Exception {
-        AtomicReference<Throwable> waiter1Timeout = new AtomicReference<>();
-        AtomicReference<Throwable> waiter2Timeout = new AtomicReference<>();
-
         UUID workflowId1 = UUID.randomUUID();
         UUID workflowId2 = UUID.randomUUID();
 
-        CountDownLatch start = new CountDownLatch(1);
-        CountDownLatch firstWaitLatch = new CountDownLatch(1);
-        CountDownLatch handleLatch = new CountDownLatch(1);
-        CountDownLatch secondWaitLatch = new CountDownLatch(1);
+        CyclicBarrier registeredBarrier = new CyclicBarrier(2);
+        CyclicBarrier handleBarrier = new CyclicBarrier(2);
 
-        Thread waiter1 = new Thread(() -> waitWorkflow(workflowId1, start, firstWaitLatch), "waiter1");
-        waiter1.setUncaughtExceptionHandler((t, e) -> waiter1Timeout.set(e));
+        //arrange: repository call is slow and lets waiter2 register its workflow in the middle of handle()
+        Mockito.doAnswer(invocation -> {
+            // the snapshot of registered workflows is already taken, so it is safe to register a new workflow right now
+            handleBarrier.await();
+            // imitate slow repository call: waiter2 registers its workflow while the handler is in progress
+            Thread.sleep(500);
+            return Set.<UUID>of();
+        }).when(taskExtendedRepository).filterExistedWorkflowIds(Set.of(workflowId1));
 
-        Thread handler = new Thread(() -> handle(workflowId1, firstWaitLatch, handleLatch), "handler");
 
-        Thread waiter2 = new Thread(() -> waitWorkflow(workflowId2, handleLatch, secondWaitLatch), "waiter2");
-        waiter2.setUncaughtExceptionHandler((t, e) -> waiter2Timeout.set(e));
+        ExecutorService executorService = Executors.newFixedThreadPool(3, THREAD_FACTORY);
+        try {
+            //act
+            Future<?> waiter1 = executorService.submit(() -> registerAndWaitWorkflow(workflowId1, registeredBarrier));
+            Future<?> handler = executorService.submit(() -> handle(registeredBarrier));
+            Future<?> waiter2 = executorService.submit(() -> waitWorkflow(workflowId2, handleBarrier));
 
-        waiter1.start();
-        handler.start();
-        waiter2.start();
-
-        Thread.sleep(100);
-        start.countDown();
-
-        waiter1.join();
-        waiter2.join();
-        handler.join();
-
-        Assertions.assertThat(waiter1Timeout.get()).as("timeout waiter 1 not happened").isNull();
-        Assertions.assertThat(waiter2Timeout.get()).as("timeout waiter 2 happened").isNotNull();
+            //assert
+            assertThatCode(handler::get).doesNotThrowAnyException();
+            assertThatCode(waiter1::get).doesNotThrowAnyException();
+            assertThatThrownBy(waiter2::get)
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(TimeoutException.class);
+        } finally {
+            executorService.shutdownNow();
+            executorService.awaitTermination(1, TimeUnit.MINUTES);
+        }
     }
 
     @SneakyThrows
-    private void handle(UUID workflow1, CountDownLatch condition, CountDownLatch action) {
-        Mockito.doAnswer(AdditionalAnswers.answersWithDelay(500, new Returns(Set.<UUID>of())))
-            .when(taskExtendedRepository)
-            .filterExistedWorkflowIds(Set.of(workflow1));
-
-        condition.await();
-        Thread.sleep(10);
-
-        action.countDown();
+    private void handle(CyclicBarrier registeredBarrier) {
+        registeredBarrier.await();
         completionService.handle();
     }
 
     @SneakyThrows
-    private void waitWorkflow(UUID workflowId, CountDownLatch condition, CountDownLatch action) {
-        Duration expectedWaitDuration = Duration.ofSeconds(1);
+    private void registerAndWaitWorkflow(UUID workflowId, CyclicBarrier registeredBarrier) {
+        // just register workflow: the handler waits at registeredBarrier, so this call is bound to timeout
+        try {
+            completionService.waitCompletionAllWorkflow(workflowId, REGISTER_TIMEOUT);
+        } catch (TimeoutException expected) {
+            // workflow is registered now
+        }
+        registeredBarrier.await();
+        // the handler must complete the already registered workflow
+        completionService.waitCompletionAllWorkflow(workflowId, WAIT_TIMEOUT);
+    }
 
-        condition.await();
-        Thread.sleep(10);
-        action.countDown();
-        completionService.waitCompletionAllWorkflow(workflowId, expectedWaitDuration);
+    @SneakyThrows
+    private void waitWorkflow(UUID workflowId, CyclicBarrier handleBarrier) {
+        // the handler is inside handle() now, so the workflow is registered after the snapshot
+        // and must not be completed by it: timeout is expected
+        handleBarrier.await();
+        completionService.waitCompletionAllWorkflow(workflowId, WAIT_TIMEOUT);
     }
 }
