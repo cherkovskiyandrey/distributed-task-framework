@@ -106,6 +106,10 @@ This is a document about the configuration properties in DTF autoconfiguration m
 | max-parallel-in-cluster| java.lang.Integer| How many parallel tasks can be in the cluster. &#x27;-1&#x27; means undefined and depends on current cluster configuration.| -1| | 
 | max-parallel-in-node| java.lang.Integer| How many parallel tasks can be on the one node (one worker). &#x27;-1&#x27; means undefined.| -1| | 
 | timeout| java.time.Duration| Task timeout. If task still is in progress after timeout expired, it will be interrupted. {@link InterruptedException} will be risen in {@link Task#execute(ExecutionContext)}| 0| | 
+| creation-interceptors| java.util.List&lt;java.lang.Class&lt;? extends com.distributed_task_framework.interceptor.TaskCreationInterceptor&gt;&gt;| Creation interceptors of the task, identified by classes. Combined with default-properties interceptors and deduplicated.| | | 
+| execution-interceptors| java.util.List&lt;java.lang.Class&lt;? extends com.distributed_task_framework.interceptor.TaskExecutionInterceptor&gt;&gt;| Execution interceptors of the task, identified by classes. Combined with default-properties interceptors and deduplicated.| | | 
+| excluded-common-creation-interceptors| java.util.List&lt;java.lang.Class&lt;? extends com.distributed_task_framework.interceptor.CommonTaskCreationInterceptor&gt;&gt;| Common creation interceptors excluded for the task, combined with default-properties and deduplicated.| | | 
+| excluded-common-execution-interceptors| java.util.List&lt;java.lang.Class&lt;? extends com.distributed_task_framework.interceptor.CommonTaskExecutionInterceptor&gt;&gt;| Common execution interceptors excluded for the task, combined with default-properties and deduplicated.| | | 
 ### distributed-task.common.completion
 **Class:** `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Completion`
 

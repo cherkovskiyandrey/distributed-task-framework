@@ -1,5 +1,7 @@
 package com.distributed_task_framework;
 
+import com.distributed_task_framework.interceptor.TaskCreationInterceptor;
+import com.distributed_task_framework.interceptor.TaskExecutionInterceptor;
 import com.distributed_task_framework.mapper.CommandMapper;
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.mapper.PartitionMapper;
@@ -22,6 +24,7 @@ import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.TaskInterceptorProvider;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
 import com.distributed_task_framework.service.impl.CompletionServiceImpl;
@@ -31,6 +34,7 @@ import com.distributed_task_framework.service.impl.InternalTaskCommandServiceImp
 import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
+import com.distributed_task_framework.service.impl.TaskInterceptorProviderImpl;
 import com.distributed_task_framework.service.impl.DistributedTaskMetricHelperImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
@@ -497,6 +501,12 @@ public class BaseTestConfiguration {
     }
 
     @Bean
+    public TaskInterceptorProvider taskInterceptorProvider(List<TaskCreationInterceptor> taskCreationInterceptors,
+                                                           List<TaskExecutionInterceptor> taskExecutionInterceptors) {
+        return new TaskInterceptorProviderImpl(taskCreationInterceptors, taskExecutionInterceptors);
+    }
+
+    @Bean
     public TaskCommandWithDetectorService localTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
                                                                               PlatformTransactionManager transactionManager,
                                                                               TaskRepository taskRepository,
@@ -508,6 +518,7 @@ public class BaseTestConfiguration {
                                                                               InternalTaskCommandService internalTaskCommandService,
                                                                               TaskLinkManager taskLinkManager,
                                                                               CompletionService completionService,
+                                                                              TaskInterceptorProvider taskInterceptorProvider,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
             workerContextManager,
@@ -521,6 +532,7 @@ public class BaseTestConfiguration {
             internalTaskCommandService,
             taskLinkManager,
             completionService,
+            taskInterceptorProvider,
             clock
         );
     }
@@ -568,7 +580,8 @@ public class BaseTestConfiguration {
                                                          CommonSettings commonSettings,
                                                          TaskLinkManager taskLinkManager,
                                                          DistributedTaskMetricHelper distributedTaskMetricHelper,
-                                                         Clock clock) {
+                                                         Clock clock,
+                                                         TaskInterceptorProvider taskInterceptorProvider) {
         return new LocalAtLeastOnceWorker(
             clusterProvider,
             workerContextManager,
@@ -583,7 +596,8 @@ public class BaseTestConfiguration {
             commonSettings,
             taskLinkManager,
             distributedTaskMetricHelper,
-            clock
+            clock,
+            taskInterceptorProvider
         );
     }
 
@@ -602,7 +616,8 @@ public class BaseTestConfiguration {
                                                          CommonSettings commonSettings,
                                                          TaskLinkManager taskLinkManager,
                                                          DistributedTaskMetricHelper distributedTaskMetricHelper,
-                                                         Clock clock) {
+                                                         Clock clock,
+                                                         TaskInterceptorProvider taskInterceptorProvider) {
         return new LocalExactlyOnceWorker(
             clusterProvider,
             workerContextManager,
@@ -617,7 +632,8 @@ public class BaseTestConfiguration {
             commonSettings,
             taskLinkManager,
             distributedTaskMetricHelper,
-            clock
+            clock,
+            taskInterceptorProvider
         );
     }
 

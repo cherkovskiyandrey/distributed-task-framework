@@ -68,6 +68,14 @@ distributed-task:
       max-parallel-in-cluster: 100
 #      max-parallel-in-node: 1
       timeout: PT10S
+      excluded-common-creation-interceptors:
+    #      # metadata example: apply interceptors to all tasks via yaml
+#      # (for METADATA_EXAMPLE_TASK interceptors are attached via annotations instead,
+#      #  see tasks/metadata/MetadataExampleTask.java)
+#      creation-interceptors:
+#        - com.distributed_task_framework.test_service.tasks.metadata.TraceIdCreationInterceptor
+#      execution-interceptors:
+#        - com.distributed_task_framework.test_service.tasks.metadata.LoggingExecutionInterceptor
 
     task-properties:
       CRON_TEST_TASK_DEF:
@@ -86,3 +94,10 @@ distributed-task:
             max-retries: 1000
             max-delay: PT1H
         max-parallel-in-cluster: 100
+#      # metadata example: interceptors attached to a single task via yaml
+#      # (alternative to annotations, see tasks/metadata/MetadataExampleTask.java)
+#      METADATA_EXAMPLE_TASK:
+#        creation-interceptors:
+#          - com.distributed_task_framework.test_service.tasks.metadata.TraceIdCreationInterceptor
+#        execution-interceptors:
+#          - com.distributed_task_framework.test_service.tasks.metadata.LoggingExecutionInterceptor

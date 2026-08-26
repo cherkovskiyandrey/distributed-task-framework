@@ -62,4 +62,8 @@ public interface PrivateTaskDefinitions {
     TaskDef<Void> TEST_OOM_TASK = TaskDef.privateTaskDef("TEST_OOM_TASK", Void.class);
 
     TaskDef<Void> CHECK_TIMEOUT_TASK = TaskDef.privateTaskDef("CHECK_TIMEOUT_TASK", Void.class);
+
+    //---- Example of task with metadata ------
+    TaskDef<SimpleMessageDto> METADATA_EXAMPLE_TASK_DEF = TaskDef.privateTaskDef("METADATA_EXAMPLE_TASK", SimpleMessageDto.class);
+    //----------------------------------------
 }

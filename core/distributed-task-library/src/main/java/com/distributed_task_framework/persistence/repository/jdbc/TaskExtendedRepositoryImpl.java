@@ -67,6 +67,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
             deleted_at,
             join_message_bytes,
             message_bytes,
+            metadata_bytes,
             failures
         ) VALUES (
             :id::uuid,
@@ -87,6 +88,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
             :deletedAt,
             :joinMessageBytes,
             :messageBytes,
+            :metadataBytes,
             :failures
         ) ON CONFLICT (id) DO UPDATE
             SET
@@ -101,6 +103,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
                 deleted_at = excluded.deleted_at,
                 join_message_bytes = excluded.join_message_bytes,
                 message_bytes = excluded.message_bytes,
+                metadata_bytes = excluded.metadata_bytes,
                 failures = excluded.failures
         WHERE _____dtf_tasks.version = :expectedVersion
         """;
@@ -401,6 +404,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
         parameterSource.addValue(TaskEntity.Fields.deletedAt, taskEntity.getDeletedAt(), Types.TIMESTAMP);
         parameterSource.addValue(TaskEntity.Fields.joinMessageBytes, taskEntity.getJoinMessageBytes(), Types.BINARY);
         parameterSource.addValue(TaskEntity.Fields.messageBytes, taskEntity.getMessageBytes(), Types.BINARY);
+        parameterSource.addValue(TaskEntity.Fields.metadataBytes, taskEntity.getMetadataBytes(), Types.BINARY);
         parameterSource.addValue(TaskEntity.Fields.failures, taskEntity.getFailures(), Types.INTEGER);
         parameterSource.addValue("expectedVersion", taskEntity.getVersion() - 1, Types.BIGINT);
 

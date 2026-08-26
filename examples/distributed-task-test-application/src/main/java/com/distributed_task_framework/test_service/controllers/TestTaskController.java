@@ -1,6 +1,7 @@
 package com.distributed_task_framework.test_service.controllers;
 
 import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.model.Metadata;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.distributed_task_framework.test_service.tasks.PrivateTaskDefinitions;
 import com.distributed_task_framework.test_service.tasks.dto.SimpleMessageDto;
@@ -54,6 +55,17 @@ public class TestTaskController {
         distributedTaskService.schedule(
             MAP_REDUCE_PARENT_TASK,
             withAffinityGroup(dto, MAP_REDUCE_AFFINITY_GROUP, UUID.randomUUID().toString())
+        );
+    }
+
+    @Operation(summary = "Schedule task with metadata (see tasks/metadata package)")
+    @PostMapping("metadata")
+    public void createTaskWithMetadata(@RequestBody(required = false) SimpleMessageDto simpleMessageDto) throws Exception {
+        // metadata set via API; TraceIdCreationInterceptor adds more (see application.yml)
+        distributedTaskService.schedule(
+            PrivateTaskDefinitions.METADATA_EXAMPLE_TASK_DEF,
+            ExecutionContext.simple(simpleMessageDto)
+                .withMetadata(Metadata.of("tenant", "test-app").add("tags", "demo", "metadata"))
         );
     }
 }

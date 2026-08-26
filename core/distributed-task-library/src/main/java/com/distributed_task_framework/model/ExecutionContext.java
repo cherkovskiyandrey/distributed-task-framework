@@ -75,6 +75,13 @@ public class ExecutionContext<T> {
      */
     int executionAttempt;
 
+    /**
+     * Metadata attached to the task at schedule time via API or by creation interceptors.
+     * Immutable and read-only during execution: changes made by a task are not persisted.
+     */
+    @Builder.Default
+    Metadata metadata = Metadata.empty();
+
     public static <T> ExecutionContext<T> empty() {
         return ExecutionContext.<T>builder()
                 .workflowId(UUID.randomUUID())
@@ -130,6 +137,7 @@ public class ExecutionContext<T> {
                 .affinity(this.affinity)
                 .affinityGroup(this.affinityGroup)
                 .inputMessage(inputMessage)
+                .metadata(this.metadata)
                 .build();
     }
 
@@ -146,6 +154,27 @@ public class ExecutionContext<T> {
                 .affinity(this.affinity)
                 .affinityGroup(this.affinityGroup)
                 .inputMessage(null)
+                .metadata(this.metadata)
+                .build();
+    }
+
+    /**
+     * Reuse settings of current context in order to create new one with other metadata only.
+     *
+     * @param metadata
+     * @return
+     */
+    public ExecutionContext<T> withMetadata(Metadata metadata) {
+        return ExecutionContext.<T>builder()
+                .workflowId(this.getWorkflowId())
+                .workflowCreatedDateUtc(this.getWorkflowCreatedDateUtc())
+                .affinity(this.affinity)
+                .affinityGroup(this.affinityGroup)
+                .currentTaskId(this.currentTaskId)
+                .inputMessage(this.inputMessage)
+                .inputJoinTaskMessages(this.inputJoinTaskMessages)
+                .executionAttempt(this.executionAttempt)
+                .metadata(metadata)
                 .build();
     }
 

@@ -1,5 +1,9 @@
 package com.distributed_task_framework.settings;
 
+import com.distributed_task_framework.interceptor.CommonTaskCreationInterceptor;
+import com.distributed_task_framework.interceptor.CommonTaskExecutionInterceptor;
+import com.distributed_task_framework.interceptor.TaskCreationInterceptor;
+import com.distributed_task_framework.interceptor.TaskExecutionInterceptor;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.task.Task;
 import lombok.Builder;
@@ -8,6 +12,7 @@ import org.springframework.util.StringUtils;
 
 import jakarta.annotation.Nullable;
 import java.time.Duration;
+import java.util.List;
 
 /**
  * Configuration parameters for task.
@@ -65,6 +70,34 @@ public class TaskSettings {
     @Nullable
     @Builder.Default
     Duration timeout = Duration.ZERO;
+
+    /**
+     * Creation interceptors, composed of yaml default-properties, then annotations, then yaml per-task, deduplicated.
+     */
+    @Builder.Default
+    List<Class<? extends TaskCreationInterceptor>> creationInterceptors = List.of();
+
+    /**
+     * Execution interceptors, composed of yaml default-properties, then annotations, then yaml per-task, deduplicated.
+     */
+    @Builder.Default
+    List<Class<? extends TaskExecutionInterceptor>> executionInterceptors = List.of();
+
+    /**
+     * Common creation interceptors excluded for the task,
+     * composed of annotations and yaml per-task, deduplicated.
+     * It is prohibited to set exclusions in default-properties.
+     */
+    @Builder.Default
+    List<Class<? extends CommonTaskCreationInterceptor>> excludedCommonCreationInterceptors = List.of();
+
+    /**
+     * Common execution interceptors excluded for the task,
+     * composed of annotations and yaml per-task, deduplicated.
+     * It is prohibited to set exclusions in default-properties.
+     */
+    @Builder.Default
+    List<Class<? extends CommonTaskExecutionInterceptor>> excludedCommonExecutionInterceptors = List.of();
 
     public boolean hasCron() {
         return StringUtils.hasText(cron);
