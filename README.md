@@ -118,6 +118,7 @@ communication mean) to start task execution in another service.
 - Prevent concurrent task execution that works with common resource: affinity and affinity group.
 - Workflow support. Makes it possible to organize tasks in a groups.
 - Map-Reduce tasks. Allows parallelizing computations and collect results on a last step. 
+- Metadata for tasks with creation and execution interceptors.
 - Configurable with settings, or spring properties, or annotations.
 
 ## Install
@@ -757,6 +758,135 @@ flowchart TD
     
     classDef join stroke:#f00
 ```
+
+### Metadata
+Metadata is an arbitrary multi-value string map (`Metadata` value object wrapping `Map<String, List<String>>`)
+attached to a task at schedule time and available at execution time via `ExecutionContext#getMetadata()`.
+It can be used to pass tracing information, tenants, feature flags and so on. Metadata is stored with the
+task, so it survives retries, is copied to the dead letter table and is transferred with remote tasks.
+The `Metadata` value object is immutable: modification methods return a new instance.
+
+Metadata can be set via API:
+```java
+distributedTaskService.schedule(
+    MY_TASK_DEF,
+    ExecutionContext.simple(new MyMessage())
+        .toBuilder()
+        .metadata(Metadata.of("traceId", "123"))
+        .build()
+);
+```
+Metadata is inherited by child tasks scheduled with `withNewMessage()` / `withEmptyMessage()`.
+
+To add metadata automatically, implement a `TaskCreationInterceptor`:
+```java
+@Component
+public class TraceIdCreationInterceptor implements TaskCreationInterceptor {
+    @Override
+    public <U> ExecutionContext<U> onTaskCreated(ExecutionContext<U> executionContext, TaskDef<U> taskDef) {
+        // the returned context is used to build the task
+        return executionContext.withMetadata(executionContext.getMetadata().add("traceId", MDC.get("traceId")));
+    }
+}
+```
+To process metadata of every task in a common implementation, implement a `TaskExecutionInterceptor`:
+```java
+@Component
+public class TracingExecutionInterceptor implements TaskExecutionInterceptor {
+    @Override
+    public <U> void execute(ExecutionContext<U> executionContext, TaskDef<U> taskDef, TaskExecutionChain chain) throws Exception {
+        String traceId = executionContext.getMetadata().getSingle("traceId").orElse("unknown");
+        try (var ignored = MDC.putCloseable("traceId", traceId)) {
+            chain.proceed(); // runs the next interceptor or the task itself
+        }
+    }
+}
+```
+
+Interceptors can be attached to tasks by class in the config (an interface or a base class can be used as well).
+Defaults are applied to all tasks:
+```yaml
+distributed-task:
+  task-properties-group:
+    default-properties:
+      creation-interceptors:
+        - com.example.TraceIdCreationInterceptor
+      execution-interceptors:
+        - com.example.TracingExecutionInterceptor
+```
+or per task:
+```yaml
+distributed-task:
+  task-properties-group:
+    task-properties:
+      MY_TASK_DEF:
+        creation-interceptors:
+          - com.example.MyTaskCreationInterceptor
+        execution-interceptors:
+          - com.example.MyTaskExecutionInterceptor
+```
+or with annotations:
+```java
+@Component
+@TaskCreationInterceptors(MyTaskCreationInterceptor.class)
+@TaskExecutionInterceptors(MyTaskExecutionInterceptor.class)
+public class MyTask implements Task<MyMessage> {
+    ...
+}
+```
+
+### Common interceptors
+An interceptor implemented with the `CommonTaskCreationInterceptor` / `CommonTaskExecutionInterceptor` marker
+is applied to all tasks by default: it is invoked even if not attached to a task in the config,
+it is enough to declare a bean. Common interceptors run before configured ones.
+```java
+@Component
+public class TracingCreationInterceptor implements CommonTaskCreationInterceptor {
+    ...
+}
+```
+A common interceptor can be excluded for a specific task:
+```yaml
+distributed-task:
+  task-properties-group:
+    task-properties:
+      MY_TASK_DEF:
+        excluded-common-creation-interceptors:
+          - com.example.TracingCreationInterceptor
+        excluded-common-execution-interceptors:
+          - com.example.TracingExecutionInterceptor
+```
+or with annotations:
+```java
+@Component
+@TaskCreationInterceptors(excludedCommon = TracingCreationInterceptor.class)
+@TaskExecutionInterceptors(excludedCommon = TracingExecutionInterceptor.class)
+public class MyTask implements Task<MyMessage> {
+    ...
+}
+```
+
+See the working example in the [test application](examples%2Fdistributed-task-test-application%2Fsrc%2Fmain%2Fjava%2Fcom%2Fdistributed_task_framework%2Ftest_service%2Ftasks%2Fmetadata%2FMetadataExampleTask.java):
+API metadata in the [controller](examples%2Fdistributed-task-test-application%2Fsrc%2Fmain%2Fjava%2Fcom%2Fdistributed_task_framework%2Ftest_service%2Fcontrollers%2FTestTaskController.java),
+interceptors in the [metadata package](examples%2Fdistributed-task-test-application%2Fsrc%2Fmain%2Fjava%2Fcom%2Fdistributed_task_framework%2Ftest_service%2Ftasks%2Fmetadata)
+attached via `@TaskCreationInterceptors` / `@TaskExecutionInterceptors` annotations on the task,
+and the yaml alternative (per-task and default for all tasks) commented out in [application.yml](examples%2Fdistributed-task-test-application%2Fsrc%2Fmain%2Fresources%2Fapplication.yml).
+
+Semantics:
+- The final interceptor list is composed of yaml `default-properties`, then annotations, then yaml per-task
+  and deduplicated. A per-task config cannot exclude a default interceptor.
+- Common interceptors are applied to all tasks unless excluded via `excluded-common-creation-interceptors` /
+  `excluded-common-execution-interceptors` (or the `excludedCommon` annotation argument);
+  exclusions are composed of annotations and yaml per-task and deduplicated.
+  It is prohibited to set exclusions in `default-properties` (an application startup fails).
+- Interceptors are executed in the configured order, `@Order` / `Ordered` is respected.
+- Metadata is effectively read-only at execution: changes made by a task are not persisted.
+- A thrown exception in a creation interceptor aborts scheduling; in an execution interceptor it is treated
+  as an ordinary task failure (retry policy and dead letter table are applied).
+- Only common creation interceptors are applied to cluster-only tasks scheduled with `scheduleUnsafe()`.
+- If a configured interceptor class is not registered as a bean, the framework fails fast with an error.
+
+## Planner
 
 ## Planner
 Planner is a central unit that assigns tasks to workers depending on worker load, number of tasks and configuration.

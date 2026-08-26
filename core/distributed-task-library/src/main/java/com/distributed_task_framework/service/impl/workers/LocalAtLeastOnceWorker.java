@@ -2,10 +2,13 @@ package com.distributed_task_framework.service.impl.workers;
 
 import com.distributed_task_framework.exception.BatchUpdateException;
 import com.distributed_task_framework.exception.OptimisticLockException;
+import com.distributed_task_framework.interceptor.TaskExecutionChain;
+import com.distributed_task_framework.interceptor.TaskExecutionInterceptor;
 import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.FailedExecutionContext;
 import com.distributed_task_framework.model.JoinTaskMessageContainer;
+import com.distributed_task_framework.model.Metadata;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.StateHolder;
 import com.distributed_task_framework.model.TaskId;
@@ -15,6 +18,7 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.repository.DltRepository;
 import com.distributed_task_framework.persistence.repository.RemoteCommandRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.service.TaskInterceptorProvider;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.CronService;
 import com.distributed_task_framework.service.internal.ClusterProvider;
@@ -73,6 +77,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     TaskLinkManager taskLinkManager;
     DistributedTaskMetricHelper distributedTaskMetricHelper;
     Clock clock;
+    TaskInterceptorProvider taskInterceptorProvider;
 
     protected List<Tag> getCommonTags() {
         return COMMON_TAGS;
@@ -376,6 +381,19 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
         }
     }
 
+    private Metadata readMetadata(TaskEntity taskEntity) {
+        if (taskEntity.getMetadataBytes() == null) {
+            return Metadata.empty();
+        }
+        try {
+            return taskSerializer.readValue(taskEntity.getMetadataBytes(), Metadata.class);
+        } catch (Exception e) {
+            getEngineErrorCounter(taskEntity).increment();
+            log.warn("readMetadata(): can't read metadata for taskId=[{}]", taskEntity.getId(), e);
+            return Metadata.empty();
+        }
+    }
+
     @SneakyThrows
     protected <T, U> void runInternal(final TaskEntity taskEntity, RegisteredTask<T> registeredTask) {
         TaskId taskId = taskMapper.map(taskEntity, commonSettings.getAppName());
@@ -403,6 +421,7 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                 .inputMessage(inputMessage)
                 .inputJoinTaskMessages(inputJoinTaskMessages)
                 .executionAttempt(taskEntity.getFailures() + 1)
+                .metadata(readMetadata(taskEntity))
                 .build();
 
             U localState = isStatefulTask && taskEntity.getLocalState() != null ?
@@ -413,12 +432,22 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
                 .getStateHolder();
             stateHolder.set(localState);
 
-            if (isStatefulTask) {
-                //noinspection unchecked
-                statefulTaskOpt.get().execute(executionContext, (StateHolder<U>) stateHolder);
-            } else {
-                task.execute(executionContext);
+            TaskExecutionChain chain = () -> {
+                if (isStatefulTask) {
+                    //noinspection unchecked
+                    statefulTaskOpt.get().execute(executionContext, (StateHolder<U>) stateHolder);
+                } else {
+                    task.execute(executionContext);
+                }
+            };
+            //wrap in reverse order to keep the configured order of execution
+            List<TaskExecutionInterceptor> executionInterceptors = taskInterceptorProvider.getExecutionInterceptors(taskSettings);
+            for (int i = executionInterceptors.size() - 1; i >= 0; i--) {
+                TaskExecutionInterceptor interceptor = executionInterceptors.get(i);
+                TaskExecutionChain next = chain;
+                chain = () -> interceptor.execute(executionContext, task.getDef(), next);
             }
+            chain.proceed();
         }
 
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);

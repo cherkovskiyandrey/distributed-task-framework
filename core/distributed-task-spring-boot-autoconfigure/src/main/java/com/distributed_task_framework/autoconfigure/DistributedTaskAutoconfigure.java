@@ -4,6 +4,8 @@ import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
 import com.distributed_task_framework.autoconfigure.mapper.CommonSettingsMerger;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMapper;
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
+import com.distributed_task_framework.interceptor.TaskCreationInterceptor;
+import com.distributed_task_framework.interceptor.TaskExecutionInterceptor;
 import com.distributed_task_framework.mapper.CommandMapper;
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.mapper.PartitionMapper;
@@ -29,6 +31,7 @@ import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.TaskInterceptorProvider;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
 import com.distributed_task_framework.service.impl.CompletionServiceImpl;
@@ -39,6 +42,7 @@ import com.distributed_task_framework.service.impl.InternalTaskCommandServiceImp
 import com.distributed_task_framework.service.impl.JoinTaskPlannerImpl;
 import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
+import com.distributed_task_framework.service.impl.TaskInterceptorProviderImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.DistributedTaskMetricHelperImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
@@ -607,6 +611,13 @@ public class DistributedTaskAutoconfigure {
 
     @Bean
     @ConditionalOnMissingBean
+    public TaskInterceptorProvider taskInterceptorProvider(List<TaskCreationInterceptor> taskCreationInterceptors,
+                                                           List<TaskExecutionInterceptor> taskExecutionInterceptors) {
+        return new TaskInterceptorProviderImpl(taskCreationInterceptors, taskExecutionInterceptors);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public TaskCommandWithDetectorService localTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
                                                                               @Qualifier(DTF_TX_MANAGER) PlatformTransactionManager transactionManager,
                                                                               TaskRepository taskRepository,
@@ -618,6 +629,7 @@ public class DistributedTaskAutoconfigure {
                                                                               TaskLinkManager taskLinkManager,
                                                                               InternalTaskCommandService internalTaskCommandService,
                                                                               CompletionService completionService,
+                                                                              TaskInterceptorProvider taskInterceptorProvider,
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
             workerContextManager,
@@ -631,6 +643,7 @@ public class DistributedTaskAutoconfigure {
             internalTaskCommandService,
             taskLinkManager,
             completionService,
+            taskInterceptorProvider,
             clock
         );
     }
@@ -707,7 +720,8 @@ public class DistributedTaskAutoconfigure {
                                                          CommonSettings commonSettings,
                                                          TaskLinkManager taskLinkManager,
                                                          DistributedTaskMetricHelper distributedTaskMetricHelper,
-                                                         Clock clock) {
+                                                         Clock clock,
+                                                         TaskInterceptorProvider taskInterceptorProvider) {
         return new LocalAtLeastOnceWorker(
             clusterProvider,
             workerContextManager,
@@ -722,7 +736,8 @@ public class DistributedTaskAutoconfigure {
             commonSettings,
             taskLinkManager,
             distributedTaskMetricHelper,
-            clock
+            clock,
+            taskInterceptorProvider
         );
     }
 
@@ -741,7 +756,8 @@ public class DistributedTaskAutoconfigure {
                                                          CommonSettings commonSettings,
                                                          TaskLinkManager taskLinkManager,
                                                          DistributedTaskMetricHelper distributedTaskMetricHelper,
-                                                         Clock clock) {
+                                                         Clock clock,
+                                                         TaskInterceptorProvider taskInterceptorProvider) {
         return new LocalExactlyOnceWorker(
             clusterProvider,
             workerContextManager,
@@ -756,7 +772,8 @@ public class DistributedTaskAutoconfigure {
             commonSettings,
             taskLinkManager,
             distributedTaskMetricHelper,
-            clock
+            clock,
+            taskInterceptorProvider
         );
     }
 

@@ -4,6 +4,7 @@ import com.distributed_task_framework.exception.CronExpiredException;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.exception.TaskConfigurationException;
 import com.distributed_task_framework.exception.UnknownTaskException;
+import com.distributed_task_framework.interceptor.TaskCreationInterceptor;
 import com.distributed_task_framework.local_commands.impl.CancelByTaskDefCommand;
 import com.distributed_task_framework.local_commands.impl.CancelByWorkflowCommand;
 import com.distributed_task_framework.local_commands.impl.CancelCommand;
@@ -23,6 +24,7 @@ import com.distributed_task_framework.model.WorkerContext;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.service.TaskInterceptorProvider;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.InternalTaskCommandService;
@@ -33,6 +35,7 @@ import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.google.common.collect.Lists;
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +66,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
     InternalTaskCommandService internalTaskCommandService;
     TaskLinkManager taskLinkManager;
     CompletionService completionService;
+    TaskInterceptorProvider taskInterceptorProvider;
     Clock clock;
 
     public LocalTaskCommandServiceImpl(WorkerContextManager workerContextManager,
@@ -76,6 +80,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                                        InternalTaskCommandService internalTaskCommandService,
                                        TaskLinkManager taskLinkManager,
                                        CompletionService completionService,
+                                       TaskInterceptorProvider taskInterceptorProvider,
                                        Clock clock) {
         super(workerContextManager, transactionManager);
         this.taskRepository = taskRepository;
@@ -87,6 +92,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         this.internalTaskCommandService = internalTaskCommandService;
         this.taskLinkManager = taskLinkManager;
         this.completionService = completionService;
+        this.taskInterceptorProvider = taskInterceptorProvider;
         this.clock = clock;
     }
 
@@ -133,21 +139,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
             throw new UnknownTaskException(taskDef);
         }
 
-        String taskName = taskDef.getTaskName();
-        Optional<T> inputMessageOpt = executionContext.getInputMessageOpt();
-        byte[] messageBytes = taskSerializer.writeValue(inputMessageOpt.orElse(null));
-
-        TaskEntity taskEntity = TaskEntity.builder()
-            .workflowId(executionContext.getWorkflowId())
-            .workflowCreatedDateUtc(
-                Optional.ofNullable(executionContext.getWorkflowCreatedDateUtc())
-                    .orElseGet(() -> LocalDateTime.now(clock))
-            )
-            .affinityGroup(executionContext.getAffinityGroup())
-            .affinity(executionContext.getAffinity())
-            .taskName(taskName)
-            .virtualQueue(VirtualQueue.NEW)
-            .messageBytes(messageBytes)
+        TaskEntity taskEntity = newTaskEntityBuilder(null, taskDef, executionContext)
             .executionDateUtc(LocalDateTime.now(clock))
             .singleton(false)
             .failures(0)
@@ -236,22 +228,9 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                 ));
         }
 
-        String taskName = taskDef.getTaskName();
-        Optional<T> inputMessageOpt = executionContext.getInputMessageOpt();
-        byte[] messageBytes = taskSerializer.writeValue(inputMessageOpt.orElse(null));
         LocalDateTime now = LocalDateTime.now(clock);
 
-        TaskEntity taskEntity = TaskEntity.builder()
-            .workflowId(executionContext.getWorkflowId())
-            .workflowCreatedDateUtc(
-                Optional.ofNullable(executionContext.getWorkflowCreatedDateUtc())
-                    .orElse(now)
-            )
-            .affinityGroup(executionContext.getAffinityGroup())
-            .affinity(executionContext.getAffinity())
-            .taskName(taskName)
-            .virtualQueue(VirtualQueue.NEW)
-            .messageBytes(messageBytes)
+        TaskEntity taskEntity = newTaskEntityBuilder(registeredTask, taskDef, executionContext)
             .executionDateUtc(now)
             .singleton(false)
             .notToPlan(true)
@@ -354,6 +333,43 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
         );
     }
 
+    // common creation interceptors are applied even when the task is not registered locally
+    private TaskEntity.TaskEntityBuilder newTaskEntityBuilder(@Nullable RegisteredTask<?> registeredTask,
+                                                              TaskDef<?> taskDef,
+                                                              ExecutionContext<?> executionContext) throws Exception {
+        ExecutionContext<?> context = executionContext;
+        List<TaskCreationInterceptor> creationInterceptors = registeredTask != null ?
+            taskInterceptorProvider.getCreationInterceptors(registeredTask.getTaskSettings()) :
+            taskInterceptorProvider.getCommonCreationInterceptors();
+        for (TaskCreationInterceptor interceptor : creationInterceptors) {
+            context = applyCreationInterceptor(interceptor, taskDef, context);
+        }
+        byte[] metadataBytes = context.getMetadata().isEmpty() ? null : taskSerializer.writeValue(context.getMetadata());
+        byte[] messageBytes = taskSerializer.writeValue(context.getInputMessageOpt().orElse(null));
+        return TaskEntity.builder()
+            .workflowId(context.getWorkflowId())
+            .workflowCreatedDateUtc(
+                Optional.ofNullable(context.getWorkflowCreatedDateUtc())
+                    .orElseGet(() -> LocalDateTime.now(clock))
+            )
+            .affinityGroup(context.getAffinityGroup())
+            .affinity(context.getAffinity())
+            .taskName(taskDef.getTaskName())
+            .virtualQueue(VirtualQueue.NEW)
+            .messageBytes(messageBytes)
+            .metadataBytes(metadataBytes);
+    }
+
+    private ExecutionContext<?> applyCreationInterceptor(TaskCreationInterceptor interceptor,
+                                                         TaskDef<?> taskDef,
+                                                         ExecutionContext<?> executionContext) throws Exception {
+        //noinspection unchecked
+        TaskDef<Object> typedTaskDef = (TaskDef<Object>) taskDef;
+        //noinspection unchecked
+        ExecutionContext<Object> typedContext = (ExecutionContext<Object>) executionContext;
+        return interceptor.onTaskCreated(typedContext, typedTaskDef);
+    }
+
     /**
      * @noinspection unchecked
      */
@@ -379,9 +395,6 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                 }
             }
 
-            Optional<T> inputMessageOpt = executionContext.getInputMessageOpt();
-            byte[] messageBytes = taskSerializer.writeValue(inputMessageOpt.orElse(null));
-
             final LocalDateTime executionDateUtc;
             String cron = registeredTask.getTaskSettings().getCron();
             if (StringUtils.hasText(cron)) {
@@ -392,17 +405,7 @@ public class LocalTaskCommandServiceImpl extends AbstractTaskCommandWithDetector
                 executionDateUtc = LocalDateTime.now(clock).plus(delay);
             }
 
-            TaskEntity taskEntity = TaskEntity.builder()
-                .workflowId(executionContext.getWorkflowId())
-                .workflowCreatedDateUtc(
-                    Optional.ofNullable(executionContext.getWorkflowCreatedDateUtc())
-                        .orElseGet(() -> LocalDateTime.now(clock))
-                )
-                .affinityGroup(executionContext.getAffinityGroup())
-                .affinity(executionContext.getAffinity())
-                .taskName(taskName)
-                .virtualQueue(VirtualQueue.NEW)
-                .messageBytes(messageBytes)
+            TaskEntity taskEntity = newTaskEntityBuilder(registeredTask, taskDef, executionContext)
                 .executionDateUtc(executionDateUtc)
                 .singleton(isSingleton)
                 .failures(0)

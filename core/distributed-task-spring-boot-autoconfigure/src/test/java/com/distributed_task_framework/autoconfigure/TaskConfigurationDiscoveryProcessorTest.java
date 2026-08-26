@@ -6,6 +6,13 @@ import com.distributed_task_framework.autoconfigure.tasks.CustomTaskWithOffRetry
 import com.distributed_task_framework.autoconfigure.tasks.CustomizedTask;
 import com.distributed_task_framework.autoconfigure.tasks.DefaultTask;
 import com.distributed_task_framework.autoconfigure.tasks.SimpleCronCustomizedTask;
+import com.distributed_task_framework.autoconfigure.tasks.TaskWithExcludedCommonInterceptors;
+import com.distributed_task_framework.autoconfigure.tasks.TaskWithInterceptors;
+import com.distributed_task_framework.autoconfigure.tasks.TestCreationInterceptor;
+import com.distributed_task_framework.autoconfigure.tasks.TestCreationInterceptorThree;
+import com.distributed_task_framework.autoconfigure.tasks.TestCreationInterceptorTwo;
+import com.distributed_task_framework.autoconfigure.tasks.TestExecutionInterceptor;
+import com.distributed_task_framework.exception.TaskConfigurationException;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -35,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import static com.distributed_task_framework.autoconfigure.TaskConfigurationDiscoveryProcessor.EMPTY_TASK_SETTINGS_CUSTOMIZER;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -294,6 +302,141 @@ class TaskConfigurationDiscoveryProcessorTest {
         //verify
         verify(distributedTaskService)
             .registerRemoteTask(eq(remoteTaskDef), eq(taskSettings));
+    }
+
+    @Test
+    void shouldRegistryLocalTaskWithInterceptorsFromCode() {
+        //when
+        TaskWithInterceptors task = new TaskWithInterceptors();
+        tasks.add(task);
+
+        //do
+        taskConfigurationDiscoveryProcessor.init();
+
+        //verify
+        TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
+            .creationInterceptors(List.of(TestCreationInterceptor.class))
+            .executionInterceptors(List.of(TestExecutionInterceptor.class))
+            .build();
+        verifyTaskIsRegistered(task, taskSettings);
+    }
+
+    @Test
+    void shouldRegistryLocalTaskWithExcludedCommonInterceptorsFromCode() {
+        //when
+        TaskWithExcludedCommonInterceptors task = new TaskWithExcludedCommonInterceptors();
+        tasks.add(task);
+
+        //do
+        taskConfigurationDiscoveryProcessor.init();
+
+        //verify
+        TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
+            .excludedCommonCreationInterceptors(List.of(TestCreationInterceptor.class))
+            .excludedCommonExecutionInterceptors(List.of(TestExecutionInterceptor.class))
+            .build();
+        verifyTaskIsRegistered(task, taskSettings);
+    }
+
+    @Test
+    void shouldAppendAndDeduplicateExcludedCommonInterceptorsFromFileAndCode() {
+        //when
+        TaskWithExcludedCommonInterceptors task = new TaskWithExcludedCommonInterceptors();
+        when(properties.getTaskPropertiesGroup()).thenReturn(DistributedTaskProperties.TaskPropertiesGroup.builder()
+            .taskProperties(Map.of(
+                task.getDef().getTaskName(),
+                DistributedTaskProperties.TaskProperties.builder()
+                    .excludedCommonCreationInterceptors(List.of(TestCreationInterceptorTwo.class, TestCreationInterceptorThree.class))
+                    .excludedCommonExecutionInterceptors(List.of(TestExecutionInterceptor.class))
+                    .build()
+            ))
+            .build());
+        tasks.add(task);
+
+        //do
+        taskConfigurationDiscoveryProcessor.init();
+
+        //verify
+        TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
+            .excludedCommonCreationInterceptors(List.of(
+                TestCreationInterceptor.class,
+                TestCreationInterceptorTwo.class,
+                TestCreationInterceptorThree.class
+            ))
+            .excludedCommonExecutionInterceptors(List.of(TestExecutionInterceptor.class))
+            .build();
+        verifyTaskIsRegistered(task, taskSettings);
+    }
+
+    @Test
+    void shouldThrowWhenExcludingCommonInterceptorsInDefaultProperties() {
+        //when
+        when(properties.getTaskPropertiesGroup()).thenReturn(DistributedTaskProperties.TaskPropertiesGroup.builder()
+            .defaultProperties(DistributedTaskProperties.TaskProperties.builder()
+                .excludedCommonCreationInterceptors(List.of(TestCreationInterceptor.class))
+                .build())
+            .build());
+        tasks.add(new DefaultTask());
+
+        //do/verify
+        assertThatThrownBy(() -> taskConfigurationDiscoveryProcessor.init())
+            .isInstanceOf(TaskConfigurationException.class)
+            .hasMessageContaining("prohibited");
+    }
+
+    @Test
+    void shouldRegistryLocalTaskWithDefaultInterceptorsFromFile() {
+        //when
+        when(properties.getTaskPropertiesGroup()).thenReturn(DistributedTaskProperties.TaskPropertiesGroup.builder()
+            .defaultProperties(DistributedTaskProperties.TaskProperties.builder()
+                .creationInterceptors(List.of(TestCreationInterceptor.class))
+                .executionInterceptors(List.of(TestExecutionInterceptor.class))
+                .build())
+            .build());
+        DefaultTask defaultTask = new DefaultTask();
+        tasks.add(defaultTask);
+
+        //do
+        taskConfigurationDiscoveryProcessor.init();
+
+        //verify
+        TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
+            .creationInterceptors(List.of(TestCreationInterceptor.class))
+            .executionInterceptors(List.of(TestExecutionInterceptor.class))
+            .build();
+        verifyTaskIsRegistered(defaultTask, taskSettings);
+    }
+
+    @Test
+    void shouldAppendAndDeduplicateInterceptorsFromFileAndCode() {
+        //when
+        TaskWithInterceptors task = new TaskWithInterceptors();
+        when(properties.getTaskPropertiesGroup()).thenReturn(DistributedTaskProperties.TaskPropertiesGroup.builder()
+            .defaultProperties(DistributedTaskProperties.TaskProperties.builder()
+                .creationInterceptors(List.of(TestCreationInterceptor.class, TestCreationInterceptorTwo.class))
+                .build())
+            .taskProperties(Map.of(
+                task.getDef().getTaskName(),
+                DistributedTaskProperties.TaskProperties.builder()
+                    .creationInterceptors(List.of(TestCreationInterceptorTwo.class, TestCreationInterceptorThree.class))
+                    .build()
+            ))
+            .build());
+        tasks.add(task);
+
+        //do
+        taskConfigurationDiscoveryProcessor.init();
+
+        //verify
+        TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
+            .creationInterceptors(List.of(
+                TestCreationInterceptor.class,
+                TestCreationInterceptorTwo.class,
+                TestCreationInterceptorThree.class
+            ))
+            .executionInterceptors(List.of(TestExecutionInterceptor.class))
+            .build();
+        verifyTaskIsRegistered(task, taskSettings);
     }
 
     private DistributedTaskProperties.TaskPropertiesGroup buildCustomConfig() {
