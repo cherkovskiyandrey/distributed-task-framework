@@ -1,5 +1,6 @@
 package com.distributed_task_framework.saga.services.impl;
 
+import com.distributed_task_framework.model.Metadata;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.functions.SagaFunction;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
@@ -98,12 +99,23 @@ public class DistributionSagaServiceImpl implements DistributionSagaService {
 
     @Override
     public SagaFlowEntryPoint create(String name, SagaSettings sagaSettings) {
-        log.info("create(): name=[{}], sagaSettings=[{}]", name, sagaSettings);
+        return create(name, sagaSettings, null);
+    }
+
+    @Override
+    public SagaFlowEntryPoint create(String name) {
+        return create(name, sagaRegisterService.getSagaSettings(name));
+    }
+
+    @Override
+    public SagaFlowEntryPoint create(String name, SagaSettings sagaSettings, Metadata metadata) {
+        log.info("create(): name=[{}], sagaSettings=[{}], metadata=[{}]", name, sagaSettings, metadata);
         StringUtils.requireNotBlank(name, "name");
         Objects.requireNonNull(sagaSettings, "sagaSettings");
         return SagaFlowEntryPointImpl.builder()
             .name(name)
             .sagaSettings(sagaSettings)
+            .metadata(metadata)
             .transactionManager(transactionManager)
             .sagaResolver(sagaResolver)
             .distributedTaskService(distributedTaskService)
@@ -113,18 +125,33 @@ public class DistributionSagaServiceImpl implements DistributionSagaService {
     }
 
     @Override
-    public SagaFlowEntryPoint create(String name) {
-        return create(name, sagaRegisterService.getSagaSettings(name));
+    public SagaFlowEntryPoint create(String name, Metadata metadata) {
+        return create(name, sagaRegisterService.getSagaSettings(name), metadata);
     }
 
     @Override
     public SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity, SagaSettings sagaSettings) {
+        return createWithAffinity(name, affinityGroup, affinity, sagaSettings, null);
+    }
+
+    @Override
+    public SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity) {
+        return createWithAffinity(name, affinityGroup, affinity, sagaRegisterService.getSagaSettings(name));
+    }
+
+    @Override
+    public SagaFlowEntryPoint createWithAffinity(String name,
+                                                 String affinityGroup,
+                                                 String affinity,
+                                                 SagaSettings sagaSettings,
+                                                 Metadata metadata) {
         log.info(
-            "createWithAffinity(): name=[{}], affinityGroup=[{}], affinity=[{}], sagaSettings=[{}]",
+            "createWithAffinity(): name=[{}], affinityGroup=[{}], affinity=[{}], sagaSettings=[{}], metadata=[{}]",
             name,
             affinityGroup,
             affinity,
-            sagaSettings
+            sagaSettings,
+            metadata
         );
         StringUtils.requireNotBlank(name, "name");
         StringUtils.requireNotBlank(affinityGroup, "affinityGroup");
@@ -135,6 +162,7 @@ public class DistributionSagaServiceImpl implements DistributionSagaService {
             .sagaSettings(sagaSettings)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
+            .metadata(metadata)
             .transactionManager(transactionManager)
             .sagaResolver(sagaResolver)
             .distributedTaskService(distributedTaskService)
@@ -144,8 +172,8 @@ public class DistributionSagaServiceImpl implements DistributionSagaService {
     }
 
     @Override
-    public SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity) {
-        return createWithAffinity(name, affinityGroup, affinity, sagaRegisterService.getSagaSettings(name));
+    public SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity, Metadata metadata) {
+        return createWithAffinity(name, affinityGroup, affinity, sagaRegisterService.getSagaSettings(name), metadata);
     }
 
     @Override

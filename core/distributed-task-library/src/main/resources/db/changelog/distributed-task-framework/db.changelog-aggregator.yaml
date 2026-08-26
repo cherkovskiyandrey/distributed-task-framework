@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/distributed-task-framework/db.changelog-dtf-004-feature-statefull-task.yaml
   - include:
       file: db/changelog/distributed-task-framework/db.changelog-dtf-005-fix-process-deleted-queue-hung.yaml
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-dtf-006-feature-metadata.yaml

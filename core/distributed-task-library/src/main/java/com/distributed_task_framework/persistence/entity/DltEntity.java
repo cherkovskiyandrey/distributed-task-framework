@@ -32,5 +32,7 @@ public class DltEntity {
     LocalDateTime executionDateUtc;
     @ToString.Exclude
     byte[] messageBytes;
+    @ToString.Exclude
+    byte[] metadataBytes;
     int failures;
 }

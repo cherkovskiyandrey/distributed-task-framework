@@ -3,8 +3,10 @@ package com.distributed_task_framework.autoconfigure;
 import com.distributed_task_framework.autoconfigure.annotation.RetryOff;
 import com.distributed_task_framework.autoconfigure.annotation.TaskBackoffRetryPolicy;
 import com.distributed_task_framework.autoconfigure.annotation.TaskConcurrency;
+import com.distributed_task_framework.autoconfigure.annotation.TaskCreationInterceptors;
 import com.distributed_task_framework.autoconfigure.annotation.TaskDltEnable;
 import com.distributed_task_framework.autoconfigure.annotation.TaskExecutionGuarantees;
+import com.distributed_task_framework.autoconfigure.annotation.TaskExecutionInterceptors;
 import com.distributed_task_framework.autoconfigure.annotation.TaskFixedRetryPolicy;
 import com.distributed_task_framework.autoconfigure.annotation.TaskSchedule;
 import com.distributed_task_framework.autoconfigure.annotation.TaskTimeout;
@@ -12,6 +14,10 @@ import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskProper
 import com.distributed_task_framework.autoconfigure.mapper.DistributedTaskPropertiesMerger;
 import com.distributed_task_framework.autoconfigure.utils.ReflectionHelper;
 import com.distributed_task_framework.exception.TaskConfigurationException;
+import com.distributed_task_framework.interceptor.CommonTaskCreationInterceptor;
+import com.distributed_task_framework.interceptor.CommonTaskExecutionInterceptor;
+import com.distributed_task_framework.interceptor.TaskCreationInterceptor;
+import com.distributed_task_framework.interceptor.TaskExecutionInterceptor;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.service.DistributedTaskService;
@@ -30,8 +36,10 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
@@ -68,6 +76,7 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
 
     @Override
     public void init() throws Exception {
+        validateDefaultProperties();
         registerLocalTasks();
         registerRemoteTasksFromCode();
         //configurations for unknown local tasks just ignore.
@@ -77,6 +86,29 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
     public void start() throws Exception {
         for (var taskDef : cronTasksToStart) {
             distributedTaskService.schedule(taskDef, ExecutionContext.empty());
+        }
+    }
+
+    private void validateDefaultProperties() {
+        var defaultProperties = Optional.ofNullable(properties.getTaskPropertiesGroup())
+            .map(DistributedTaskProperties.TaskPropertiesGroup::getDefaultProperties)
+            .orElse(null);
+        if (defaultProperties == null) {
+            return;
+        }
+        var excludedCommonCreation = defaultProperties.getExcludedCommonCreationInterceptors();
+        if (excludedCommonCreation != null && !excludedCommonCreation.isEmpty()) {
+            throw new TaskConfigurationException(
+                "It is prohibited to exclude common interceptors in default-properties, " +
+                    "excluded-common-creation-interceptors=[%s]".formatted(excludedCommonCreation)
+            );
+        }
+        var excludedCommonExecution = defaultProperties.getExcludedCommonExecutionInterceptors();
+        if (excludedCommonExecution != null && !excludedCommonExecution.isEmpty()) {
+            throw new TaskConfigurationException(
+                "It is prohibited to exclude common interceptors in default-properties, " +
+                    "excluded-common-execution-interceptors=[%s]".formatted(excludedCommonExecution)
+            );
         }
     }
 
@@ -134,6 +166,26 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
             .map(taskProperties -> taskProperties.get(taskDef.getTaskName()))
             .orElse(null);
 
+        //interceptor lists have to be composed before the merge because merging mutates properties
+        List<Class<? extends TaskCreationInterceptor>> creationInterceptors = composeCreationInterceptors(
+            defaultConfTaskProperties,
+            customCodeTaskProperties,
+            customConfTaskProperties
+        );
+        List<Class<? extends TaskExecutionInterceptor>> executionInterceptors = composeExecutionInterceptors(
+            defaultConfTaskProperties,
+            customCodeTaskProperties,
+            customConfTaskProperties
+        );
+        List<Class<? extends CommonTaskCreationInterceptor>> excludedCommonCreationInterceptors = composeExcludedCommonCreationInterceptors(
+            customCodeTaskProperties,
+            customConfTaskProperties
+        );
+        List<Class<? extends CommonTaskExecutionInterceptor>> excludedCommonExecutionInterceptors = composeExcludedCommonExecutionInterceptors(
+            customCodeTaskProperties,
+            customConfTaskProperties
+        );
+
         var defaultTaskProperties = distributedTaskPropertiesMerger.merge(
             defaultCodeTaskProperties,
             defaultConfTaskProperties
@@ -147,7 +199,60 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
             customTaskProperties
         );
 
-        return distributedTaskPropertiesMapper.map(taskProperties);
+        TaskSettings taskSettings = distributedTaskPropertiesMapper.map(taskProperties);
+        return taskSettings.toBuilder()
+            .creationInterceptors(creationInterceptors)
+            .executionInterceptors(executionInterceptors)
+            .excludedCommonCreationInterceptors(excludedCommonCreationInterceptors)
+            .excludedCommonExecutionInterceptors(excludedCommonExecutionInterceptors)
+            .build();
+    }
+
+    private static List<Class<? extends TaskCreationInterceptor>> composeCreationInterceptors(@Nullable DistributedTaskProperties.TaskProperties defaultConf,
+                                                                                               DistributedTaskProperties.TaskProperties customCode,
+                                                                                               @Nullable DistributedTaskProperties.TaskProperties customConf) {
+        return Stream.of(defaultConf, customCode, customConf)
+            .filter(Objects::nonNull)
+            .map(DistributedTaskProperties.TaskProperties::getCreationInterceptors)
+            .filter(Objects::nonNull)
+            .flatMap(Collection::stream)
+            .distinct()
+            .toList();
+    }
+
+    private static List<Class<? extends TaskExecutionInterceptor>> composeExecutionInterceptors(@Nullable DistributedTaskProperties.TaskProperties defaultConf,
+                                                                                                DistributedTaskProperties.TaskProperties customCode,
+                                                                                                @Nullable DistributedTaskProperties.TaskProperties customConf) {
+        return Stream.of(defaultConf, customCode, customConf)
+            .filter(Objects::nonNull)
+            .map(DistributedTaskProperties.TaskProperties::getExecutionInterceptors)
+            .filter(Objects::nonNull)
+            .flatMap(Collection::stream)
+            .distinct()
+            .toList();
+    }
+
+    //exclusions in default-properties are prohibited, see validateDefaultProperties()
+    private static List<Class<? extends CommonTaskCreationInterceptor>> composeExcludedCommonCreationInterceptors(DistributedTaskProperties.TaskProperties customCode,
+                                                                                                                  @Nullable DistributedTaskProperties.TaskProperties customConf) {
+        return Stream.of(customCode, customConf)
+            .filter(Objects::nonNull)
+            .map(DistributedTaskProperties.TaskProperties::getExcludedCommonCreationInterceptors)
+            .filter(Objects::nonNull)
+            .flatMap(Collection::stream)
+            .distinct()
+            .toList();
+    }
+
+    private static List<Class<? extends CommonTaskExecutionInterceptor>> composeExcludedCommonExecutionInterceptors(DistributedTaskProperties.TaskProperties customCode,
+                                                                                                                    @Nullable DistributedTaskProperties.TaskProperties customConf) {
+        return Stream.of(customCode, customConf)
+            .filter(Objects::nonNull)
+            .map(DistributedTaskProperties.TaskProperties::getExcludedCommonExecutionInterceptors)
+            .filter(Objects::nonNull)
+            .flatMap(Collection::stream)
+            .distinct()
+            .toList();
     }
 
     private DistributedTaskProperties.TaskProperties fillCustomProperties(Task<?> task) {
@@ -158,7 +263,33 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
         fillDltMode(task, taskProperties);
         fillRetryMode(task, taskProperties);
         fillTaskTimeout(task, taskProperties);
+        fillCreationInterceptors(task, taskProperties);
+        fillExecutionInterceptors(task, taskProperties);
         return taskProperties;
+    }
+
+    private void fillCreationInterceptors(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
+        ReflectionHelper.findAnnotation(task, TaskCreationInterceptors.class)
+            .ifPresent(annotation -> {
+                if (annotation.value().length > 0) {
+                    taskProperties.setCreationInterceptors(List.of(annotation.value()));
+                }
+                if (annotation.excludedCommon().length > 0) {
+                    taskProperties.setExcludedCommonCreationInterceptors(List.of(annotation.excludedCommon()));
+                }
+            });
+    }
+
+    private void fillExecutionInterceptors(Task<?> task, DistributedTaskProperties.TaskProperties taskProperties) {
+        ReflectionHelper.findAnnotation(task, TaskExecutionInterceptors.class)
+            .ifPresent(annotation -> {
+                if (annotation.value().length > 0) {
+                    taskProperties.setExecutionInterceptors(List.of(annotation.value()));
+                }
+                if (annotation.excludedCommon().length > 0) {
+                    taskProperties.setExcludedCommonExecutionInterceptors(List.of(annotation.excludedCommon()));
+                }
+            });
     }
 
     private void fillTaskTimeout(Task<?> task, DistributedTaskProperties.TaskProperties taskSettings) {

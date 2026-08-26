@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.services.impl;
 
 import com.distributed_task_framework.model.ExecutionContext;
+import com.distributed_task_framework.model.Metadata;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
 import com.distributed_task_framework.saga.exceptions.SagaNotStartedException;
@@ -41,6 +42,8 @@ public class SagaFlowBuilderWithoutInputImpl<ROOT_INPUT> implements SagaFlowBuil
     String affinityGroup;
     @Nullable
     String affinity;
+    @Nullable
+    Metadata metadata;
     PlatformTransactionManager transactionManager;
     SagaManager sagaManager;
     DistributedTaskService distributedTaskService;
@@ -151,6 +154,7 @@ public class SagaFlowBuilderWithoutInputImpl<ROOT_INPUT> implements SagaFlowBuil
             .sagaSettings(sagaSettings)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
+            .metadata(metadata)
             .transactionManager(transactionManager)
             .sagaManager(sagaManager)
             .distributedTaskService(distributedTaskService)
@@ -204,12 +208,13 @@ public class SagaFlowBuilderWithoutInputImpl<ROOT_INPUT> implements SagaFlowBuil
     }
 
     private ExecutionContext<SagaPipeline> makeContext(SagaPipeline sagaPipeline) {
-        return StringUtils.isNotBlank(affinityGroup) && StringUtils.isNotBlank(affinity) ?
+        ExecutionContext<SagaPipeline> context = StringUtils.isNotBlank(affinityGroup) && StringUtils.isNotBlank(affinity) ?
             ExecutionContext.withAffinityGroup(
                 sagaPipeline,
                 affinityGroup,
                 affinity
             ) :
             ExecutionContext.simple(sagaPipeline);
+        return metadata == null || metadata.isEmpty() ? context : context.withMetadata(metadata);
     }
 }

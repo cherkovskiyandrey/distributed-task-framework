@@ -1,6 +1,7 @@
 package com.distributed_task_framework.saga.services;
 
 
+import com.distributed_task_framework.model.Metadata;
 import com.distributed_task_framework.saga.exceptions.SagaNotFoundException;
 import com.distributed_task_framework.saga.settings.SagaSettings;
 
@@ -33,6 +34,30 @@ public interface DistributionSagaService extends SagaRegisterService {
     SagaFlowEntryPoint create(String name);
 
     /**
+     * Factory method to create new saga with metadata.
+     * Metadata is attached to the root task and inherited by all saga steps.
+     * Isn't protected by affinity (saga isn't serializable by affinity).
+     *
+     * @param name         arbitrary name to mark saga. Can be not unique.
+     * @param sagaSettings settings for this particular saga
+     * @param metadata     metadata to attach to the saga
+     * @return
+     */
+    SagaFlowEntryPoint create(String name, SagaSettings sagaSettings, Metadata metadata);
+
+    /**
+     * Factory method to create new saga with metadata.
+     * Metadata is attached to the root task and inherited by all saga steps.
+     * Isn't protected by affinity (saga isn't serializable by affinity).
+     * Settings will be used from {@link SagaRegisterService#registerSagaSettings(String, SagaSettings)}.
+     *
+     * @param name     arbitrary name to mark saga. Can be not unique.
+     * @param metadata metadata to attach to the saga
+     * @return
+     */
+    SagaFlowEntryPoint create(String name, Metadata metadata);
+
+    /**
      * Factory method to create new saga.
      * Protected by affinity (saga is serializable by affinityGroup + affinity).
      *
@@ -56,6 +81,34 @@ public interface DistributionSagaService extends SagaRegisterService {
      * @return
      */
     SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity);
+
+    /**
+     * Factory method to create new saga with metadata.
+     * Metadata is attached to the root task and inherited by all saga steps.
+     * Protected by affinity (saga is serializable by affinityGroup + affinity).
+     *
+     * @param name          arbitrary name to mark saga. Can be not unique.
+     * @param affinityGroup
+     * @param affinity
+     * @param sagaSettings  settings for this particular saga
+     * @param metadata      metadata to attach to the saga
+     * @return
+     */
+    SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity, SagaSettings sagaSettings, Metadata metadata);
+
+    /**
+     * Factory method to create new saga with metadata.
+     * Metadata is attached to the root task and inherited by all saga steps.
+     * Protected by affinity (saga is serializable by affinityGroup + affinity).
+     * Settings will be used from {@link SagaRegisterService#registerSagaSettings(String, SagaSettings)}.
+     *
+     * @param name          arbitrary name to mark saga. Can be not unique.
+     * @param affinityGroup
+     * @param affinity
+     * @param metadata      metadata to attach to the saga
+     * @return
+     */
+    SagaFlowEntryPoint createWithAffinity(String name, String affinityGroup, String affinity, Metadata metadata);
 
     /**
      * Get flow by trackId if exists.
