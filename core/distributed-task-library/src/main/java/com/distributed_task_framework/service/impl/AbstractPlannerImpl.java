@@ -150,6 +150,7 @@ public abstract class AbstractPlannerImpl implements DistributedTaskServiceLifec
 
     @Override
     public void cleanup() {
+        // just complementary action, doesn't update db because watchdog in clusterProvider has been already stopped
         clusterProvider.unregisterCapabilities(capabilities());
         plannerRepository.deleteById(clusterProvider.nodeId());
     }

@@ -42,7 +42,6 @@ import com.distributed_task_framework.utils.MetricHelper;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -55,8 +54,6 @@ import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import java.time.Clock;
-
-import static com.distributed_task_framework.autoconfigure.DistributedTaskAutoConfiguration.VIRTUAL_QUEUE_MANAGER_PLANNER_NAME;
 
 @AutoConfiguration
 @ConditionalOnClass(DistributionSagaService.class)
@@ -225,15 +222,21 @@ public class SagaAutoconfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SagaConfigurationDiscoveryProcessor sagaConfigurationDiscoveryProcessor(ConfigurableListableBeanFactory beanFactory,
-                                                                                   DistributionSagaService distributionSagaService,
+    public static SagaBeanCollector sagaBeanCollector() {
+        return new SagaBeanCollector();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SagaConfigurationDiscoveryProcessor sagaConfigurationDiscoveryProcessor(DistributionSagaService distributionSagaService,
                                                                                    DistributedSagaProperties distributedSagaProperties,
-                                                                                   SagaPropertiesProcessor sagaPropertiesProcessor) {
+                                                                                   SagaPropertiesProcessor sagaPropertiesProcessor,
+                                                                                   SagaBeanCollector sagaBeanCollector) {
         return new SagaConfigurationDiscoveryProcessor(
-            beanFactory,
             distributionSagaService,
             distributedSagaProperties,
-            sagaPropertiesProcessor
+            sagaPropertiesProcessor,
+            sagaBeanCollector
         );
     }
 

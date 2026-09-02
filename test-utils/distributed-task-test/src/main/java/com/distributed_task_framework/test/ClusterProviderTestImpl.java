@@ -76,7 +76,7 @@ public class ClusterProviderTestImpl implements ClusterProvider, DistributedTask
 
     @Override
     public Map<UUID, EnumSet<Capabilities>> clusterCapabilities() {
-        return Map.of(nodeId(), EnumSet.copyOf(nodeCapabilities));
+        return Map.of(nodeId(), nodeCapabilities.isEmpty() ? Capabilities.createEmpty() : EnumSet.copyOf(nodeCapabilities));
     }
 
     @Override

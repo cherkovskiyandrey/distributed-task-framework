@@ -81,7 +81,7 @@ public class ActualLiquibaseMigrationsChecker implements InitializingBean {
         return fileNames;
     }
 
-    private Set<String> deployedMigrationFileNames(SpringLiquibase springLiquibase) {
+    private Set<String> deployedMigrationFileNames(SpringLiquibase springLiquibase) throws SQLException {
         var sql = SELECT_FILENAMES_QUERY.formatted(springLiquibase.getDatabaseChangeLogTable());
         var result = Sets.<String>newHashSet();
         try (var connection = springLiquibase.getDataSource().getConnection();
@@ -91,8 +91,6 @@ public class ActualLiquibaseMigrationsChecker implements InitializingBean {
             while (resultSet.next()) {
                 result.add(resultSet.getString("filename"));
             }
-        } catch (SQLException exception) {
-            log.warn("deployedMigrationFileNames(): error to read databaseChangeLogTable for liquibase", exception);
         }
         return result;
     }

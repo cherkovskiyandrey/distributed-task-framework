@@ -168,27 +168,33 @@ public class SagaFlowBuilderWithoutInputImpl<ROOT_INPUT> implements SagaFlowBuil
         sagaParentPipeline.moveToNext();
         SagaAction currentSagaAction = sagaParentPipeline.getCurrentAction();
 
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-                TaskId taskId;
-                try {
-                    taskId = distributedTaskService.schedule(
-                        sagaResolver.resolveByTaskName(currentSagaAction.getSagaMethodTaskName()),
-                        makeContext(sagaParentPipeline)
-                    );
-                } catch (Exception e) {
-                    throw new SagaNotStartedException(e);
-                }
+        try {
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    TaskId taskId;
+                    try {
+                        taskId = distributedTaskService.schedule(
+                            sagaResolver.resolveByTaskName(currentSagaAction.getSagaMethodTaskName()),
+                            makeContext(sagaParentPipeline)
+                        );
+                    } catch (Exception e) {
+                        throw new SagaNotStartedException(e);
+                    }
 
-                log.info("start(): sagaId=[{}], sagaParentPipeline=[{}]", sagaId, sagaParentPipeline);
-                var sagaContext = CreateSagaRequest.builder()
-                    .sagaId(sagaId)
-                    .name(name)
-                    .rootTaskId(taskId)
-                    .sagaPipeline(sagaParentPipeline)
-                    .build();
-                sagaManager.create(sagaContext, sagaSettings);
-            }
-        );
+                    log.info("start(): sagaId=[{}], sagaParentPipeline=[{}]", sagaId, sagaParentPipeline);
+                    var sagaContext = CreateSagaRequest.builder()
+                        .sagaId(sagaId)
+                        .name(name)
+                        .rootTaskId(taskId)
+                        .sagaPipeline(sagaParentPipeline)
+                        .build();
+                    sagaManager.create(sagaContext, sagaSettings);
+                }
+            );
+        } catch (SagaNotStartedException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SagaNotStartedException(e);
+        }
 
         return SagaFlowWithoutResultImpl.builderWithoutResult()
             .distributedTaskService(distributedTaskService)

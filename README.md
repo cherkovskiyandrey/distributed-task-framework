@@ -8,6 +8,8 @@ A lightweight task processor based on database only. Supports horizontal scaling
     * [Features](#features)
   * [Install](#install)
     * [Spring Boot](#spring-boot)
+    * [Data source and transactions](#data-source-and-transactions)
+      * [Dedicating a separate data source to DTF](#dedicating-a-separate-data-source-to-dtf)
   * [Quick start](#quick-start)
     * [Let's create a distributed task that will print message to console.](#lets-create-a-distributed-task-that-will-print-message-to-console)
     * [What happened](#what-happened)
@@ -44,6 +46,7 @@ A lightweight task processor based on database only. Supports horizontal scaling
   * [License](#license)
   * [Disclaimer](#disclaimer)
 <!-- TOC -->
+
 ## Introduction
 ### Architecture
 General work scheme:
@@ -157,6 +160,88 @@ distributed-task:
   common:
     app-name: 'hello-app'
 ```
+
+### Data source and transactions
+
+By default DTF needs no configuration here: it picks up the `PlatformTransactionManager`,
+`NamedParameterJdbcOperations` and Spring Data JDBC infrastructure of your application. If your
+service has a single data source, everything just works, and your own `@Transactional` methods share
+one transaction with DTF:
+
+```java
+@Transactional
+public Audit createOrder(OrderDto order) {
+    orderRepository.save(order);            // your data
+    distributedTaskService.schedule(        // DTF task in the SAME transaction
+        SEND_NOTIFICATION_TASK,
+        ExecutionContext.simple(order.getId())
+    );
+    return audit;                           // either both are committed, or neither
+}
+```
+
+This is the main reason DTF stores its state in your database rather than in a broker: a task is
+scheduled atomically with the business data that caused it, so there is no "row saved but task lost"
+window.
+
+#### Dedicating a separate data source to DTF
+
+If your application has several data sources, or you want to keep DTF tables in a separate database,
+publish your own `DtfJdbcInfrastructure` bean. DTF will use exactly what you give it — for its
+repositories, for its transaction templates and for Spring Data JDBC mapping:
+
+```java
+@Configuration
+public class DtfInfrastructureConfiguration {
+
+    @Bean
+    public DtfJdbcInfrastructure dtfJdbcInfrastructure(
+        @Qualifier("secondaryTransactionManager") PlatformTransactionManager transactionManager,
+        @Qualifier("secondaryNamedParameterJdbcOperations") NamedParameterJdbcOperations jdbcOperations,
+        @Qualifier("secondaryJdbcDialect") Dialect dialect,
+        @Qualifier("secondaryDataAccessStrategy") DataAccessStrategy dataAccessStrategy,
+        @Qualifier("secondaryJdbcMappingContext") JdbcMappingContext jdbcMappingContext,
+        @Qualifier("secondaryJdbcConverter") JdbcConverter jdbcConverter
+    ) {
+        return new DtfJdbcInfrastructure(
+            transactionManager,
+            jdbcOperations,
+            dialect,
+            dataAccessStrategy,
+            jdbcMappingContext,
+            jdbcConverter
+        );
+    }
+}
+```
+
+The autoconfiguration declares this bean as `@ConditionalOnMissingBean(DtfJdbcInfrastructure.class)`,
+so yours wins. A full working example of building the whole secondary Spring Data JDBC stack (dialect,
+converter, mapping context, access strategy) by extending `AbstractJdbcConfiguration` lives in the
+tests: `SecondaryDataSourceConfiguration` and `DtfDataSourceAsSecondaryConfiguration` in
+`distributed-task-spring-boot-autoconfigure`.
+
+Two things to keep in mind when DTF gets its own data source:
+
+* **Your `@Transactional` methods no longer share a transaction with DTF.** Scheduling a task and
+  saving business data become two independent transactions, so the atomicity shown above is lost. Use
+  a separate data source only when you accept that trade-off.
+* **The transaction manager you pass must be a bean of the application context.** DTF resolves its
+  bean name to wire Spring Data repositories, and fails fast with
+  `ApplicationContextException: Can't detect name of PlatformTransactionManager` if the instance is
+  not found among the context beans.
+
+> **Migrating from 1.x `@DtfDataSource`**
+>
+> Earlier versions marked a `DataSource` with `@DtfDataSource` and DTF built `dtfTransactionManager` /
+> `dtfNamedParameterJdbcOperations` on top of it. The annotation, those beans and the
+> `DtfRepositoryConstants` constants (`DTF_TX_MANAGER`, `DTF_JDBC_OPS`) have been removed.
+>
+> * Nothing to do if you used a single data source — DTF now follows the application's primary one.
+> * Replace `@Transactional(transactionManager = DTF_TX_MANAGER)` with plain `@Transactional`.
+> * Replace `@EnableJdbcRepositories(transactionManagerRef = DTF_TX_MANAGER, jdbcOperationsRef = DTF_JDBC_OPS)`
+>   on your own repositories with plain `@EnableJdbcRepositories`.
+> * Replace `@DtfDataSource` with a `DtfJdbcInfrastructure` bean as shown above.
 
 ## Quick start
 ### Let's create a distributed task that will print message to console.

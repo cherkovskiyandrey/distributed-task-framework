@@ -29,8 +29,8 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiFunction;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -46,7 +46,7 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
     DistributedTaskPropertiesMerger distributedTaskPropertiesMerger;
     Collection<Task<?>> tasks;
     RemoteTasks remoteTasks;
-    CopyOnWriteArrayList<TaskDef<?>> cronTasksToStart;
+    List<TaskDef<?>> cronTasksToStart;
     BiFunction<TaskSettings, TaskDef<?>, TaskSettings> taskSettingCustomizer;
 
     public TaskConfigurationDiscoveryProcessor(DistributedTaskProperties properties,
@@ -63,7 +63,7 @@ public class TaskConfigurationDiscoveryProcessor implements DistributedTaskServi
         this.tasks = tasks;
         this.remoteTasks = remoteTasks;
         this.taskSettingCustomizer = taskSettingCustomizer;
-        this.cronTasksToStart = Lists.newCopyOnWriteArrayList();
+        this.cronTasksToStart = Lists.newArrayList();
     }
 
     @Override
