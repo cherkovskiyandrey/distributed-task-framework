@@ -20,7 +20,7 @@ public class ActualLiquibaseMigrationsCheckerTest {
         .withPropertyValues(
             "distributed-task.enabled=true",
             "spring.liquibase.enabled=true",
-            "spring.liquibase.change-log=classpath:/db/test-changelog/db.changelog-aggregator.yaml",
+            "spring.liquibase.change-log=classpath:/db/changelog/distributed-task-framework-autoconfigure/db.changelog-aggregator.yaml",
             "spring.liquibase.url=jdbc:tc:postgresql:16:///test-db?TC_DAEMON=true",
             "spring.liquibase.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver",
             "spring.liquibase.user=postgres",
@@ -84,7 +84,7 @@ public class ActualLiquibaseMigrationsCheckerTest {
         void withoutAllDeployedScripts() {
             baseContextRunner
                 .withPropertyValues(
-                    "spring.liquibase.change-log=classpath:/db/test-changelog/not-full-changelog.yaml"
+                    "spring.liquibase.change-log=classpath:/db/changelog/distributed-task-framework-autoconfigure/not-full-changelog.yaml"
                 )
                 .run(context -> assertThat(context)
                     .hasFailed()

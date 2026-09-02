@@ -2,13 +2,13 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 
 import com.distributed_task_framework.persistence.entity.PartitionEntity;
 import com.distributed_task_framework.persistence.repository.PartitionExtendedRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
@@ -18,14 +18,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PartitionExtendedRepositoryImpl implements PartitionExtendedRepository {
     NamedParameterJdbcOperations namedParameterJdbcTemplate;
 
-    public PartitionExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
-        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    public PartitionExtendedRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        this.namedParameterJdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
     }
 
     private static final String SAVE_OR_UPDATE_BATCH = """

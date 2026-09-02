@@ -3,6 +3,7 @@ package com.distributed_task_framework.saga.services.impl;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.model.TaskId;
+import com.distributed_task_framework.saga.exceptions.SagaNotStartedException;
 import com.distributed_task_framework.saga.functions.SagaBiConsumer;
 import com.distributed_task_framework.saga.functions.SagaBiFunction;
 import com.distributed_task_framework.saga.functions.SagaConsumer;
@@ -30,11 +31,9 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.UUID;
-
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Slf4j
 @Value
@@ -275,8 +274,6 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
     }
 
     @SuppressWarnings("unchecked")
-    @Transactional(transactionManager = DTF_TX_MANAGER)
-    @SneakyThrows
     @Override
     public SagaFlow<PARENT_OUTPUT> start() {
         UUID sagaId = sagaParentPipeline.getSagaId();
@@ -284,19 +281,32 @@ public class SagaFlowBuilderImpl<ROOT_INPUT, PARENT_OUTPUT> implements SagaFlowB
         sagaParentPipeline.moveToNext();
         SagaAction currentSagaAction = sagaParentPipeline.getCurrentAction();
 
-        TaskId taskId = distributedTaskService.schedule(
-            sagaResolver.resolveByTaskName(currentSagaAction.getSagaMethodTaskName()),
-            makeContext(sagaParentPipeline)
-        );
-
-        log.info("start(): sagaId=[{}], sagaParentPipeline=[{}]", sagaId, sagaParentPipeline);
-        var sagaContext = CreateSagaRequest.builder()
-            .sagaId(sagaId)
-            .name(name)
-            .rootTaskId(taskId)
-            .sagaPipeline(sagaParentPipeline)
-            .build();
-        sagaManager.create(sagaContext, sagaSettings);
+        try {
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                    TaskId taskId;
+                    try {
+                        taskId = distributedTaskService.schedule(
+                            sagaResolver.resolveByTaskName(currentSagaAction.getSagaMethodTaskName()),
+                            makeContext(sagaParentPipeline)
+                        );
+                    } catch (Exception e) {
+                        throw new SagaNotStartedException(e);
+                    }
+                    log.info("start(): sagaId=[{}], sagaParentPipeline=[{}]", sagaId, sagaParentPipeline);
+                    var sagaContext = CreateSagaRequest.builder()
+                        .sagaId(sagaId)
+                        .name(name)
+                        .rootTaskId(taskId)
+                        .sagaPipeline(sagaParentPipeline)
+                        .build();
+                    sagaManager.create(sagaContext, sagaSettings);
+                }
+            );
+        } catch (SagaNotStartedException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SagaNotStartedException(e);
+        }
 
         return SagaFlowImpl.<PARENT_OUTPUT>builder()
             .distributedTaskService(distributedTaskService)

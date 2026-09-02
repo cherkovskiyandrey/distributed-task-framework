@@ -1,6 +1,9 @@
 package com.distributed_task_framework.saga.autoconfigure.annotations;
 
-import com.distributed_task_framework.saga.services.SagaFlowEntryPoint;
+import com.distributed_task_framework.saga.autoconfigure.SagaConfigurationDiscoveryProcessor;
+import com.distributed_task_framework.saga.services.DistributionSagaService;
+import com.distributed_task_framework.utils.DistributedTaskLifecycleSpringInitializer;
+import org.springframework.context.SmartLifecycle;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -11,10 +14,61 @@ import java.lang.annotation.Target;
 /**
  * Used in order to mark any method in spring bean as method which can
  * be used in saga transaction.
- * Saga transaction is build via {@link SagaFlowEntryPoint}.
- * <br>
- * IMPORTANT: take into account that spring generate proxy around such methods.
- * As a result you have to pay attention how to invoke it from the same bean.
+ * Saga transaction is build via {@link DistributionSagaService}.
+ * Use this annotation on any level of class hierarchy: on interface level or on class level,
+ * can be public, default or private, because
+ * DSF can handle it correctly. Also, you can use direct "this" pointer to provide saga method to DSF framework.
+ * For example:
+ * <pre>
+ * {@code
+ * class BusinessService {
+ *
+ *      @SagaMethod(name = "method")
+ *      private String forward(String inputData) {
+ *      }
+ *
+ *      public String calculate(String suffix) {
+ *          return distributionSagaService.create("test")
+ *                     .registerToRun(this::forward, suffix)
+ *                     .start()
+ *                     .get();
+ *      }
+ * }
+ * }
+ * </pre>
+ * Example with revert method:
+ * <pre>
+ * {@code
+ * class BusinessService {
+ *
+ *      @SagaMethod(name = "forward")
+ *      private String forward(String inputData) {
+ *      }
+ *
+ *     @SagaRevertMethod(name = "backward")
+ *     private void backward(String val,
+ *                          @Nullable String output,
+ *                          @Nullable SagaExecutionException sagaExecutionException) {
+ *     }
+ *
+ *      public String calculate(String suffix) {
+ *          return distributionSagaService.create("test")
+ *                     .registerToRun(this::forward, this::backward, suffix)
+ *                     .start()
+ *                     .get();
+ *      }
+ * }
+ * }
+ * </pre>
+ * </br>
+ * </br>
+ * IMPORTANT: use this annotation only for singleton and not lazy beans or warm-up lazy beans before
+ * application context is up and before {@link SmartLifecycle#start()} is called
+ * with {@link SmartLifecycle#getPhase()} == Integer.MAX_VALUE
+ * (see: {@link DistributedTaskLifecycleSpringInitializer} and {@link SagaConfigurationDiscoveryProcessor})!
+ * Otherwise, annotation and bean will be ignored by DSF. This behavior is by design:
+ * it is dangerous to allow lazy beans, because can lead potentially to case when beans
+ * will not be initialised at all and as result this node will not be able to handle corresponded DTF tasks.
  */
 @Documented
 @Target(ElementType.METHOD)

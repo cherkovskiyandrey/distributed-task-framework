@@ -20,7 +20,7 @@ import org.springframework.lang.NonNull;
 @Slf4j
 @AutoConfiguration(
     after = {LiquibaseAutoConfiguration.class},
-    before = {DistributedTaskAutoconfigure.class}
+    before = {DistributedTaskAutoConfiguration.class}
 )
 @ConditionalOnClass(JdbcTemplate.class)
 @ConditionalOnBean(SpringLiquibase.class)
@@ -32,6 +32,7 @@ public class DistributedTaskLiquibaseAutoConfiguration {
         return new ActualLiquibaseMigrationsCheckerDatabaseInitializerDetector();
     }
 
+    // todo: use DtfJdbcInfrastructure.liquibase instead of datasource from default springLiquibase!
     @Bean
     @Conditional(CheckMigrationsCondition.class)
     public ActualLiquibaseMigrationsChecker actualLiquibaseMigrationsChecker(SpringLiquibase liquibase) {

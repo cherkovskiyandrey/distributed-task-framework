@@ -22,7 +22,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SagaPropertiesProcessorImplTest extends BaseSpringIntegrationTest {
@@ -237,7 +236,7 @@ class SagaPropertiesProcessorImplTest extends BaseSpringIntegrationTest {
             public void sagaMethod() {
             }
 
-            @Transactional(transactionManager = DTF_TX_MANAGER)
+            @Transactional
             public void sagaMethodWithExactlyOnce() {
             }
 

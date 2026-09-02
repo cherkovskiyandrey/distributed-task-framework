@@ -1,6 +1,7 @@
 package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.model.JoinTaskExecution;
+import com.distributed_task_framework.service.internal.PlannerStateRegistry;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -12,7 +13,7 @@ import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
-import com.distributed_task_framework.service.internal.PlannerGroups;
+import com.distributed_task_framework.service.internal.PlannerGroup;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
 import com.distributed_task_framework.settings.CommonSettings;
 
@@ -46,8 +47,16 @@ public class JoinTaskPlannerImpl extends AbstractPlannerImpl {
                                TaskRepository taskRepository,
                                DistributedTaskMetricHelper distributedTaskMetricHelper,
                                JoinTaskStatHelper statHelper,
+                               PlannerStateRegistry plannerStateRegistry,
                                Clock clock) {
-        super(commonSettings, plannerRepository, transactionManager, clusterProvider, distributedTaskMetricHelper);
+        super(
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            plannerStateRegistry,
+            distributedTaskMetricHelper
+        );
         this.taskLinkManager = taskLinkManager;
         this.taskRepository = taskRepository;
         this.statHelper = statHelper;
@@ -65,8 +74,8 @@ public class JoinTaskPlannerImpl extends AbstractPlannerImpl {
     }
 
     @Override
-    protected String groupName() {
-        return PlannerGroups.JOIN.getName();
+    protected PlannerGroup plannerGroup() {
+        return PlannerGroup.JOIN;
     }
 
     @Override

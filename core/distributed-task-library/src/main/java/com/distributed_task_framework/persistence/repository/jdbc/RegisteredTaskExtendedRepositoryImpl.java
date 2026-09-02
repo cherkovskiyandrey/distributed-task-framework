@@ -2,23 +2,21 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 
 import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
 import com.distributed_task_framework.persistence.repository.RegisteredTaskExtendedRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.util.Collection;
 import java.util.UUID;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RegisteredTaskExtendedRepositoryImpl implements RegisteredTaskExtendedRepository {
     NamedParameterJdbcOperations jdbcTemplate;
 
-    public RegisteredTaskExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public RegisteredTaskExtendedRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        this.jdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
     }
 
     private static final String SAVE_OR_UPDATE_BATCH = """

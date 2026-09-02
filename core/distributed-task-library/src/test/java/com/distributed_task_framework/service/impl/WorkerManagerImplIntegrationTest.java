@@ -120,7 +120,8 @@ class WorkerManagerImplIntegrationTest extends BaseSpringIntegrationTest {
     @SneakyThrows
     @AfterEach
     void shutdown() {
-        workerManager.shutdown();
+        workerManager.stop();
+        workerManager.cleanup();
         executorService.shutdownNow();
         //noinspection ResultOfMethodCallIgnored
         executorService.awaitTermination(1, TimeUnit.MINUTES);

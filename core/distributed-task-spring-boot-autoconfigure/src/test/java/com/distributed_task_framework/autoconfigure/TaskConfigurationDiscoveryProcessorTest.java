@@ -74,13 +74,16 @@ class TaskConfigurationDiscoveryProcessorTest {
         );
     }
 
+    @SneakyThrows
     @AfterEach
-    void teardown() throws InterruptedException {
+    void teardown() {
         if (taskConfigurationDiscoveryProcessor != null) {
-            taskConfigurationDiscoveryProcessor.shutdown();
+            taskConfigurationDiscoveryProcessor.stop();
+            taskConfigurationDiscoveryProcessor.cleanup();
         }
     }
 
+    @SneakyThrows
     @Test
     void shouldRegistryLocalTasksWithDefaultConfigFromCode() {
         //when
@@ -89,6 +92,7 @@ class TaskConfigurationDiscoveryProcessorTest {
 
         //do
         taskConfigurationDiscoveryProcessor.init();
+        taskConfigurationDiscoveryProcessor.start();
 
         //verify
         verifyTaskIsRegistered(defaultTask, TaskSettings.DEFAULT);
@@ -104,6 +108,7 @@ class TaskConfigurationDiscoveryProcessorTest {
 
         //do
         taskConfigurationDiscoveryProcessor.init();
+        taskConfigurationDiscoveryProcessor.start();
 
         //verify
         TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
@@ -122,6 +127,7 @@ class TaskConfigurationDiscoveryProcessorTest {
         verifyCronTaskIsScheduled(defaultTask);
     }
 
+    @SneakyThrows
     @Test
     void shouldRegistryLocalTaskWithSimpleCronCustomConfigFromCodeAndFromCustomInFile() {
         //when
@@ -139,6 +145,7 @@ class TaskConfigurationDiscoveryProcessorTest {
 
         //do
         taskConfigurationDiscoveryProcessor.init();
+        taskConfigurationDiscoveryProcessor.start();
 
         //verify
         TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
@@ -149,6 +156,7 @@ class TaskConfigurationDiscoveryProcessorTest {
         verifyCronTaskIsScheduled(customizedTask);
     }
 
+    @SneakyThrows
     @Test
     void shouldRegistryLocalTaskWithCustomTaskWithRetryOffFromCodeAndFromCustomInFile() {
         //when
@@ -166,6 +174,7 @@ class TaskConfigurationDiscoveryProcessorTest {
 
         //do
         taskConfigurationDiscoveryProcessor.init();
+        taskConfigurationDiscoveryProcessor.start();
 
         //verify
         TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
@@ -177,6 +186,7 @@ class TaskConfigurationDiscoveryProcessorTest {
         verifyTaskIsRegistered(customizedTask, taskSettings);
     }
 
+    @SneakyThrows
     @Test
     void shouldRegistryLocalTaskWithCustomConfigFromCode() {
         //when
@@ -185,6 +195,7 @@ class TaskConfigurationDiscoveryProcessorTest {
 
         //do
         taskConfigurationDiscoveryProcessor.init();
+        taskConfigurationDiscoveryProcessor.start();
 
         //verify
         TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
@@ -209,6 +220,7 @@ class TaskConfigurationDiscoveryProcessorTest {
         verifyCronTaskIsScheduled(customizedTask);
     }
 
+    @SneakyThrows
     @Test
     void shouldRegistryLocalTaskWithCustomConfigFromCodeAndOverrideDefaultConfigFromFile() {
         //when
@@ -218,6 +230,7 @@ class TaskConfigurationDiscoveryProcessorTest {
 
         //do
         taskConfigurationDiscoveryProcessor.init();
+        taskConfigurationDiscoveryProcessor.start();
 
         //verify
         TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
@@ -241,6 +254,7 @@ class TaskConfigurationDiscoveryProcessorTest {
         verifyCronTaskIsScheduled(customizedTask);
     }
 
+    @SneakyThrows
     @Test
     void shouldRegistryLocalTaskWithCustomConfigFromFile() {
         //when
@@ -250,6 +264,7 @@ class TaskConfigurationDiscoveryProcessorTest {
 
         //do
         taskConfigurationDiscoveryProcessor.init();
+        taskConfigurationDiscoveryProcessor.start();
 
         //verify
         TaskSettings taskSettings = TaskSettings.DEFAULT.toBuilder()
@@ -277,6 +292,7 @@ class TaskConfigurationDiscoveryProcessorTest {
         verifyCronTaskIsScheduled(customizedTask);
     }
 
+    @SneakyThrows
     @Test
     void shouldRegisterRemoteTask() {
         //when
@@ -290,6 +306,7 @@ class TaskConfigurationDiscoveryProcessorTest {
 
         //do
         taskConfigurationDiscoveryProcessor.init();
+        taskConfigurationDiscoveryProcessor.start();
 
         //verify
         verify(distributedTaskService)

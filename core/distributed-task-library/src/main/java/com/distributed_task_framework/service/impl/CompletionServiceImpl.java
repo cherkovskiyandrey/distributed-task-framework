@@ -6,13 +6,12 @@ import com.distributed_task_framework.persistence.repository.TaskExtendedReposit
 import com.distributed_task_framework.service.internal.CompletionService;
 import com.distributed_task_framework.service.internal.WorkerContextManager;
 import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +33,7 @@ import java.util.function.Function;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class CompletionServiceImpl implements CompletionService {
+public class CompletionServiceImpl implements CompletionService, DistributedTaskServiceLifecycle {
     CommonSettings commonSettings;
     TaskExtendedRepository taskExtendedRepository;
     WorkerContextManager workerContextManager;
@@ -49,30 +48,30 @@ public class CompletionServiceImpl implements CompletionService {
         this.taskExtendedRepository = taskExtendedRepository;
         this.workerContextManager = workerContextManager;
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-                new ThreadFactoryBuilder()
-                        .setDaemon(false)
-                        .setNameFormat("tsk-completion")
-                        .setUncaughtExceptionHandler((t, e) -> {
-                            log.error("scheduleWatchdog(): error when handle completion of tasks", e);
-                            ReflectionUtils.rethrowRuntimeException(e);
-                        })
-                        .build()
+            new ThreadFactoryBuilder()
+                .setDaemon(false)
+                .setNameFormat("tsk-completion")
+                .setUncaughtExceptionHandler((t, e) -> {
+                    log.error("scheduleWatchdog(): error when handle completion of tasks", e);
+                    ReflectionUtils.rethrowRuntimeException(e);
+                })
+                .build()
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         scheduledExecutorService.scheduleWithFixedDelay(
-                ExecutorUtils.wrapRepeatableRunnable(this::handle),
-                commonSettings.getCompletionSettings().getHandlerInitialDelay().toMillis(),
-                commonSettings.getCompletionSettings().getHandlerFixedDelay().toMillis(),
-                TimeUnit.MILLISECONDS
+            ExecutorUtils.wrapRepeatableRunnable(this::handle),
+            commonSettings.getCompletionSettings().getHandlerInitialDelay().toMillis(),
+            commonSettings.getCompletionSettings().getHandlerFixedDelay().toMillis(),
+            TimeUnit.MILLISECONDS
         );
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): completion handler shutdown started");
         scheduledExecutorService.shutdownNow();
         scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
@@ -145,15 +144,15 @@ public class CompletionServiceImpl implements CompletionService {
         var existedIds = filter.apply(requestedIds);
         var completedOrNotExistedIds = Sets.difference(requestedIds, existedIds);
         completedOrNotExistedIds.forEach(id ->
-                //use compute in order to protect from parallel registration of feature by the same key
-                idMap.compute(
-                        id,
-                        (k, feature) -> {
-                            if (feature != null) {
-                                feature.complete(null);
-                            }
-                            return null; //remove mapping
-                        })
+            //use compute in order to protect from parallel registration of feature by the same key
+            idMap.compute(
+                id,
+                (k, feature) -> {
+                    if (feature != null) {
+                        feature.complete(null);
+                    }
+                    return null; //remove mapping
+                })
         );
     }
 }

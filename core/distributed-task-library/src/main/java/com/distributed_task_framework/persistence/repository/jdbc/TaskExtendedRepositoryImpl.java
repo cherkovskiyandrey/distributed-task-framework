@@ -7,13 +7,13 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskIdEntity;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
 import com.distributed_task_framework.utils.ComparatorUtils;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static com.distributed_task_framework.utils.ComparatorUtils.ID_VERSION_ENTITY_COMPARATOR;
 import static com.distributed_task_framework.utils.ComparatorUtils.TASK_ID_COMPARATOR;
 import static java.lang.String.format;
@@ -40,9 +39,8 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     NamedParameterJdbcOperations namedParameterJdbcTemplate;
     Clock clock;
 
-    public TaskExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate,
-                                      Clock clock) {
-        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    public TaskExtendedRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure, Clock clock) {
+        this.namedParameterJdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
         this.clock = clock;
     }
 

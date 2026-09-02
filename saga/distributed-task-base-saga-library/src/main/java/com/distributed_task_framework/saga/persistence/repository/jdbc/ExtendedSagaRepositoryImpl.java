@@ -4,14 +4,14 @@ import com.distributed_task_framework.saga.persistence.entities.AggregatedSagaSt
 import com.distributed_task_framework.saga.persistence.entities.SagaEntity;
 import com.distributed_task_framework.saga.persistence.entities.ShortSagaEntity;
 import com.distributed_task_framework.saga.persistence.repository.ExtendedSagaRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.sql.Types;
 import java.time.Clock;
@@ -21,17 +21,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcOperations;
     Clock clock;
 
-    public ExtendedSagaRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcTemplate namedParameterJdbcTemplate,
-                                      Clock clock) {
-        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    public ExtendedSagaRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure, Clock clock) {
+        this.namedParameterJdbcOperations = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
         this.clock = clock;
     }
 
@@ -79,7 +76,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
     @Override
     public SagaEntity saveOrUpdate(SagaEntity sagaEntity) {
         var parameterSource = toSqlParameterSource(sagaEntity);
-        namedParameterJdbcTemplate.update(
+        namedParameterJdbcOperations.update(
             SAVE_OR_UPDATE,
             parameterSource
         );
@@ -104,7 +101,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
 
     @Override
     public Optional<ShortSagaEntity> findShortById(UUID sagaId) {
-        return namedParameterJdbcTemplate.query(
+        return namedParameterJdbcOperations.query(
             FIND_SHORT,
             SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
             ShortSagaEntity.SHORT_SAGA_ROW_MAPPER
@@ -121,7 +118,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
 
     @Override
     public Optional<Boolean> isCompleted(UUID sagaId) {
-        return namedParameterJdbcTemplate.query(
+        return namedParameterJdbcOperations.query(
                 IS_COMPLETED,
                 SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
                 ShortSagaEntity.SHORT_SAGA_ROW_MAPPER
@@ -140,7 +137,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
 
     @Override
     public Optional<Boolean> isCanceled(UUID sagaId) {
-        return namedParameterJdbcTemplate.query(
+        return namedParameterJdbcOperations.query(
                 IS_CANCELED,
                 SqlParameters.of(SagaEntity.Fields.sagaId, JdbcTools.asNullableString(sagaId), Types.VARCHAR),
                 ShortSagaEntity.SHORT_SAGA_ROW_MAPPER
@@ -166,7 +163,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
             SagaEntity.Fields.expirationDateUtc, LocalDateTime.now(clock), Types.TIMESTAMP,
             "batchSize", batchSize, Types.INTEGER
         );
-        return namedParameterJdbcTemplate.query(
+        return namedParameterJdbcOperations.query(
             FIND_EXPIRED,
             mapSqlParameterSource,
             SagaEntity.SAGA_CONTEXT_ENTITY_MAPPER
@@ -181,7 +178,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
 
     @Override
     public void removeAll(List<UUID> sagaIds) {
-        namedParameterJdbcTemplate.update(
+        namedParameterJdbcOperations.update(
             REMOVE_ALL,
             SqlParameters.of("sagaIds", JdbcTools.UUIDsToStringArray(sagaIds), Types.ARRAY)
         );
@@ -207,7 +204,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
 
     @Override
     public List<ShortSagaEntity> removeCompleted() {
-        return namedParameterJdbcTemplate.query(
+        return namedParameterJdbcOperations.query(
             REMOVE_COMPLETED_RESULT,
             SqlParameters.of("timeThreshold", LocalDateTime.now(clock), Types.TIMESTAMP),
             ShortSagaEntity.SHORT_SAGA_ROW_MAPPER
@@ -247,12 +244,12 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
             ELSE '{undefined}'
         END
         """.replace("{active}", AggregatedSagaStat.State.ACTIVE.name())
-            .replace("{completed}", AggregatedSagaStat.State.COMPLETED.name())
-            .replace("{completed_cleaning}", AggregatedSagaStat.State.COMPLETED_CLEANING.name())
-            .replace("{completed_not_cleaned}", AggregatedSagaStat.State.COMPLETED_NOT_CLEANED.name())
-            .replace("{expired}", AggregatedSagaStat.State.EXPIRED.name())
-            .replace("{expired_not_cleaned}", AggregatedSagaStat.State.EXPIRED_NOT_CLEANED.name())
-            .replace("{undefined}", AggregatedSagaStat.State.UNDEFINED.name());
+        .replace("{completed}", AggregatedSagaStat.State.COMPLETED.name())
+        .replace("{completed_cleaning}", AggregatedSagaStat.State.COMPLETED_CLEANING.name())
+        .replace("{completed_not_cleaned}", AggregatedSagaStat.State.COMPLETED_NOT_CLEANED.name())
+        .replace("{expired}", AggregatedSagaStat.State.EXPIRED.name())
+        .replace("{expired_not_cleaned}", AggregatedSagaStat.State.EXPIRED_NOT_CLEANED.name())
+        .replace("{undefined}", AggregatedSagaStat.State.UNDEFINED.name());
 
 
     //language=postgresql
@@ -271,7 +268,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
             SagaEntity.Fields.expirationDateUtc, now, Types.TIMESTAMP,
             "timeToCleanDateUtc", now.minus(timeToClean), Types.TIMESTAMP
         );
-        return namedParameterJdbcTemplate.query(
+        return namedParameterJdbcOperations.query(
             SELECT_AGGREGATED_SAGA_STAT,
             sqlParameters,
             AggregatedSagaStat.SAGA_CONTEXT_ENTITY_MAPPER
@@ -315,7 +312,7 @@ public class ExtendedSagaRepositoryImpl implements ExtendedSagaRepository {
             "timeToCleanDateUtc", now.minus(timeToClean), Types.TIMESTAMP,
             "tonNSize", tonNSize, Types.INTEGER
         );
-        return namedParameterJdbcTemplate.query(
+        return namedParameterJdbcOperations.query(
             SELECT_AGGREGATED_TOP_N_SAGA_STAT,
             sqlParameters,
             AggregatedSagaStat.SAGA_CONTEXT_ENTITY_MAPPER
