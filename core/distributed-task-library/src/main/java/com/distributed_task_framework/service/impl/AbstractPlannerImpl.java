@@ -1,20 +1,21 @@
 package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.exception.OptimisticLockException;
+import com.distributed_task_framework.model.Capabilities;
 import com.distributed_task_framework.persistence.entity.PlannerEntity;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
-import com.distributed_task_framework.service.internal.PlannerService;
+import com.distributed_task_framework.service.internal.PlannerGroup;
+import com.distributed_task_framework.service.internal.PlannerStateRegistry;
 import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.ReflectionUtils;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -34,11 +36,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PROTECTED)
-public abstract class AbstractPlannerImpl implements PlannerService {
+public abstract class AbstractPlannerImpl implements DistributedTaskServiceLifecycle {
     CommonSettings commonSettings;
     PlannerRepository plannerRepository;
     PlatformTransactionManager transactionManager;
     ClusterProvider clusterProvider;
+    PlannerStateRegistry plannerStateRegistry;
     ScheduledExecutorService watchdogExecutorService;
     ExecutorService plannerExecutorService;
     AtomicReference<Future<?>> planningLoopTask;
@@ -52,14 +55,16 @@ public abstract class AbstractPlannerImpl implements PlannerService {
                                   PlannerRepository plannerRepository,
                                   PlatformTransactionManager transactionManager,
                                   ClusterProvider clusterProvider,
+                                  PlannerStateRegistry plannerStateRegistry,
                                   DistributedTaskMetricHelper distributedTaskMetricHelper) {
         this.commonSettings = commonSettings;
         this.plannerRepository = plannerRepository;
         this.transactionManager = transactionManager;
         this.clusterProvider = clusterProvider;
+        this.plannerStateRegistry = plannerStateRegistry;
         this.planningLoopTask = new AtomicReference<>();
         this.distributedTaskMetricHelper = distributedTaskMetricHelper;
-        this.commonTags = List.of(Tag.of("group", groupName()));
+        this.commonTags = List.of(Tag.of("group", plannerGroup().getName()));
         this.planningTime = distributedTaskMetricHelper.timer(List.of("planner", "time"), commonTags);
         this.optLockErrorCounter = distributedTaskMetricHelper.counter(List.of("planner", "optlock", "error"), commonTags);
         this.plannedTaskCounter = distributedTaskMetricHelper.counter(List.of("planner", "tasks", "planned"), commonTags);
@@ -89,7 +94,7 @@ public abstract class AbstractPlannerImpl implements PlannerService {
 
     protected abstract String shortName();
 
-    protected abstract String groupName();
+    protected abstract PlannerGroup plannerGroup();
 
     protected boolean hasToBeActive() {
         return clusterProvider.isNodeRegistered();
@@ -110,8 +115,17 @@ public abstract class AbstractPlannerImpl implements PlannerService {
     protected void afterStartLoop() {
     }
 
-    @PostConstruct
-    public void init() {
+    protected EnumSet<Capabilities> capabilities() {
+        return Capabilities.createEmpty();
+    }
+
+    @Override
+    public void init() throws Exception {
+        clusterProvider.registerCapabilities(capabilities());
+    }
+
+    @Override
+    public void start() {
         watchdogExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
             commonSettings.getPlannerSettings().getWatchdogInitialDelayMs(),
@@ -120,23 +134,25 @@ public abstract class AbstractPlannerImpl implements PlannerService {
         );
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): \"{}\" shutdown started", name());
         watchdogExecutorService.shutdownNow();
         plannerExecutorService.shutdownNow();
+
+        plannerStateRegistry.markInactive(plannerGroup());
+
         watchdogExecutorService.awaitTermination(1, TimeUnit.MINUTES);
         plannerExecutorService.awaitTermination(1, TimeUnit.MINUTES);
         log.info("shutdown(): \"{}\" shutdown completed", name());
-        plannerRepository.deleteById(clusterProvider.nodeId());
     }
 
     @Override
-    public boolean isActive() {
-        return planningLoopTask.get() != null;
+    public void cleanup() {
+        // just complementary action, doesn't update db because watchdog in clusterProvider has been already stopped
+        clusterProvider.unregisterCapabilities(capabilities());
+        plannerRepository.deleteById(clusterProvider.nodeId());
     }
 
     @VisibleForTesting
@@ -150,7 +166,7 @@ public abstract class AbstractPlannerImpl implements PlannerService {
             return;
         }
 
-        Optional<PlannerEntity> activePlannerOpt = plannerRepository.findByGroupName(groupName());
+        Optional<PlannerEntity> activePlannerOpt = plannerRepository.findByGroupName(plannerGroup().getName());
         if (activePlannerOpt.isPresent()) {
             PlannerEntity activePlanner = activePlannerOpt.get();
             if (clusterProvider.nodeId().equals(activePlanner.getNodeStateId())) {
@@ -179,7 +195,7 @@ public abstract class AbstractPlannerImpl implements PlannerService {
         log.info("watchdog(): {} can't detect active planner, try to become it", name());
         try {
             plannerRepository.save(PlannerEntity.builder()
-                .groupName(groupName())
+                .groupName(plannerGroup().getName())
                 .nodeStateId(clusterProvider.nodeId())
                 .build()
             );
@@ -199,11 +215,13 @@ public abstract class AbstractPlannerImpl implements PlannerService {
 
     private void startPlanner() {
         planningLoopTask.set(plannerExecutorService.submit(ExecutorUtils.wrapRunnable(this::planningLoop)));
+        plannerStateRegistry.markActive(plannerGroup());
     }
 
     private void stopPlanner(Future<?> planningLoopFuture) {
         planningLoopFuture.cancel(true);
         planningLoopTask.set(null);
+        plannerStateRegistry.markInactive(plannerGroup());
     }
 
     @SuppressWarnings("ConstantConditions")

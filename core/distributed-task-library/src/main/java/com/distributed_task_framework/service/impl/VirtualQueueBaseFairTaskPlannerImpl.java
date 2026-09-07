@@ -10,11 +10,11 @@ import com.distributed_task_framework.model.PartitionStat;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.service.internal.CapabilityRegister;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
-import com.distributed_task_framework.service.internal.PlannerGroups;
+import com.distributed_task_framework.service.internal.PlannerGroup;
+import com.distributed_task_framework.service.internal.PlannerStateRegistry;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
@@ -46,7 +46,7 @@ import static com.distributed_task_framework.settings.CommonSettings.PlannerSett
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl implements CapabilityRegister {
+public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl {
     public static final String PLANNER_NAME = "virtual queue base planner";
     public static final String PLANNER_SHORT_NAME = "vqbp";
 
@@ -73,8 +73,16 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
                                                TaskRouter taskRouter,
                                                VirtualQueueStatService virtualQueueStatService,
                                                Clock clock,
+                                               PlannerStateRegistry plannerStateRegistry,
                                                DistributedTaskMetricHelper distributedTaskMetricHelper) {
-        super(commonSettings, plannerRepository, transactionManager, clusterProvider, distributedTaskMetricHelper);
+        super(
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            plannerStateRegistry,
+            distributedTaskMetricHelper
+        );
         this.taskRepository = taskRepository;
         this.partitionTracker = partitionTracker;
         this.taskRegistryService = taskRegistryService;
@@ -82,7 +90,7 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
         this.virtualQueueStatService = virtualQueueStatService;
         this.maxParallelTasksInClusterDefault = commonSettings.getPlannerSettings().getMaxParallelTasksInClusterDefault();
         this.clock = clock;
-        this.commonTags = List.of(Tag.of("group", groupName()));
+        this.commonTags = List.of(Tag.of("group", plannerGroup().getName()));
         this.currentAssignedTaskStatTimer = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "currentAssignedTaskStat", "time"),
             commonTags
@@ -112,8 +120,8 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl imp
     }
 
     @Override
-    protected String groupName() {
-        return PlannerGroups.DEFAULT.getName();
+    protected PlannerGroup plannerGroup() {
+        return PlannerGroup.DEFAULT;
     }
 
     @Override

@@ -5,13 +5,13 @@ import com.distributed_task_framework.model.Partition;
 import com.distributed_task_framework.model.PartitionStat;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.repository.TaskVirtualQueueBasePlannerRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
@@ -25,17 +25,14 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class TaskVirtualQueueBasePlannerRepositoryImpl implements TaskVirtualQueueBasePlannerRepository {
     NamedParameterJdbcOperations namedParameterJdbcTemplate;
     Clock clock;
 
-    public TaskVirtualQueueBasePlannerRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate,
-                                                     Clock clock) {
-        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    public TaskVirtualQueueBasePlannerRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure, Clock clock) {
+        this.namedParameterJdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
         this.clock = clock;
     }
 

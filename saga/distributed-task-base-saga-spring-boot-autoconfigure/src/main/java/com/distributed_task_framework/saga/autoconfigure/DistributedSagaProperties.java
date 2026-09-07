@@ -76,7 +76,7 @@ public class DistributedSagaProperties {
     @NoArgsConstructor
     public static class SagaStatProperties {
         /**
-         * Delay between calculation of saga statistics.
+         * Initial delay between calculation of saga statistics.
          */
         Duration calcInitialDelay;
 
@@ -97,7 +97,15 @@ public class DistributedSagaProperties {
     @AllArgsConstructor(access = AccessLevel.PUBLIC)
     @NoArgsConstructor
     public static class SagaMethodPropertiesGroup {
+        /**
+         * Default configuration for all methods,
+         * override default configuration for tasks from task-properties-group#default-properties
+         */
         SagaMethodProperties defaultSagaMethodProperties;
+
+        /**
+         * Customisation of configuration for dedicated saga method.
+         */
         @Builder.Default
         Map<String, SagaMethodProperties> sagaMethodProperties = Map.of();
     }

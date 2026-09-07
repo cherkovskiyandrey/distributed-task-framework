@@ -33,7 +33,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
         DefaultDataSourceConfiguration.class,
         DataSourceAutoConfiguration.class,
         JdbcTemplateAutoConfiguration.class,
-        DistributedTaskAutoconfigure.class
+        DistributedTaskAutoConfiguration.class
 })
 @EnableAutoConfiguration
 public class DefaultDataSourceTest {
@@ -41,7 +41,7 @@ public class DefaultDataSourceTest {
     DataSource primaryDataSource;
 
     @Autowired
-    @Qualifier("secondaryDataSource")
+    @Qualifier
     DataSource secondaryDataSource;
 
     @Autowired
@@ -51,7 +51,7 @@ public class DefaultDataSourceTest {
     RemoteCommandRepository crudRepository;
 
     @Test
-    void shouldUseDefaultDataSourceInCustomRepository() throws SQLException {
+    void shouldUsePrimaryDataSourceInCustomRepository() throws SQLException {
         clearInvocations(primaryDataSource, secondaryDataSource);
 
         try {
@@ -64,7 +64,7 @@ public class DefaultDataSourceTest {
     }
 
     @Test
-    void shouldUseDefaultDataSourceInCrudRepository() throws SQLException {
+    void shouldUsePrimaryDataSourceInCrudRepository() throws SQLException {
         clearInvocations(primaryDataSource, secondaryDataSource);
 
         try {

@@ -2,28 +2,26 @@ package com.distributed_task_framework.saga.persistence.repository.jdbc;
 
 import com.distributed_task_framework.saga.persistence.entities.DlsSagaEntity;
 import com.distributed_task_framework.saga.persistence.repository.ExtendedDlsSagaContextRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.sql.Types;
 import java.util.Collection;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaContextRepository {
-    NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    NamedParameterJdbcOperations namedParameterJdbcOperations;
 
-    public ExtendedDlsSagaContextRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcTemplate namedParameterJdbcTemplate) {
-        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    public ExtendedDlsSagaContextRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        this.namedParameterJdbcOperations = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
     }
 
     //language=postgresql
@@ -60,7 +58,7 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
         var params = dlsSagaContextEntities.stream()
             .map(this::toSqlParameterSource)
             .toArray(MapSqlParameterSource[]::new);
-        int[] affectedRows = namedParameterJdbcTemplate.batchUpdate(
+        int[] affectedRows = namedParameterJdbcOperations.batchUpdate(
             SAVE_OR_UPDATE,
             params
         );

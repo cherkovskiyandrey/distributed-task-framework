@@ -1,31 +1,29 @@
 package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.exception.TaskConfigurationException;
-import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
 import com.distributed_task_framework.model.RegisteredTask;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.persistence.entity.RegisteredTaskEntity;
 import com.distributed_task_framework.persistence.repository.RegisteredTaskRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
-import com.distributed_task_framework.utils.DistributedTaskCache;
-import com.distributed_task_framework.utils.DistributedTaskCacheManager;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.task.Task;
 import com.distributed_task_framework.task.common.RemoteStubTask;
+import com.distributed_task_framework.utils.DistributedTaskCache;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.support.CronExpression;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.ReflectionUtils;
@@ -44,7 +42,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class TaskRegistryServiceImpl implements TaskRegistryService {
+public class TaskRegistryServiceImpl implements TaskRegistryService, DistributedTaskServiceLifecycle {
     private final static String REGISTERED_LOCAL_TASK_IN_CLUSTER_CACHE = "registeredLocalTaskInClusterCache";
     private final static String REGISTERED_LOCAL_TASK_IN_CLUSTER_KEY = "registeredLocalTaskInClusterKey";
 
@@ -85,8 +83,8 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         log.info("init(): nodeId=[{}]", clusterProvider.nodeId());
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::publishOrUpdateTasksInCluster),
@@ -96,16 +94,22 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
         );
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): nodeId=[{}] shutdown started", clusterProvider.nodeId());
         scheduledExecutorService.shutdownNow();
         scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
-        unregisterItself();
         log.info("shutdown(): nodeId=[{}] shutdown completed", clusterProvider.nodeId());
+    }
+
+    @Override
+    public void cleanup() {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.executeWithoutResult(status -> {
+            UUID nodeId = clusterProvider.nodeId();
+            registeredTaskRepository.deleteAllByNodeStateId(nodeId);
+        });
     }
 
     @Override
@@ -262,14 +266,6 @@ public class TaskRegistryServiceImpl implements TaskRegistryService {
 
     private boolean isLocal(TaskDef<?> taskDef) {
         return commonSettings.getAppName().equals(taskDef.getAppName());
-    }
-
-    private void unregisterItself() {
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.executeWithoutResult(status -> {
-            UUID nodeId = clusterProvider.nodeId();
-            registeredTaskRepository.deleteAllByNodeStateId(nodeId);
-        });
     }
 
     private <T> TaskDef<T> setAppIfRequired(TaskDef<T> taskDef) {

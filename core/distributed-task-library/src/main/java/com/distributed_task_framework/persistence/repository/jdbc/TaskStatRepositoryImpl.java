@@ -2,12 +2,12 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 
 import com.distributed_task_framework.model.AggregatedTaskStat;
 import com.distributed_task_framework.persistence.repository.TaskStatRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
@@ -15,15 +15,13 @@ import java.sql.Types;
 import java.util.List;
 import java.util.Set;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class TaskStatRepositoryImpl implements TaskStatRepository {
     NamedParameterJdbcOperations dtfNamedParameterJdbcTemplate;
 
-    public TaskStatRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations dtfNamedParameterJdbcTemplate) {
-        this.dtfNamedParameterJdbcTemplate = dtfNamedParameterJdbcTemplate;
+    public TaskStatRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        this.dtfNamedParameterJdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
     }
 
     //language=postgresql

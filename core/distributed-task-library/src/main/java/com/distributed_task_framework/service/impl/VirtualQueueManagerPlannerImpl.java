@@ -12,11 +12,11 @@ import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
-import com.distributed_task_framework.service.internal.CapabilityRegister;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
-import com.distributed_task_framework.service.internal.PlannerGroups;
+import com.distributed_task_framework.service.internal.PlannerGroup;
+import com.distributed_task_framework.service.internal.PlannerStateRegistry;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implements CapabilityRegister {
+public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
     public static final String PLANNER_NAME = "virtual queue manager";
     public static final String PLANNER_SHORT_NAME = "vqm";
 
@@ -77,8 +77,16 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
                                           TaskMapper taskMapper,
                                           IdVersionMapper idVersionMapper,
                                           VirtualQueueStatService virtualQueueStatService,
+                                          PlannerStateRegistry plannerStateRegistry,
                                           DistributedTaskMetricHelper distributedTaskMetricHelper) {
-        super(commonSettings, plannerRepository, transactionManager, clusterProvider, distributedTaskMetricHelper);
+        super(
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            plannerStateRegistry,
+            distributedTaskMetricHelper
+        );
         this.plannerSettings = commonSettings.getPlannerSettings();
         this.clusterProvider = clusterProvider;
         this.taskRepository = taskRepository;
@@ -86,7 +94,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
         this.taskMapper = taskMapper;
         this.idVersionMapper = idVersionMapper;
         this.virtualQueueStatService = virtualQueueStatService;
-        this.commonTags = List.of(Tag.of("group", groupName()));
+        this.commonTags = List.of(Tag.of("group", plannerGroup().getName()));
         this.maxCreatedDateInNewTimer = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "maxCreatedDateInNew", "time"),
             commonTags
@@ -136,8 +144,8 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl implemen
     }
 
     @Override
-    protected String groupName() {
-        return PlannerGroups.VQB_MANAGER.getName();
+    protected PlannerGroup plannerGroup() {
+        return PlannerGroup.VQB_MANAGER;
     }
 
     @Override

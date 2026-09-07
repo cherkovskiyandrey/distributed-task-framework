@@ -13,6 +13,7 @@ import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.VirtualQueueManagerPlannerRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Lists;
@@ -20,7 +21,6 @@ import com.google.common.collect.Sets;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
@@ -39,7 +39,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.distributed_task_framework.persistence.entity.IdVersionWithVirtualQueue.ID_VERSION_WITH_VIRTUAL_QUEUE_ROW_MAPPER;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
 import static java.lang.String.format;
 
 @Slf4j
@@ -49,10 +48,10 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
     TaskRepositoryHelper taskRepositoryHelper;
     Clock clock;
 
-    public VirtualQueueManagerPlannerRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate,
+    public VirtualQueueManagerPlannerRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                     TaskRepositoryHelper taskRepositoryHelper,
                                                     Clock clock) {
-        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+        this.namedParameterJdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
         this.taskRepositoryHelper = taskRepositoryHelper;
         this.clock = clock;
     }

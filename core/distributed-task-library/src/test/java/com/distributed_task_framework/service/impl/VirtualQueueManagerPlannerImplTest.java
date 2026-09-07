@@ -7,6 +7,7 @@ import com.distributed_task_framework.TaskPopulateAndVerify;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
+import com.distributed_task_framework.service.internal.PlannerStateRegistry;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
 import com.distributed_task_framework.service.internal.PartitionTracker;
@@ -58,6 +59,8 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
     DistributedTaskMetricHelper distributedTaskMetricHelper;
     @Autowired
     TaskPopulateAndVerify taskPopulateAndVerify;
+    @Autowired
+    PlannerStateRegistry plannerStateRegistry;
     VirtualQueueManagerPlannerImpl plannerService;
     ExecutorService executorService;
 
@@ -75,6 +78,7 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
             taskMapper,
             idVersionMapper,
             virtualQueueStatService,
+            plannerStateRegistry,
             distributedTaskMetricHelper
         ));
     }
@@ -83,7 +87,8 @@ class VirtualQueueManagerPlannerImplTest extends BaseSpringIntegrationTest {
     @SneakyThrows
     @AfterEach
     void destroy() {
-        plannerService.shutdown();
+        plannerService.stop();
+        plannerService.cleanup();
         executorService.shutdownNow();
         executorService.awaitTermination(1, TimeUnit.MINUTES);
     }

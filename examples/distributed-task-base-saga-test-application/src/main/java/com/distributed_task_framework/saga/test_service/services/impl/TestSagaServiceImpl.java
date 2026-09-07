@@ -3,8 +3,8 @@ package com.distributed_task_framework.saga.test_service.services.impl;
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaMethod;
 import com.distributed_task_framework.saga.autoconfigure.annotations.SagaRevertMethod;
 import com.distributed_task_framework.saga.exceptions.SagaExecutionException;
-import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
+import com.distributed_task_framework.saga.services.SagaFlow;
 import com.distributed_task_framework.saga.test_service.models.RemoteOneDto;
 import com.distributed_task_framework.saga.test_service.models.RemoteTwoDto;
 import com.distributed_task_framework.saga.test_service.models.SagaRevertableDto;
@@ -20,10 +20,7 @@ import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
@@ -36,8 +33,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @Slf4j
 @Component
@@ -70,34 +65,34 @@ public class TestSagaServiceImpl implements TestSagaService {
     }
 
     //naive and straightforward approach
-    @Transactional(transactionManager = DTF_TX_MANAGER)
+    @Transactional
     @Override
     public Audit naiveSagaCall(TestDataDto testDataDto) {
         TestDataEntity data = TestDataEntity.builder()
-                .id(testDataDto.getId())
-                .version(testDataDto.getVersion())
-                .data(testDataDto.getRemoteOneData())
-                .build();
+            .id(testDataDto.getId())
+            .version(testDataDto.getVersion())
+            .data(testDataDto.getRemoteOneData())
+            .build();
         testDataRepository.save(data); //will be roll back if rest calls failed
 
         var remoteOneDto = RemoteOneDto.builder()
-                .remoteOneId(testDataDto.getRemoteServiceOneId())
-                .remoteOneData(testDataDto.getRemoteOneData())
-                .build();
+            .remoteOneId(testDataDto.getRemoteServiceOneId())
+            .remoteOneData(testDataDto.getRemoteOneData())
+            .build();
         remoteServiceOne.create(remoteOneDto); //how to handle case when changes applied but return http call failed?
 
         var remoteTwoDto = RemoteTwoDto.builder()
-                .remoteOneId(remoteOneDto.getRemoteOneId())
-                .remoteTwoId(testDataDto.getRemoteServiceTwoId())
-                .remoteTwoData(testDataDto.getRemoteTwoData())
-                .build();
+            .remoteOneId(remoteOneDto.getRemoteOneId())
+            .remoteTwoId(testDataDto.getRemoteServiceTwoId())
+            .remoteTwoData(testDataDto.getRemoteTwoData())
+            .build();
         remoteServiceTwo.create(remoteTwoDto); //how to handle real fail? how to rollback prev rest call?
 
         return auditRepository.save(Audit.builder()
-                .who("I")
-                .when(Instant.now())
-                .what(remoteTwoDto.getRemoteTwoData())
-                .build()
+            .who("I")
+            .when(Instant.now())
+            .what(remoteTwoDto.getRemoteTwoData())
+            .build()
         );
     }
 
@@ -115,14 +110,14 @@ public class TestSagaServiceImpl implements TestSagaService {
     @Override
     public Audit sagaCall(TestDataDto testDataDto) {
         return sagaCallBase(testDataDto)
-                .get(Duration.ofMinutes(1))
-                .orElseThrow();
+            .get(Duration.ofMinutes(1))
+            .orElseThrow();
     }
 
     @Override
     public UUID sagaCallAsync(TestDataDto testDataDto) {
         return sagaCallBase(testDataDto)
-                .trackId();
+            .trackId();
     }
 
     @Override
@@ -139,30 +134,30 @@ public class TestSagaServiceImpl implements TestSagaService {
 
     private SagaFlow<Audit> sagaCallBase(TestDataDto testDataDto) {
         return distributionSagaService
-                .createWithAffinity(
-                        "test",
-                        TEST_DATA_MANAGEMENT,
-                        "" + testDataDto.getId()
-                )
-                .registerToRun(
-                        this::createLocal,
-                        this::deleteLocal,
-                        testDataDto
-                )
-                .thenRun(
-                        this::createOnRemoteServiceOne,
-                        this::deleteOnRemoteServiceOne
-                )
-                .thenRun(
-                        this::createOnRemoteServiceTwo,
-                        this::deleteOnRemoteServiceTwo
-                )
-                .thenRun(this::saveAudit)
-                .start();
+            .createWithAffinity(
+                "test",
+                TEST_DATA_MANAGEMENT,
+                "" + testDataDto.getId()
+            )
+            .registerToRun(
+                this::createLocal,
+                this::deleteLocal,
+                testDataDto
+            )
+            .thenRun(
+                this::createOnRemoteServiceOne,
+                this::deleteOnRemoteServiceOne
+            )
+            .thenRun(
+                this::createOnRemoteServiceTwo,
+                this::deleteOnRemoteServiceTwo
+            )
+            .thenRun(this::saveAudit)
+            .start();
     }
 
     @SneakyThrows
-    @Transactional(transactionManager = DTF_TX_MANAGER)
+    @Transactional
     @SagaMethod(
         name = "createLocal",
         noRetryFor = {
@@ -172,36 +167,36 @@ public class TestSagaServiceImpl implements TestSagaService {
     )
     public SagaRevertableDto<TestDataEntity> createLocal(TestDataDto testDataDto) {
         TestDataEntity testDataEntity = TestDataEntity.builder()
-                .id(testDataDto.getId())
-                .version(testDataDto.getVersion())
-                .data(testDataDto.getRemoteOneData() + testDataDto.getRemoteTwoData())
-                .build();
+            .id(testDataDto.getId())
+            .version(testDataDto.getVersion())
+            .data(testDataDto.getRemoteOneData() + testDataDto.getRemoteTwoData())
+            .build();
         throwExceptionIfRequired(1, testDataDto);
         delayIfRequired(1, testDataDto);
 
         return SagaRevertableDto.<TestDataEntity>builder()
-                .prevValue(testDataRepository.findById(testDataEntity.getId()).orElse(null))
-                .newValue(testDataRepository.save(testDataEntity))
-                .build();
+            .prevValue(testDataRepository.findById(testDataEntity.getId()).orElse(null))
+            .newValue(testDataRepository.save(testDataEntity))
+            .build();
     }
 
-    @Transactional(transactionManager = DTF_TX_MANAGER)
+    @Transactional
     @SagaRevertMethod(name = "deleteLocal")
     public void deleteLocal(TestDataDto input,
                             @Nullable SagaRevertableDto<TestDataEntity> output,
                             @Nullable SagaExecutionException sagaExecutionException) {
         if (sagaExecutionException != null && (
-                sagaExecutionException.getCause() instanceof OptimisticLockingFailureException ||
-                        sagaExecutionException.isTheSameBaseOnSimpleName(OptimisticLockingFailureException.class))) {
+            sagaExecutionException.getCause() instanceof OptimisticLockingFailureException ||
+                sagaExecutionException.isTheSameBaseOnSimpleName(OptimisticLockingFailureException.class))) {
             log.warn("deleteLocal(): data has been changed");
             return;
         }
         if (output != null && output.getPrevValue() != null) {
             TestDataEntity prevTestData = output.getPrevValue();
             prevTestData = prevTestData
-                    .toBuilder()
-                    .version(prevTestData.getVersion() + 1) // we upped version in createLocal
-                    .build();
+                .toBuilder()
+                .version(prevTestData.getVersion() + 1) // we upped version in createLocal
+                .build();
             testDataRepository.save(prevTestData);
         }
     }
@@ -212,9 +207,9 @@ public class TestSagaServiceImpl implements TestSagaService {
     public RemoteOneDto createOnRemoteServiceOneOld(SagaRevertableDto<TestDataEntity> revertableTestDataEntity,
                                                     TestDataDto testDataDto) {
         var remoteOneDto = RemoteOneDto.builder()
-                .remoteOneId(testDataDto.getRemoteServiceOneId())
-                .remoteOneData(testDataDto.getRemoteOneData())
-                .build();
+            .remoteOneId(testDataDto.getRemoteServiceOneId())
+            .remoteOneData(testDataDto.getRemoteOneData())
+            .build();
         return remoteServiceOne.create(remoteOneDto);
     }
 
@@ -222,9 +217,9 @@ public class TestSagaServiceImpl implements TestSagaService {
     public RemoteOneDto createOnRemoteServiceOne(SagaRevertableDto<TestDataEntity> revertableTestDataEntity,
                                                  TestDataDto testDataDto) {
         var remoteOneDto = RemoteOneDto.builder()
-                .remoteOneId(testDataDto.getRemoteServiceOneId())
-                .remoteOneData(testDataDto.getRemoteOneData())
-                .build();
+            .remoteOneId(testDataDto.getRemoteServiceOneId())
+            .remoteOneData(testDataDto.getRemoteOneData())
+            .build();
         throwExceptionIfRequired(2, testDataDto);
         delayIfRequired(2, testDataDto);
         return remoteServiceOne.create(remoteOneDto);
@@ -243,10 +238,10 @@ public class TestSagaServiceImpl implements TestSagaService {
     @SagaMethod(name = "createOnRemoteServiceTwo")
     public RemoteTwoDto createOnRemoteServiceTwo(RemoteOneDto remoteOneDto, TestDataDto testDataDto) {
         var remoteTwoDto = RemoteTwoDto.builder()
-                .remoteOneId(remoteOneDto.getRemoteOneId())
-                .remoteTwoId(testDataDto.getRemoteServiceTwoId())
-                .remoteTwoData(testDataDto.getRemoteTwoData())
-                .build();
+            .remoteOneId(remoteOneDto.getRemoteOneId())
+            .remoteTwoId(testDataDto.getRemoteServiceTwoId())
+            .remoteTwoData(testDataDto.getRemoteTwoData())
+            .build();
         throwExceptionIfRequired(3, testDataDto);
         delayIfRequired(3, testDataDto);
         return remoteServiceTwo.create(remoteTwoDto);
@@ -267,10 +262,10 @@ public class TestSagaServiceImpl implements TestSagaService {
         throwExceptionIfRequired(4, testDataDto);
         delayIfRequired(4, testDataDto);
         return auditRepository.save(Audit.builder()
-                .who("I")
-                .when(Instant.now())
-                .what(remoteTwoDto.toString())
-                .build()
+            .who("I")
+            .when(Instant.now())
+            .what(remoteTwoDto.toString())
+            .build()
         );
     }
 

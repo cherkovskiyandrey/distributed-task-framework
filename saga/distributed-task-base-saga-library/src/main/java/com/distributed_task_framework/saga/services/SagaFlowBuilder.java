@@ -1,5 +1,6 @@
 package com.distributed_task_framework.saga.services;
 
+import com.distributed_task_framework.saga.exceptions.SagaNotStartedException;
 import com.distributed_task_framework.saga.functions.SagaBiConsumer;
 import com.distributed_task_framework.saga.functions.SagaBiFunction;
 import com.distributed_task_framework.saga.functions.SagaConsumer;
@@ -111,6 +112,7 @@ public interface SagaFlowBuilder<ROOT_INPUT, PARENT_OUTPUT> {
      * Start configured saga to execute.
      *
      * @return
+     * @throws SagaNotStartedException if saga hasn't been started
      */
     SagaFlow<PARENT_OUTPUT> start();
 }
