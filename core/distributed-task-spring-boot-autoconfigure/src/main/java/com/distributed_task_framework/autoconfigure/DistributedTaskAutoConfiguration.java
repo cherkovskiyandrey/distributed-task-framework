@@ -299,8 +299,8 @@ public class DistributedTaskAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public TaskRepositoryHelper taskRepositoryHelper(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
-        return new TaskRepositoryHelper(namedParameterJdbcTemplate);
+    public TaskRepositoryHelper taskRepositoryHelper(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        return new TaskRepositoryHelper(dtfJdbcInfrastructure);
     }
 
     @Bean

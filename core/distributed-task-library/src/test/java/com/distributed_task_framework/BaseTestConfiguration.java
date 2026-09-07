@@ -336,13 +336,13 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public TaskRepositoryHelper taskRepositoryHelper(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations namedParameterJdbcTemplate) {
-        return new TaskRepositoryHelper(namedParameterJdbcTemplate);
+    public TaskRepositoryHelper taskRepositoryHelper(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        return new TaskRepositoryHelper(dtfJdbcInfrastructure);
     }
 
     @Bean
     public ClusterProvider clusterProvider(CommonSettings commonSettings,
-                                           PlatformTransactionManager transactionManager,
+                                           DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                            NodeStateMapper nodeStateMapper,
                                            DistributedTaskCacheManager cacheManager,
                                            NodeStateRepository nodeStateRepository,
@@ -351,7 +351,7 @@ public class BaseTestConfiguration {
                                            Clock clock) {
         return new ClusterProviderImpl(
             commonSettings,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             cacheManager,
             nodeStateMapper,
             nodeStateRepository,
@@ -364,14 +364,14 @@ public class BaseTestConfiguration {
     @Bean
     public TaskRegistryService taskRegistryService(CommonSettings commonSettings,
                                                    RegisteredTaskRepository registeredTaskRepository,
-                                                   PlatformTransactionManager transactionManager,
+                                                   DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                    DistributedTaskCacheManager distributedTaskCacheManager,
                                                    ClusterProvider clusterProvider,
                                                    CronService cronService) {
         return new TaskRegistryServiceImpl(
             commonSettings,
             registeredTaskRepository,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             distributedTaskCacheManager,
             clusterProvider,
             cronService
@@ -454,14 +454,14 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public PartitionTracker partitionTracker(PlatformTransactionManager platformTransactionManager,
+    public PartitionTracker partitionTracker(DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                              TaskRepository taskRepository,
                                              PartitionRepository partitionRepository,
                                              PartitionMapper partitionMapper,
                                              CommonSettings commonSettings,
                                              Clock clock) {
         return new PartitionTrackerImpl(
-            platformTransactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             taskRepository,
             partitionRepository,
             partitionMapper,
@@ -512,7 +512,7 @@ public class BaseTestConfiguration {
 
     @Bean
     public TaskCommandWithDetectorService localTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
-                                                                              PlatformTransactionManager transactionManager,
+                                                                              DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                                               TaskRepository taskRepository,
                                                                               TaskMapper taskMapper,
                                                                               TaskRegistryService taskRegistryService,
@@ -525,7 +525,7 @@ public class BaseTestConfiguration {
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             taskRepository,
             taskMapper,
             taskRegistryService,
@@ -541,14 +541,14 @@ public class BaseTestConfiguration {
 
     @Bean
     public TaskCommandWithDetectorService remoteTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
-                                                                               PlatformTransactionManager transactionManager,
+                                                                               DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                                                RemoteCommandRepository remoteCommandRepository,
                                                                                TaskSerializer taskSerializer,
                                                                                TaskRegistryService taskRegistryService,
                                                                                Clock clock) {
         return new RemoteTaskCommandServiceImpl(
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             remoteCommandRepository,
             taskSerializer,
             taskRegistryService,
@@ -571,7 +571,7 @@ public class BaseTestConfiguration {
     @Qualifier("localAtLeastOnceWorker")
     public LocalAtLeastOnceWorker localAtLeastOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
-                                                         PlatformTransactionManager transactionManager,
+                                                         DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                          InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
@@ -586,7 +586,7 @@ public class BaseTestConfiguration {
         return new LocalAtLeastOnceWorker(
             clusterProvider,
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             internalTaskCommandService,
             taskRepository,
             remoteCommandRepository,
@@ -605,7 +605,7 @@ public class BaseTestConfiguration {
     @Qualifier("localExactlyOnceWorker")
     public LocalExactlyOnceWorker localExactlyOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
-                                                         PlatformTransactionManager transactionManager,
+                                                         DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                          InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
@@ -620,7 +620,7 @@ public class BaseTestConfiguration {
         return new LocalExactlyOnceWorker(
             clusterProvider,
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             internalTaskCommandService,
             taskRepository,
             remoteCommandRepository,
