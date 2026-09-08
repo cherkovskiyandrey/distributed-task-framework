@@ -6,7 +6,7 @@ import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskIdEntity;
 import com.distributed_task_framework.persistence.repository.TaskExtendedRepository;
-import com.distributed_task_framework.utils.ComparatorUtils;
+import com.distributed_task_framework.utils.PgComparatorUtils;
 import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
@@ -28,8 +28,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
-import static com.distributed_task_framework.utils.ComparatorUtils.ID_VERSION_ENTITY_COMPARATOR;
-import static com.distributed_task_framework.utils.ComparatorUtils.TASK_ID_COMPARATOR;
 import static java.lang.String.format;
 
 @Slf4j
@@ -116,10 +114,8 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
 
     @Override
     public Collection<TaskEntity> saveAll(Collection<TaskEntity> taskEntities) {
-        List<TaskEntity> preparedTaskEntities = taskEntities.stream()
-            .sorted(TASK_ID_COMPARATOR)
-            .map(this::prepareToSave)
-            .toList();
+        taskEntities = PgComparatorUtils.sortTaskEntities(taskEntities);
+        List<TaskEntity> preparedTaskEntities = taskEntities.stream().map(this::prepareToSave).toList();
         var sqlParameterSources = SqlParameters.convert(preparedTaskEntities, this::toSqlParameterSource);
         int[] updateResult = namedParameterJdbcTemplate.batchUpdate(SAVE_OR_UPDATE_TEMPLATE, sqlParameterSources);
         return IntStream.range(0, updateResult.length)
@@ -193,12 +189,9 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public void updateAll(Collection<ShortTaskEntity> plannedTasks) {
+        plannedTasks = PgComparatorUtils.sortShortTaskEntities(plannedTasks);
         plannedTasks = plannedTasks.stream().map(this::prepareToUpdate).toList();
-        var batchArgs = plannedTasks.stream()
-            .sorted(ComparatorUtils.SHORT_TASK_ID_COMPARATOR)
-            .map(this::toSqlParameterSource)
-            .toArray(MapSqlParameterSource[]::new);
-
+        var batchArgs = plannedTasks.stream().map(this::toSqlParameterSource).toArray(MapSqlParameterSource[]::new);
         namedParameterJdbcTemplate.batchUpdate(UPDATE_TASKS_WITH_VERSION, batchArgs);
     }
 
@@ -254,7 +247,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
         LIMIT :batchSize;
         """;
 
-    //USED INDEXES: none but very quick because of limit
+    //USED INDEXES: _____dtf_tasks_s_idx or _____dtf_tasks_tn_afg_vq_edu_idx or _____dtf_tasks_da_vq_idx
     @Override
     public Collection<TaskEntity> findByName(String taskName, long batchSize) {
         return namedParameterJdbcTemplate.query(
@@ -269,7 +262,7 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
 
     //language=postgresql
     private static final String FILTER_EXISTED_WORKFLOW_IDS = """
-        SELECT workflow_id
+        SELECT DISTINCT workflow_id
         FROM _____dtf_tasks
         WHERE workflow_id = any((:workflowIds)::uuid[])
         AND deleted_at ISNULL
@@ -348,24 +341,24 @@ public class TaskExtendedRepositoryImpl implements TaskExtendedRepository {
 
     //language=postgresql
     private static final String DELETE_BY_IDS_VERSIONS = """
+        WITH to_delete AS (
+            SELECT dt.id
+            FROM _____dtf_tasks dt
+            JOIN UNNEST(:id::uuid[], :version::int[]) AS tmp(id, version)
+            ON dt.id = tmp.id AND dt.version = tmp.version
+            ORDER BY dt.id
+            FOR UPDATE
+        )
         DELETE FROM _____dtf_tasks dt
-        WHERE (dt.id, dt.version) IN (
-            SELECT id, version
-            FROM UNNEST(:id::uuid[], :version::int[])
-            AS tmp(id, version)
-         )
+        USING to_delete td
+        WHERE dt.id = td.id
         RETURNING dt.id, dt.version
         """;
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public Collection<IdVersionEntity> deleteByIdVersion(Collection<IdVersionEntity> taskIdVersions) {
-        taskIdVersions = taskIdVersions.stream()
-            .sorted(ID_VERSION_ENTITY_COMPARATOR)
-            .toList();
-        var taskIds = taskIdVersions.stream()
-            .map(IdVersionEntity::getId)
-            .toList();
+        var taskIds = taskIdVersions.stream().map(IdVersionEntity::getId).toList();
         var taskVersions = taskIdVersions.stream().map(IdVersionEntity::getVersion).toList();
         return Sets.newHashSet(namedParameterJdbcTemplate.query(
                 DELETE_BY_IDS_VERSIONS,

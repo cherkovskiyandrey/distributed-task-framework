@@ -7,7 +7,6 @@ import com.distributed_task_framework.persistence.entity.TaskIdEntity;
 
 import java.time.Duration;
 import java.util.Collection;
-import java.util.List;
 import java.util.UUID;
 
 public interface VirtualQueueBaseTaskCommandService {
@@ -22,7 +21,7 @@ public interface VirtualQueueBaseTaskCommandService {
 
     void forceReschedule(TaskEntity taskEntity);
 
-    void forceRescheduleAll(List<TaskEntity> taskEntities);
+    void forceRescheduleAll(Collection<TaskEntity> taskEntities);
 
     int forceRescheduleAll(TaskDef<?> taskDef, Duration delay, Collection<TaskId> excludes);
 

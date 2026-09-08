@@ -54,13 +54,15 @@ public class TaskPopulateAndVerify {
         @Nullable
         UUID assignedWorker;
         @Nullable
-        LocalDateTime begingCreatedDate;
+        LocalDateTime beginCreatedDate;
         @Nullable
         String fixedAffinityGroup;
         @Nullable
         String fixedAffinity;
         @Nullable
         UUID fixedWorkflowId;
+        @Nullable
+        LocalDateTime workflowCreatedDate;
         @Nullable
         String fixedTaskName;
         boolean deferred;
@@ -85,6 +87,8 @@ public class TaskPopulateAndVerify {
         @Nullable
         String fixedWorkflowId;
         @Nullable
+        LocalDateTime workflowCreatedDate;
+        @Nullable
         String fixedTaskName;
 
 
@@ -95,6 +99,7 @@ public class TaskPopulateAndVerify {
                 false,
                 false,
                 false,
+                null,
                 null,
                 null,
                 null,
@@ -116,6 +121,7 @@ public class TaskPopulateAndVerify {
                 null,
                 null,
                 null,
+                null,
                 null
             );
         }
@@ -127,6 +133,7 @@ public class TaskPopulateAndVerify {
                 false,
                 false,
                 false,
+                null,
                 null,
                 null,
                 null,
@@ -148,6 +155,7 @@ public class TaskPopulateAndVerify {
                 null,
                 null,
                 null,
+                null,
                 null
             );
         }
@@ -159,6 +167,7 @@ public class TaskPopulateAndVerify {
                 false,
                 false,
                 true,
+                null,
                 null,
                 null,
                 null,
@@ -180,6 +189,7 @@ public class TaskPopulateAndVerify {
                 null,
                 null,
                 null,
+                null,
                 null
             );
         }
@@ -191,6 +201,7 @@ public class TaskPopulateAndVerify {
                 true,
                 false,
                 false,
+                null,
                 null,
                 null,
                 null,
@@ -212,6 +223,7 @@ public class TaskPopulateAndVerify {
                 null,
                 null,
                 null,
+                null,
                 null
             );
         }
@@ -223,6 +235,7 @@ public class TaskPopulateAndVerify {
                 false,
                 false,
                 false,
+                null,
                 null,
                 null,
                 null,
@@ -248,6 +261,7 @@ public class TaskPopulateAndVerify {
                 null,
                 null,
                 null,
+                null,
                 null
             );
         }
@@ -260,6 +274,7 @@ public class TaskPopulateAndVerify {
                 false,
                 false,
                 fixedWorker,
+                null,
                 null,
                 null,
                 null,
@@ -282,6 +297,7 @@ public class TaskPopulateAndVerify {
                 afg,
                 null,
                 null,
+                null,
                 taskName
             );
         }
@@ -298,7 +314,25 @@ public class TaskPopulateAndVerify {
                 afg,
                 null,
                 null,
+                null,
                 taskName
+            );
+        }
+
+        public static GenerationSpec oneWithFixedWorkflow(LocalDateTime workflowCreatedDateTime) {
+            return GenerationSpec.of(
+                true,
+                1,
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                UUID.randomUUID().toString(),
+                workflowCreatedDateTime,
+                null
             );
         }
     }
@@ -363,13 +397,17 @@ public class TaskPopulateAndVerify {
                         UUID workflowId = spec.getFixedWorkflowId() != null ?
                             UUID.nameUUIDFromBytes(spec.getFixedWorkflowId().getBytes()) :
                             null;
+                        var workflowCreatedDate = spec.getWorkflowCreatedDate() != null ?
+                            spec.getWorkflowCreatedDate():
+                            null;
                         return PopulationSpec.builder()
                             .affinityGroup(affinityGroup)
                             .affinity(affinity)
                             .nameOfTasks(taskNames)
                             .assignedWorker(assignedWorker)
-                            .begingCreatedDate(spec.getBeginCreatedDate())
+                            .beginCreatedDate(spec.getBeginCreatedDate())
                             .fixedWorkflowId(workflowId)
+                            .workflowCreatedDate(workflowCreatedDate)
                             .deferred(spec.isDeferred())
                             .canceled(spec.isCanceled())
                             .build();
@@ -395,21 +433,21 @@ public class TaskPopulateAndVerify {
                         populationSpec,
                         (k, prev) -> prev == null ? 0 : (prev + 1) % k.getNameOfTasks().size()
                     );
-                    LocalDateTime createdDateTime = (populationSpec.getBegingCreatedDate() != null ?
-                        populationSpec.getBegingCreatedDate() :
+                    LocalDateTime createdDateTime = (populationSpec.getBeginCreatedDate() != null ?
+                        populationSpec.getBeginCreatedDate() :
                         now()
                     ).minusSeconds(size).plusSeconds(i);
 
                     return TaskEntity.builder()
                         .taskName(populationSpec.getNameOfTasks().get(taskId))
                         .virtualQueue(virtualQueue)
-                        .deletedAt(VirtualQueue.DELETED.equals(virtualQueue) ? now() : null)
+                        .deletedAt(VirtualQueue.DELETED.equals(virtualQueue) ? createdDateTime.plusSeconds(1) : null)
                         .affinityGroup(populationSpec.getAffinityGroup())
                         .affinity(populationSpec.getAffinity())
                         .workflowId(populationSpec.fixedWorkflowId != null ? populationSpec.fixedWorkflowId : UUID.randomUUID())
+                        .workflowCreatedDateUtc(populationSpec.getWorkflowCreatedDate() != null ? populationSpec.getWorkflowCreatedDate() : createdDateTime)
                         .assignedWorker(populationSpec.getAssignedWorker())
                         .createdDateUtc(createdDateTime)
-                        .workflowCreatedDateUtc(createdDateTime)
                         .executionDateUtc(createdDateTime)
                         .notToPlan(populationSpec.isDeferred())
                         .canceled(populationSpec.isCanceled())

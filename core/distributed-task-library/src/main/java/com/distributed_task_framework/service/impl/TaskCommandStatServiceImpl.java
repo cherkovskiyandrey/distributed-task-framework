@@ -50,7 +50,7 @@ public class    TaskCommandStatServiceImpl implements TaskCommandStatService {
     }
 
     @Override
-    public void forceRescheduleAll(List<TaskEntity> tasksToSave) {
+    public void forceRescheduleAll(Collection<TaskEntity> tasksToSave) {
         tasksToSave.forEach(this::forceReschedule);
     }
 

@@ -3,9 +3,12 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 import com.distributed_task_framework.exception.BatchUpdateException;
 import com.distributed_task_framework.exception.OptimisticLockException;
 import com.distributed_task_framework.exception.UnknownTaskException;
+import com.distributed_task_framework.model.AffinityGroupAndAffinity;
 import com.distributed_task_framework.model.AffinityGroupStat;
 import com.distributed_task_framework.model.AffinityGroupWrapper;
 import com.distributed_task_framework.persistence.entity.IdVersionEntity;
+import com.distributed_task_framework.persistence.entity.IdVersionWithAffinityEntity;
+import com.distributed_task_framework.persistence.entity.IdVersionWithVirtualQueue;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
@@ -29,22 +32,27 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
+import static com.distributed_task_framework.persistence.entity.IdVersionWithVirtualQueue.ID_VERSION_WITH_VIRTUAL_QUEUE_ROW_MAPPER;
 import static java.lang.String.format;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueManagerPlannerRepository {
     NamedParameterJdbcOperations namedParameterJdbcTemplate;
+    TaskRepositoryHelper taskRepositoryHelper;
     Clock clock;
 
-    public VirtualQueueManagerPlannerRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure, Clock clock) {
+    public VirtualQueueManagerPlannerRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure,
+                                                    TaskRepositoryHelper taskRepositoryHelper,
+                                                    Clock clock) {
         this.namedParameterJdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
+        this.taskRepositoryHelper = taskRepositoryHelper;
         this.clock = clock;
     }
 
@@ -92,33 +100,40 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         );
     }
 
+
     //language=postgresql
-    private static final String AFFINITY_GROUP_TABLE_SUB_SELECT_TEMPLATE = """
-        {TABLE_NAME} AS (
-        	SELECT {AFFINITY_GROUP} AS affinity_group_name, count(1) AS number
-        	FROM (
-        		SELECT 1
-        		FROM _____dtf_tasks
-        		WHERE
-        			virtual_queue = 'NEW'::_____dtf_virtual_queue_type
-        			AND affinity_group {AFFINITY_GROUP_EXPRESSION}
-        		ORDER BY workflow_created_date_utc
-        		limit :limit
-        	) tmp
+    private static final String AFFINITY_GROUP_TABLE_SELECT = """
+        WITH params(affinity_group) AS (
+            SELECT * FROM unnest(:affinityGroup::text[])
         )
+        SELECT 
+            p.affinity_group AS affinity_group, 
+            c.number AS number
+        FROM params p
+        CROSS JOIN LATERAL (
+            SELECT count(1) AS number
+            FROM (
+                SELECT 1
+                FROM _____dtf_tasks d
+                WHERE d.virtual_queue = 'NEW'::_____dtf_virtual_queue_type
+                AND d.affinity_group = p.affinity_group
+                ORDER BY d.workflow_created_date_utc
+                LIMIT :limit
+            ) tmp
+        ) c
+        UNION ALL
+        SELECT NULL AS affinity_group, (
+            SELECT count(1) FROM (
+                SELECT 1
+                FROM _____dtf_tasks d
+                WHERE d.virtual_queue = 'NEW'::_____dtf_virtual_queue_type
+                AND d.affinity_group IS NULL
+                ORDER BY d.workflow_created_date_utc
+                LIMIT :limit
+            ) tmp
+        ) AS number
+        WHERE :hasNullGroup
         """;
-
-    //language=postgresql
-    private static final String SELECT_AFFINITY_GROUP_IN_NEW_VIRTUAL_QUEUE_TEMPLATE = """
-        WITH {AFFINITY_GROUP_TABLES},
-        agg AS ({AFFINITY_GROUP_AGGREGATED_TABLE})
-        SELECT
-            affinity_group_name, number
-        FROM agg
-        """;
-
-    private static final BeanPropertyRowMapper<AffinityGroupStat> AFFINITY_GROUP_STAT_MAPPER =
-        new BeanPropertyRowMapper<>(AffinityGroupStat.class);
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_vq_ag_wcdu_idx
     @Override
@@ -127,265 +142,302 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         if (knownAffinityGroups.isEmpty()) {
             return Sets.newHashSet();
         }
-        String tablePrefix = "afg_";
 
-        List<AffinityGroupWrapper> knownAffinityGroupLst = Lists.newArrayList(knownAffinityGroups);
-        String affinityGroupTables = IntStream.range(0, knownAffinityGroupLst.size())
-            .mapToObj(i -> AFFINITY_GROUP_TABLE_SUB_SELECT_TEMPLATE
-                .replace("{TABLE_NAME}", tablePrefix + i)
-                .replace("{AFFINITY_GROUP}", JdbcTools.stringValueOrNullObject(knownAffinityGroupLst.get(i).getAffinityGroup()))
-                .replace(
-                    "{AFFINITY_GROUP_EXPRESSION}",
-                    JdbcTools.valueOrNullExpression(knownAffinityGroupLst.get(i).getAffinityGroup())
-                )
-            )
-            .collect(Collectors.joining(", "));
-
-        String affinityGroupAggregatedTable = JdbcTools.buildCommonAggregatedTable(knownAffinityGroupLst.size(), tablePrefix);
-        String query = SELECT_AFFINITY_GROUP_IN_NEW_VIRTUAL_QUEUE_TEMPLATE
-            .replace("{AFFINITY_GROUP_TABLES}", affinityGroupTables)
-            .replace("{AFFINITY_GROUP_AGGREGATED_TABLE}", affinityGroupAggregatedTable);
-
-        log.debug("affinityGroupInNewVirtualQueueStat(): query=[{}]", query);
+        boolean hasNullGroup = knownAffinityGroups.contains(AffinityGroupWrapper.EMPTY);
+        var affinityGroups = knownAffinityGroups.stream()
+            .filter(agw -> !Objects.equals(AffinityGroupWrapper.EMPTY, agw))
+            .map(AffinityGroupWrapper::getAffinityGroup)
+            .toList();
 
         return Sets.newHashSet(namedParameterJdbcTemplate.query(
-                query,
-                SqlParameters.of("limit", affinityGroupLimit, Types.BIGINT),
-                AFFINITY_GROUP_STAT_MAPPER
+                AFFINITY_GROUP_TABLE_SELECT,
+                SqlParameters.of(
+                    AffinityGroupWrapper.Fields.affinityGroup, JdbcTools.toArray(affinityGroups), Types.ARRAY,
+                    "limit", affinityGroupLimit, Types.BIGINT,
+                    "hasNullGroup", hasNullGroup, Types.BOOLEAN
+                ),
+                AffinityGroupStat.AFFINITY_GROUP_STAT_MAPPER
             )
         );
     }
 
 
-    //language=PostgreSQL
-    private static final String SELECT_AFFINITY_GROUP_NEW_PORTION_TEMPLATE = """
-        {TABLE_NAME} AS (
-          SELECT
-              id,
-              affinity_group,
-              affinity,
-              task_name,
-              workflow_id,
-              workflow_created_date_utc,
-              version
-          FROM _____dtf_tasks
-          WHERE virtual_queue = 'NEW'
-          AND affinity_group {AFFINITY_GROUP_EXPRESSION}
-          ORDER BY workflow_created_date_utc
-          LIMIT {LIMIT}
-        )
-        """;
-
-
-    //language=PostgreSQL
-    private static final String MOVE_NEW_TO_READY_TEMPLATE = """
-        WITH {AFFINITY_GROUP_TABLES},
-        new_raw_union_portion AS ({AGGREGATED_AFFINITY_GROUP_TABLE}),
+    //language=postgresql
+    private static final String TASKS_FROM_NEW_SELECT = """
+        WITH params_with_ag(affinity_group, lim) AS (
+            SELECT * FROM unnest(:affinityGroup::text[], :number::int[])
+        ),
+        new_raw_with_ag AS (
+            SELECT t.id, t.affinity_group, t.affinity, t.task_name, t.workflow_id, t.workflow_created_date_utc, t.version
+            FROM params_with_ag p
+            CROSS JOIN LATERAL (
+                SELECT id, affinity_group, affinity, task_name, workflow_id, workflow_created_date_utc, version
+                FROM _____dtf_tasks d
+                WHERE d.virtual_queue  = 'NEW'::_____dtf_virtual_queue_type
+                    AND d.affinity_group = p.affinity_group
+                ORDER BY d.workflow_created_date_utc
+                LIMIT p.lim
+            ) t
+        ),
+        new_raw_without_ag AS (
+            SELECT id, affinity_group, affinity, task_name, workflow_id, workflow_created_date_utc, version
+            FROM _____dtf_tasks d
+            WHERE :hasNullGroup
+                AND d.virtual_queue  = 'NEW'::_____dtf_virtual_queue_type
+                AND d.affinity_group IS NULL
+            ORDER BY d.workflow_created_date_utc
+            LIMIT :nullNumber
+        ),
+        new_raw_union_portion AS (
+            SELECT * FROM new_raw_with_ag
+            UNION ALL
+            SELECT * FROM new_raw_without_ag
+        ),
         new_unique_wid AS (
-        	SELECT distinct affinity_group, affinity, workflow_id
-        	FROM new_raw_union_portion
-        	WHERE affinity_group NOTNULL AND affinity NOTNULL
+            SELECT DISTINCT affinity_group, affinity, workflow_id
+            FROM new_raw_union_portion
+            WHERE 
+                affinity_group IS NOT NULL
+                AND affinity IS NOT NULL
         ),
         new_raw_portion_extended_by_wid AS (
-        	SELECT
-              id,
-              affinity_group,
-              affinity,
-              task_name,
-              workflow_id,
-              workflow_created_date_utc,
-              version
-        	FROM _____dtf_tasks
-        	WHERE (virtual_queue, affinity_group, affinity, workflow_id) IN (
-        		SELECT 'NEW'::_____dtf_virtual_queue_type, affinity_group, affinity, workflow_id
-        		FROM new_unique_wid
-        	)
+            SELECT d.id, d.affinity_group, d.affinity, d.task_name, d.workflow_id, d.workflow_created_date_utc, d.version
+            FROM new_unique_wid u
+            JOIN _____dtf_tasks d
+            ON d.affinity_group = u.affinity_group
+                AND d.affinity       = u.affinity
+                AND d.virtual_queue  = 'NEW'::_____dtf_virtual_queue_type
+                AND d.workflow_id    = u.workflow_id
         ),
         new_raw_extended_portion AS (
-        	SELECT id, affinity_group, affinity, task_name, workflow_id, workflow_created_date_utc, version FROM new_raw_union_portion
-        	UNION
-        	SELECT id, affinity_group, affinity, task_name, workflow_id, workflow_created_date_utc, version FROM new_raw_portion_extended_by_wid
+            SELECT id, affinity_group, affinity, task_name, workflow_id, workflow_created_date_utc, version FROM new_raw_union_portion
+            UNION
+            SELECT id, affinity_group, affinity, task_name, workflow_id, workflow_created_date_utc, version FROM new_raw_portion_extended_by_wid
         ),
         new_portion AS (
-            SELECT
-                id,
-                affinity_group,
-                affinity,
-                task_name,
-                workflow_id,
+            SELECT 
+                id, 
+                affinity_group, 
+                affinity, 
+                task_name, 
+                workflow_id, 
                 version,
                 first_value(workflow_id) OVER (
                     PARTITION BY affinity_group, affinity
                     ORDER BY workflow_created_date_utc, workflow_id
-                    ) AS min_workflow_id
+                ) AS min_workflow_id
             FROM new_raw_extended_portion
         ),
-        to_park_base_on_ready AS (
-        	SELECT id, version
-        	FROM new_portion
-        	WHERE
-        		affinity_group NOTNULL AND affinity NOTNULL
-        		AND
-        			(affinity_group, affinity, 'READY') IN (
-                    	SELECT affinity_group, affinity, virtual_queue
-                        FROM _____dtf_tasks
-        			)
-        ),
-        to_park_base_on_parked AS (
-        	SELECT id, version
-        	FROM new_portion
-        	WHERE
-        		affinity_group NOTNULL AND affinity NOTNULL
-        		AND
-        			(affinity_group, affinity, 'PARKED') IN (
-                    	SELECT affinity_group, affinity, virtual_queue
-                        FROM _____dtf_tasks
-        			)
-        ),
-        to_park_by_min_workflow_id AS (
-            SELECT id, version
+        candidate_groups AS (
+            SELECT DISTINCT affinity_group, affinity
             FROM new_portion
-            WHERE workflow_id != min_workflow_id AND affinity NOTNULL
+            WHERE affinity_group IS NOT NULL AND affinity IS NOT NULL
         ),
-        to_park AS (
-            SELECT id, version, 'PARKED'::_____dtf_virtual_queue_type AS target_virtual_queue FROM to_park_base_on_ready
-            UNION
-            SELECT id, version, 'PARKED'::_____dtf_virtual_queue_type AS target_virtual_queue FROM to_park_base_on_parked
-            UNION
-            SELECT id, version, 'PARKED'::_____dtf_virtual_queue_type AS target_virtual_queue FROM to_park_by_min_workflow_id
+        occupied_groups AS (
+            SELECT g.affinity_group, g.affinity
+            FROM candidate_groups g
+            WHERE EXISTS (
+                SELECT 1 FROM _____dtf_tasks t
+                WHERE t.affinity_group = g.affinity_group
+                    AND t.affinity       = g.affinity
+                    AND t.virtual_queue  = 'READY'::_____dtf_virtual_queue_type
+            )
+            OR EXISTS (
+                SELECT 1 FROM _____dtf_tasks t
+                WHERE t.affinity_group = g.affinity_group
+                    AND t.affinity       = g.affinity
+                    AND t.virtual_queue  = 'PARKED'::_____dtf_virtual_queue_type
+            )
+        )
+        SELECT 
+            np.id AS id, 
+            np.version AS version,
+            CASE
+                WHEN np.affinity IS NOT NULL
+                    AND np.workflow_id <> np.min_workflow_id
+                THEN 'PARKED'::_____dtf_virtual_queue_type
+                WHEN np.affinity_group IS NOT NULL
+                    AND np.affinity IS NOT NULL
+                    AND EXISTS (
+                        SELECT 1 FROM occupied_groups o
+                        WHERE o.affinity_group = np.affinity_group
+                          AND o.affinity       = np.affinity
+                    )
+                THEN 'PARKED'::_____dtf_virtual_queue_type
+                ELSE 'READY'::_____dtf_virtual_queue_type
+            END AS virtual_queue
+        FROM new_portion np
+        """;
+
+    //SUPPOSED USED INDEXES: _____dtf_tasks_parked_ag_a_wcdu_wid_idx, _____dtf_tasks_ag_a_vq_wid_idx, _____dtf_tasks_vq_ag_wcdu_idx, _____dtf_tasks_wid_idx
+    @Override
+    public List<IdVersionWithVirtualQueue> getTasksFromNew(Set<AffinityGroupStat> affinityGroupStats) {
+        if (affinityGroupStats.isEmpty()) {
+            return List.of();
+        }
+
+        var affinityGroups = affinityGroupStats.stream()
+            .filter(agw -> !Objects.equals(AffinityGroupStat.NULL_GROUP, agw))
+            .map(AffinityGroupStat::getAffinityGroup)
+            .toList();
+        var numbers = affinityGroupStats.stream()
+            .filter(agw -> !Objects.equals(AffinityGroupStat.NULL_GROUP, agw))
+            .map(AffinityGroupStat::getNumber)
+            .toList();
+        var nullNumber = affinityGroupStats.stream()
+            .filter(agw -> Objects.equals(AffinityGroupStat.NULL_GROUP, agw))
+            .findFirst()
+            .map(AffinityGroupStat::getNumber)
+            .orElse(0);
+
+        return Lists.newArrayList(namedParameterJdbcTemplate.query(
+                TASKS_FROM_NEW_SELECT,
+                SqlParameters.of(
+                    AffinityGroupStat.Fields.affinityGroup, JdbcTools.toArray(affinityGroups), Types.ARRAY,
+                    AffinityGroupStat.Fields.number, JdbcTools.toIntegerArray(numbers), Types.ARRAY,
+                    "nullNumber", nullNumber, Types.BIGINT,
+                    "hasNullGroup", nullNumber > 0, Types.BOOLEAN
+                ),
+                ID_VERSION_WITH_VIRTUAL_QUEUE_ROW_MAPPER
+            )
+        );
+    }
+
+
+    //language=postgresql
+    private static final String MOVE_NEW_TO_READY_AND_PARKED = """
+        WITH to_update AS (
+            SELECT id, version, target_virtual_queue
+            FROM unnest(:id::uuid[], :version::int[], :virtualQueue::_____dtf_virtual_queue_type[]) AS t(id, version, target_virtual_queue)
         ),
-        to_ready AS (
-            SELECT id, version, 'READY'::_____dtf_virtual_queue_type AS target_virtual_queue FROM new_portion
-            EXCEPT
-            SELECT id, version, 'READY'::_____dtf_virtual_queue_type AS target_virtual_queue FROM to_park
-        ),
-        patched_new AS (
-            SELECT id, version, target_virtual_queue FROM to_park
-            UNION all
-            SELECT id, version, target_virtual_queue FROM to_ready
+        locked AS (
+            SELECT d.id, d.version, c.target_virtual_queue
+            FROM to_update c
+            JOIN _____dtf_tasks d ON d.id = c.id AND d.version = c.version
+            ORDER BY d.id
+            FOR NO KEY UPDATE OF d SKIP LOCKED
         )
         UPDATE _____dtf_tasks d
         SET
-            virtual_queue = (SELECT target_virtual_queue FROM patched_new WHERE id = d.id),
-            version = version + 1
-        WHERE (d.id, d.version) IN (SELECT id, version FROM patched_new ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
-        RETURNING d.id, d.affinity_group, d.affinity, d.task_name, virtual_queue
+            virtual_queue = l.target_virtual_queue,
+            version = l.version
+        FROM locked l
+        WHERE d.id = l.id AND d.version = l.version
+        RETURNING d.id, d.affinity_group, d.affinity, d.task_name, d.virtual_queue
         """;
-
-    private static final BeanPropertyRowMapper<ShortTaskEntity> SHORT_TASK_ROW_MAPPER =
-        new BeanPropertyRowMapper<>(ShortTaskEntity.class);
 
     //SUPPOSED USED INDEXES: _____dtf_tasks_ag_a_vq_idx, _____dtf_tasks_pkey, _____dtf_tasks_vq_ag_wcdu_idx
     @Override
-    public List<ShortTaskEntity> moveNewToReady(Set<AffinityGroupStat> affinityGroupStats) {
-        if (affinityGroupStats.isEmpty()) {
+    public List<ShortTaskEntity> moveNewToReadyAndParked(List<IdVersionWithVirtualQueue> idVersionWithVirtualQueues) {
+        if (idVersionWithVirtualQueues.isEmpty()) {
             return Collections.emptyList();
         }
-        final String tablePrefix = "new_raw_portion_";
+        var ids = idVersionWithVirtualQueues.stream().map(IdVersionWithVirtualQueue::getId).toList();
+        var versions = idVersionWithVirtualQueues.stream().map(IdVersionWithVirtualQueue::getVersion).toList();
+        var virtualQueues = idVersionWithVirtualQueues.stream().map(IdVersionWithVirtualQueue::getVirtualQueue).toList();
 
-        List<AffinityGroupStat> affinityGroupStatLst = Lists.newArrayList(affinityGroupStats);
-        String affinityGroupTables = IntStream.range(0, affinityGroupStatLst.size())
-            .mapToObj(i -> {
-                    var affinityGroupStat = affinityGroupStatLst.get(i);
-                    return SELECT_AFFINITY_GROUP_NEW_PORTION_TEMPLATE
-                        .replace("{TABLE_NAME}", tablePrefix + i)
-                        .replace(
-                            "{AFFINITY_GROUP_EXPRESSION}",
-                            JdbcTools.valueOrNullExpression(affinityGroupStat.getAffinityGroupName())
-                        )
-                        .replace("{LIMIT}", affinityGroupStat.getNumber().toString());
-                }
+        return Lists.newArrayList(namedParameterJdbcTemplate.query(
+                MOVE_NEW_TO_READY_AND_PARKED,
+                SqlParameters.of(
+                    IdVersionWithVirtualQueue.Fields.id, JdbcTools.UUIDsToStringArray(ids), Types.ARRAY,
+                    IdVersionWithVirtualQueue.Fields.version, JdbcTools.toLongArray(versions), Types.ARRAY,
+                    IdVersionWithVirtualQueue.Fields.virtualQueue, JdbcTools.toEnumArray(virtualQueues), Types.ARRAY
+                ),
+                ShortTaskEntity.SHORT_TASK_ROW_MAPPER
             )
-            .collect(Collectors.joining(" , "));
+        );
+    }
 
-        String affinityGroupAggregatedTable = JdbcTools.buildCommonAggregatedTable(affinityGroupStatLst.size(), tablePrefix);
 
-        String query = MOVE_NEW_TO_READY_TEMPLATE
-            .replace("{AFFINITY_GROUP_TABLES}", affinityGroupTables)
-            .replace("{AGGREGATED_AFFINITY_GROUP_TABLE}", affinityGroupAggregatedTable);
+    //language=postgresql
+    private static final String READY_TO_MOVE_FROM_PARKED_TO_READY = """
+        WITH deleted_afg_af AS (
+            SELECT affinity_group, affinity
+            FROM UNNEST(:affinityGroup::text[], :affinity::text[])
+            AS tmp(affinity_group, affinity)
+        ),
+        free_afg_af AS (
+            SELECT d.affinity_group, d.affinity
+            FROM deleted_afg_af d
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM _____dtf_tasks t
+                WHERE t.affinity_group = d.affinity_group
+                AND t.affinity       = d.affinity
+                AND t.virtual_queue  = 'READY'
+            )
+        ),
+        free_afg_af_wid AS (
+            SELECT t.affinity_group, t.affinity, t.workflow_created_date_utc, t.workflow_id
+            FROM free_afg_af f
+            CROSS JOIN LATERAL (
+                SELECT affinity_group, affinity, workflow_created_date_utc, workflow_id
+                FROM _____dtf_tasks
+                WHERE affinity_group = f.affinity_group
+                AND affinity       = f.affinity
+                AND virtual_queue  = 'PARKED'
+                ORDER BY workflow_created_date_utc, workflow_id
+                LIMIT 1 
+            ) t
+        )
+        SELECT t.id, t.version
+        FROM free_afg_af_wid f
+        CROSS JOIN LATERAL (
+            SELECT id, version
+            FROM _____dtf_tasks
+            WHERE affinity_group = f.affinity_group
+            AND affinity         = f.affinity
+            AND virtual_queue    = 'PARKED'
+            AND workflow_created_date_utc = f.workflow_created_date_utc 
+            AND workflow_id      = f.workflow_id
+        ) t
+        ORDER BY t.id;
+        """;
 
-        log.debug("moveNewToReady(): query=[{}]", query);
-
-        return Lists.newArrayList(namedParameterJdbcTemplate.query(query, SHORT_TASK_ROW_MAPPER));
+    //SUPPOSED USED INDEXES: _____dtf_tasks_parked_ag_a_wcdu_wid_idx, _____dtf_tasks_ag_a_vq_wid_idx
+    @Override
+    public List<IdVersionEntity> readyToMoveFromParkedToReady(Collection<AffinityGroupAndAffinity> affinityGroupAndAffinities) {
+        var affinityGroups = affinityGroupAndAffinities.stream().map(AffinityGroupAndAffinity::affinityGroup).toList();
+        var affinities = affinityGroupAndAffinities.stream().map(AffinityGroupAndAffinity::affinity).toList();
+        return Lists.newArrayList(namedParameterJdbcTemplate.query(
+                READY_TO_MOVE_FROM_PARKED_TO_READY,
+                SqlParameters.of(
+                    AffinityGroupAndAffinity.Fields.affinityGroup, JdbcTools.toArray(affinityGroups), Types.ARRAY,
+                    AffinityGroupAndAffinity.Fields.affinity, JdbcTools.toArray(affinities), Types.ARRAY
+                ),
+                IdVersionEntity.ID_VERSION_ROW_MAPPER
+            )
+        );
     }
 
 
     private static final String MOVE_PARKED_TO_READY = """
-        WITH filter AS (
+        WITH to_update AS (
             SELECT id, version
-            FROM UNNEST(:id::uuid[], :version::int[])
-            AS tmp(id, version)
-        ),
-        deleted_portion AS (
-            SELECT
-                id,
-                affinity_group,
-                affinity,
-                virtual_queue AS target_virtual_queue
             FROM _____dtf_tasks
-            WHERE
-                (id, version) IN (
-                    SELECT id, version
-                    FROM filter
-                )
-                AND affinity_group NOTNULL
-        ),
-        deleted_afg_af AS (
-            SELECT distinct affinity_group, affinity
-            FROM deleted_portion
-        ),
-        is_in_ready AS (
-                SELECT distinct affinity_group, affinity
-                FROM deleted_afg_af
-                WHERE
-                    (affinity_group, affinity, 'READY') IN (
-                        SELECT affinity_group, affinity, virtual_queue
-                        FROM _____dtf_tasks
-                )
-        ),
-        free_afg_af AS (
-            SELECT affinity_group, affinity FROM deleted_afg_af
-            EXCEPT
-            SELECT affinity_group, affinity FROM is_in_ready
-        ),
-        to_unpark_wcd AS (
-            SELECT
-                affinity_group,
-                affinity,
-                first_value(workflow_id) OVER (PARTITION BY
-                    affinity_group, affinity
-                    ORDER BY workflow_created_date_utc, workflow_id
-                    ) AS min_workflow_id
-            FROM _____dtf_tasks
-            WHERE (affinity_group, affinity, virtual_queue) IN
-                  (
-                      SELECT distinct affinity_group, affinity, 'PARKED'::_____dtf_virtual_queue_type
-                      FROM free_afg_af
-                  )
-        ),
-        to_unpark AS (
-            SELECT
-                id,
-                affinity_group,
-                affinity,
-                virtual_queue,
-                version
-            FROM _____dtf_tasks
-            WHERE (affinity_group, affinity, virtual_queue, workflow_id) IN
-                  (
-                      SELECT affinity_group, affinity, 'PARKED'::_____dtf_virtual_queue_type, min_workflow_id
-                      FROM to_unpark_wcd
-                  )
+            WHERE (id, version) IN (
+                SELECT id, version
+                FROM UNNEST(:id::uuid[], :version::int[]) AS t(id, version)
+            )
+            ORDER BY id
+            FOR UPDATE
         )
         UPDATE _____dtf_tasks dt
         SET
             virtual_queue = 'READY'::_____dtf_virtual_queue_type,
-            version = version + 1
-        WHERE (dt.id, dt.version) IN (SELECT id, version FROM to_unpark ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
-        RETURNING dt.id, dt.task_name, dt.version, 'READY'::_____dtf_virtual_queue_type AS virtual_queue, dt.affinity_group, dt.affinity;
+            version = dt.version + 1
+        FROM to_update u
+        WHERE dt.id = u.id AND dt.version = u.version
+        RETURNING
+            dt.id,
+            dt.task_name,
+            dt.version,
+            dt.virtual_queue,
+            dt.affinity_group,
+            dt.affinity
         """;
 
-    //SUPPOSED USED INDEXES: _____dtf_tasks_pkey, _____dtf_tasks_ag_a_vq_idx, _____dtf_tasks_vq_ag_wcdu_idx, _____dtf_tasks_da_vq_idx
+    //SUPPOSED USED INDEXES: _____dtf_tasks_pkey
     @Override
     public List<ShortTaskEntity> moveParkedToReady(Collection<IdVersionEntity> idVersionEntities) {
         List<UUID> ids = idVersionEntities.stream().map(IdVersionEntity::getId).toList();
@@ -396,14 +448,18 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
                     IdVersionEntity.Fields.id, JdbcTools.UUIDsToStringArray(ids), Types.ARRAY,
                     IdVersionEntity.Fields.version, JdbcTools.toLongArray(versions), Types.ARRAY
                 ),
-                SHORT_TASK_ROW_MAPPER
+                ShortTaskEntity.SHORT_TASK_ROW_MAPPER
             )
         );
     }
 
-
+    //language=postgresql
     private static final String READY_TO_HARD_DELETE = """
-        SELECT id, version
+        SELECT 
+            id, 
+            version,
+            affinity_group,
+            affinity
         FROM _____dtf_tasks
         WHERE virtual_queue = 'DELETED'
         ORDER BY deleted_at
@@ -411,15 +467,17 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         """;
 
     @Override
-    public Set<IdVersionEntity> readyToHardDelete(int batchSize) {
+    public Set<IdVersionWithAffinityEntity> readyToHardDelete(int batchSize) {
         return Sets.newHashSet(namedParameterJdbcTemplate.query(
                 READY_TO_HARD_DELETE,
                 SqlParameters.of("limit", batchSize, Types.BIGINT),
-                IdVersionEntity.ID_VERSION_ROW_MAPPER
+                IdVersionWithAffinityEntity.ID_VERSION_WITH_AFFINITY_ROW_MAPPER
             )
         );
     }
 
+
+    //language=postgresql
     private static final String COUNT_BY_VIRTUAL_QUEUE = """
         SELECT count(1)
         FROM _____dtf_tasks
@@ -436,6 +494,8 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         );
     }
 
+
+    //language=postgresql
     private static final String SOFT_DELETE = """
         UPDATE _____dtf_tasks
         SET
@@ -464,27 +524,65 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         }
 
         UUID taskId = taskEntity.getId();
-        if (!filerExisted(List.of(taskId)).isEmpty()) {
+        if (!taskRepositoryHelper.filerExisted(List.of(taskId)).isEmpty()) {
             throw new OptimisticLockException(format("Can't update=[%s]", taskEntity), TaskEntity.class);
         }
         throw new UnknownTaskException(taskId);
     }
 
+
+    //language=postgresql
+    private static final String SOFT_DELETE_ALL = """
+        WITH to_update AS (
+            SELECT id, version
+            FROM _____dtf_tasks
+            WHERE (id, version) IN (
+                SELECT id, version
+                FROM UNNEST(:id::uuid[], :version::int[]) AS t(id, version)
+            )
+            ORDER BY id
+            FOR NO KEY UPDATE
+        )
+        UPDATE _____dtf_tasks dt
+        SET
+            virtual_queue = 'DELETED'::_____dtf_virtual_queue_type,
+            deleted_at    = :deletedAt,
+            version       = dt.version + 1
+        FROM to_update u
+        WHERE dt.id = u.id AND dt.version = u.version
+        RETURNING dt.id
+        """;
+
     @Override
     public void softDeleteAll(Collection<TaskEntity> taskEntities) {
-        taskEntities = taskEntities.stream()
-            .map(this::prepareToSoftDelete)
-            .toList();
-        var batchArgs = SqlParameters.convert(taskEntities, this::toSqlParameterSourceForDeleting);
-        var result = namedParameterJdbcTemplate.batchUpdate(SOFT_DELETE, batchArgs);
-        var notAffected = JdbcTools.filterNotAffected(Lists.newArrayList(taskEntities), result);
-        if (notAffected.isEmpty()) {
+        if (taskEntities.isEmpty()) {
+            return;
+        }
+        var ids = taskEntities.stream().map(TaskEntity::getId).toList();
+        var versions = taskEntities.stream().map(TaskEntity::getVersion).toList();
+        var deletedAt = LocalDateTime.now(clock);
+
+        var updatedIds = namedParameterJdbcTemplate.queryForList(
+            SOFT_DELETE_ALL,
+            SqlParameters.of(
+                TaskEntity.Fields.id, JdbcTools.UUIDsToStringArray(ids), Types.ARRAY,
+                TaskEntity.Fields.version, JdbcTools.toLongArray(versions), Types.ARRAY,
+                TaskEntity.Fields.deletedAt, deletedAt, Types.TIMESTAMP
+            ),
+            UUID.class
+        );
+
+        if (updatedIds.size() == taskEntities.size()) {
             return;
         }
 
-        var notAffectedIds = notAffected.stream().map(TaskEntity::getId).toList();
-        var optimisticLockIds = filerExisted(notAffectedIds);
-        var unknownTaskIds = Sets.difference(Sets.newHashSet(notAffectedIds), Sets.newHashSet(optimisticLockIds));
+        var updatedIdSet = Sets.newHashSet(updatedIds);
+        var notAffectedIds = ids.stream()
+            .filter(id -> !updatedIdSet.contains(id))
+            .collect(Collectors.toSet());
+
+        var optimisticLockIds = taskRepositoryHelper.filerExisted(notAffectedIds);
+        var unknownTaskIds = Sets.difference(notAffectedIds, Sets.newHashSet(optimisticLockIds));
 
         throw BatchUpdateException.builder()
             .optimisticLockTaskIds(optimisticLockIds)
@@ -505,23 +603,6 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
             TaskEntity.Fields.version, taskEntity.getVersion(), Types.BIGINT,
             TaskEntity.Fields.virtualQueue, JdbcTools.asString(taskEntity.getVirtualQueue()), Types.VARCHAR,
             TaskEntity.Fields.deletedAt, taskEntity.getDeletedAt(), Types.TIMESTAMP
-        );
-    }
-
-
-    //language=postgresql
-    private static final String FILTER_EXISTED = """
-        SELECT id
-        FROM _____dtf_tasks
-        WHERE
-            id = ANY( (:taskIds)::uuid[] )
-        """;
-
-    private List<UUID> filerExisted(List<UUID> taskIds) {
-        return namedParameterJdbcTemplate.queryForList(
-            FILTER_EXISTED,
-            SqlParameters.of("taskIds", JdbcTools.UUIDsToStringArray(taskIds), Types.ARRAY),
-            UUID.class
         );
     }
 }

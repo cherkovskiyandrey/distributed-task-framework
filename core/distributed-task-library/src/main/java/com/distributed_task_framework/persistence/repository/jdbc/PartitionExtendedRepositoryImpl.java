@@ -4,6 +4,7 @@ import com.distributed_task_framework.persistence.entity.PartitionEntity;
 import com.distributed_task_framework.persistence.repository.PartitionExtendedRepository;
 import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
+import com.distributed_task_framework.utils.PgComparatorUtils;
 import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -67,33 +68,31 @@ public class PartitionExtendedRepositoryImpl implements PartitionExtendedReposit
 
     private static final String FILTER_EXISTED = """
         WITH filter AS (
-            SELECT affinity_group, task_name, time_bucket
+            SELECT DISTINCT affinity_group, task_name, time_bucket
             FROM UNNEST(:affinityGroup::varchar[], :taskName::varchar[], :timeBucket::int[])
             AS tmp(affinity_group, task_name, time_bucket)
-        ),
-        partitions_with_affinity_groups AS (
-            SELECT distinct affinity_group, task_name, time_bucket
-            FROM _____dtf_partitions
-            WHERE affinity_group IS NOT NULL
-                AND (affinity_group, task_name, time_bucket) IN (
-                    SELECT affinity_group, task_name, time_bucket
-                    FROM filter
-                    WHERE affinity_group IS NOT NULL
-            )
-        ),
-        partitions_without_affinity_group AS (
-            SELECT distinct affinity_group, task_name, time_bucket
-            FROM _____dtf_partitions
-            WHERE affinity_group ISNULL
-                AND (task_name, time_bucket) IN (
-                    SELECT task_name, time_bucket
-                    FROM filter
-                    WHERE affinity_group ISNULL
-            )
         )
-        SELECT * FROM partitions_with_affinity_groups
+        SELECT f.affinity_group, f.task_name, f.time_bucket
+        FROM filter f
+        WHERE f.affinity_group IS NOT NULL
+            AND EXISTS (
+                SELECT 1
+                FROM _____dtf_partitions p
+                WHERE p.affinity_group = f.affinity_group
+                AND p.task_name = f.task_name
+                AND p.time_bucket = f.time_bucket
+            )
         UNION ALL
-        SELECT * FROM partitions_without_affinity_group
+        SELECT f.affinity_group, f.task_name, f.time_bucket
+        FROM filter f
+        WHERE f.affinity_group IS NULL
+            AND EXISTS (
+                SELECT 1
+                FROM _____dtf_partitions p
+                WHERE p.affinity_group IS NULL
+                AND p.task_name = f.task_name
+                AND p.time_bucket = f.time_bucket
+            )
         """;
 
     @Override
@@ -136,10 +135,17 @@ public class PartitionExtendedRepositoryImpl implements PartitionExtendedReposit
             FROM _____dtf_partitions
             WHERE time_bucket = :timeBucket
             ORDER BY affinity_group, task_name, time_bucket, id
+        ),
+        to_delete AS (
+            SELECT id
+            FROM _____dtf_partitions
+            WHERE time_bucket = :timeBucket
+              AND id NOT IN (SELECT id FROM unique_ids)
+            ORDER BY id
+            FOR UPDATE
         )
         DELETE FROM _____dtf_partitions
-        WHERE id NOT IN (SELECT * FROM unique_ids)
-          AND time_bucket = :timeBucket
+        WHERE id IN (SELECT id FROM to_delete)
         """;
 
     @Override
@@ -157,9 +163,8 @@ public class PartitionExtendedRepositoryImpl implements PartitionExtendedReposit
 
     @Override
     public void deleteBatch(Collection<PartitionEntity> toRemove) {
-        List<UUID> ids = toRemove.stream()
-            .map(PartitionEntity::getId)
-            .toList();
+        Collection<UUID> ids = toRemove.stream().map(PartitionEntity::getId).toList();
+        ids = PgComparatorUtils.sortTaskIds(ids);
         namedParameterJdbcTemplate.update(
             DELETE_BY_IDS,
             SqlParameters.of(

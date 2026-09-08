@@ -269,7 +269,6 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl {
             unplannedActualTasks,
             batchRouteMap.getTaskNameNodeQuota()
         );
-        plannedTasks = sort(plannedTasks); //to prevent deadlocks during split brain
         taskRepository.updateAll(plannedTasks);
         virtualQueueStatService.updatePlannedTasks(plannedTasks);
         log.info(
@@ -351,12 +350,6 @@ public class VirtualQueueBaseFairTaskPlannerImpl extends AbstractPlannerImpl {
     private List<UUID> toIdList(Collection<ShortTaskEntity> plannedTasks) {
         return plannedTasks.stream()
             .map(ShortTaskEntity::getId)
-            .toList();
-    }
-
-    private Collection<ShortTaskEntity> sort(Collection<ShortTaskEntity> plannedTasks) {
-        return plannedTasks.stream()
-            .sorted(ShortTaskEntity.COMPARATOR)
             .toList();
     }
 

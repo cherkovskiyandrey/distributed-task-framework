@@ -4,6 +4,7 @@ import com.distributed_task_framework.model.Partition;
 import com.distributed_task_framework.persistence.repository.PartitionTrackerRepository;
 import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
+import com.distributed_task_framework.utils.SqlParameters;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
@@ -12,10 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
+import java.sql.Types;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -44,55 +44,47 @@ public class PartitionTrackerRepositoryImpl implements PartitionTrackerRepositor
         );
     }
 
-
-    private static final String ACTIVE_PARTITIONS_SUB_SELECT_TEMPLATE = """
-        {TABLE_NAME} AS (
-            SELECT task_name, affinity_group
-            FROM _____dtf_tasks
-            WHERE virtual_queue = 'READY'
-               AND task_name = '{TASK_NAME}'
-               AND affinity_group {AFFINITY_GROUP_EXPRESSION}
-            ORDER BY execution_date_utc
-            LIMIT 1
+    //language=postgresql
+    private static final String ACTIVE_PARTITIONS_SELECT = """
+        WITH filter AS (
+            SELECT DISTINCT task_name, affinity_group
+            FROM UNNEST(:taskName::varchar[], :affinityGroup::varchar[])
+            AS t(task_name, affinity_group)
         )
+        SELECT f.task_name, f.affinity_group
+        FROM filter f
+        WHERE f.affinity_group IS NOT NULL
+            AND EXISTS (
+                SELECT 1 FROM _____dtf_tasks t
+                WHERE t.task_name = f.task_name
+                AND t.affinity_group = f.affinity_group
+                AND t.virtual_queue = 'READY'
+            )
+        UNION ALL
+        SELECT f.task_name, f.affinity_group
+        FROM filter f
+        WHERE f.affinity_group IS NULL
+            AND EXISTS (
+                SELECT 1 FROM _____dtf_tasks t
+                WHERE t.task_name = f.task_name
+                AND t.affinity_group IS NULL
+                AND t.virtual_queue = 'READY'
+            )
         """;
 
-    private static final String ACTIVE_PARTITIONS_SELECT_TEMPLATE = """
-        WITH {ACTIVE_PARTITIONS_FILTER_SUB_TABLES},
-        all_tasks AS ({ACTIVE_PARTITIONS_AGGREGATED_TABLE})
-        SELECT *
-        FROM all_tasks;
-        """;
-
-    //SUPPOSED USED INDEXES: _____dtf_tasks_vq_ag_wcdu_idx, _____dtf_tasks_tn_afg_vq_edu_idx
+    //SUPPOSED USED INDEXES: _____dtf_tasks_tn_afg_vq_edu_idx
     @Override
     public Set<Partition> filterInReadyVirtualQueue(Set<Partition> entities) {
-        final String tablePrefix = "partition_";
         List<Partition> partitionList = Lists.newArrayList(entities);
-        String activePartitionTables = IntStream.range(0, partitionList.size())
-            .mapToObj(i -> {
-                    Partition partition = partitionList.get(i);
-                    return ACTIVE_PARTITIONS_SUB_SELECT_TEMPLATE
-                        .replace("{TABLE_NAME}", tablePrefix + i)
-                        .replace("{TASK_NAME}", partition.getTaskName())
-                        .replace(
-                            "{AFFINITY_GROUP_EXPRESSION}",
-                            JdbcTools.valueOrNullExpression(partition.getAffinityGroup())
-                        )
-                        ;
-
-                }
-            )
-            .collect(Collectors.joining(" , "));
-
-        String activePartitionsAggregatedTable = JdbcTools.buildCommonAggregatedTable(partitionList.size(), tablePrefix);
-
-        String query = ACTIVE_PARTITIONS_SELECT_TEMPLATE
-            .replace("{ACTIVE_PARTITIONS_FILTER_SUB_TABLES}", activePartitionTables)
-            .replace("{ACTIVE_PARTITIONS_AGGREGATED_TABLE}", activePartitionsAggregatedTable);
-
-        log.debug("filterInReadyVirtualQueue(): query=[{}]", query);
-
-        return Sets.newHashSet(namedParameterJdbcTemplate.query(query, PARTITION_MAPPER));
+        var taskNames = partitionList.stream().map(Partition::getTaskName).toList();
+        var affinityGroups = partitionList.stream().map(Partition::getAffinityGroup).toList();
+        return Sets.newHashSet(namedParameterJdbcTemplate.query(
+            ACTIVE_PARTITIONS_SELECT,
+            SqlParameters.of(
+                Partition.Fields.taskName, JdbcTools.toArray(taskNames), Types.ARRAY,
+                Partition.Fields.affinityGroup, JdbcTools.toArray(affinityGroups), Types.ARRAY
+            ),
+            PARTITION_MAPPER
+        ));
     }
 }

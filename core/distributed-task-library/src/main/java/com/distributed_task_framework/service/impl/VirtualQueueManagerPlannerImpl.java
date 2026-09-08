@@ -1,11 +1,13 @@
 package com.distributed_task_framework.service.impl;
 
+import com.distributed_task_framework.mapper.IdVersionMapper;
 import com.distributed_task_framework.mapper.TaskMapper;
+import com.distributed_task_framework.model.AffinityGroupAndAffinity;
 import com.distributed_task_framework.model.AffinityGroupStat;
 import com.distributed_task_framework.model.AffinityGroupWrapper;
 import com.distributed_task_framework.model.Capabilities;
 import com.distributed_task_framework.model.Partition;
-import com.distributed_task_framework.persistence.entity.IdVersionEntity;
+import com.distributed_task_framework.persistence.entity.IdVersionWithAffinityEntity;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
@@ -24,12 +26,12 @@ import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
     TaskRepository taskRepository;
     PartitionTracker partitionTracker;
     TaskMapper taskMapper;
+    IdVersionMapper idVersionMapper;
     Set<AffinityGroupWrapper> affinityGroupsInNew = Sets.newHashSet();
     AtomicReference<LocalDateTime> lastScanAffinityGroupsDateTime = new AtomicReference<>(LocalDateTime.MIN);
     VirtualQueueStatService virtualQueueStatService;
@@ -58,8 +61,10 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
     Timer maxCreatedDateInNewTimer;
     Timer affinityGroupsInNewTimer;
     Timer affinityGroupInNewVirtualQueueTime;
-    Timer moveNewToReadyTime;
+    Timer taskFromNewTimer;
+    Timer moveNewToReadyAndParkedTime;
     Timer readyToHardDeleteTime;
+    Timer readyToMoveFromParkedToReadyTime;
     Timer moveParkedToReadyTime;
     Timer deleteByIdVersionTime;
 
@@ -70,6 +75,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
                                           TaskRepository taskRepository,
                                           PartitionTracker partitionTracker,
                                           TaskMapper taskMapper,
+                                          IdVersionMapper idVersionMapper,
                                           VirtualQueueStatService virtualQueueStatService,
                                           PlannerStateRegistry plannerStateRegistry,
                                           DistributedTaskMetricHelper distributedTaskMetricHelper) {
@@ -86,6 +92,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
         this.taskRepository = taskRepository;
         this.partitionTracker = partitionTracker;
         this.taskMapper = taskMapper;
+        this.idVersionMapper = idVersionMapper;
         this.virtualQueueStatService = virtualQueueStatService;
         this.commonTags = List.of(Tag.of("group", plannerGroup().getName()));
         this.maxCreatedDateInNewTimer = distributedTaskMetricHelper.timer(
@@ -100,12 +107,20 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
             List.of("planner", "vqb", "affinityGroupInNewVirtualQueue", "time"),
             commonTags
         );
-        this.moveNewToReadyTime = distributedTaskMetricHelper.timer(
-            List.of("planner", "vqb", "moveNewToReady", "time"),
+        this.taskFromNewTimer = distributedTaskMetricHelper.timer(
+            List.of("planner", "vqb", "taskFromNew", "time"),
+            commonTags
+        );
+        this.moveNewToReadyAndParkedTime = distributedTaskMetricHelper.timer(
+            List.of("planner", "vqb", "moveNewToReadyAndParked", "time"),
             commonTags
         );
         this.readyToHardDeleteTime = distributedTaskMetricHelper.timer(
             List.of("planner", "vqb", "readyToHardDelete", "time"),
+            commonTags
+        );
+        this.readyToMoveFromParkedToReadyTime = distributedTaskMetricHelper.timer(
+            List.of("planner", "vqb", "readyToMoveFromParkedToReady", "time"),
             commonTags
         );
         this.moveParkedToReadyTime = distributedTaskMetricHelper.timer(
@@ -166,6 +181,9 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
         reset();
     }
 
+    //todo: возможен ли кейс что нода завершилась некорректно: успела переместить таски но не успела обновить partitionTracker
+    // и при этом поднялся 2 планировщик на некоторое время в параллель и уже сделал partitionTracker.reinit(); до того как первый
+    // перенес задачи и упал.
     private void reset() {
         partitionTracker.reinit();
         affinityGroupsInNew.clear();
@@ -189,6 +207,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
     }
 
     private int processNewQueue(Set<Partition> activePartitions) throws Exception {
+        var oldAffinityGroupsInNew = affinityGroupsInNew;
         var affinityGroupInNewStats = affinityGroupInNewVirtualQueueTime.record(() ->
             taskRepository.affinityGroupInNewVirtualQueueStat(
                 affinityGroupsInNew,
@@ -202,16 +221,25 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
 
 
         if (affinityGroupInNewStats.isEmpty()) {
-            log.debug("processNewQueue(): affinityGroupInNewStats is empty for affinityGroupsInNew=[{}]", affinityGroupsInNew);
+            log.debug("processNewQueue(): affinityGroupInNewStats is empty for affinityGroupsInNew=[{}]", oldAffinityGroupsInNew);
             return 0;
         }
 
-        //todo: the problem will arise when number of task-types is more than plannerSettings.getNewBatchSize
-        // (100 is default), for saga this number can be greater!!!
         var affinityGroupsToMoveFromNew = calcAffinityGroupsToMoveFromNew(affinityGroupInNewStats);
-        log.info("processNewQueue(): affinityGroupsToMoveFromNew=[{}]", affinityGroupsToMoveFromNew);
-        var movedTasks = Objects.requireNonNull(moveNewToReadyTime.recordCallable(
-                () -> taskRepository.moveNewToReady(affinityGroupsToMoveFromNew)
+
+        var idVersionWithAffinityFromNew = Objects.requireNonNull(taskFromNewTimer.recordCallable(
+                () -> taskRepository.getTasksFromNew(affinityGroupsToMoveFromNew)
+            )
+        );
+
+        if (idVersionWithAffinityFromNew.isEmpty()) {
+            log.debug("processNewQueue(): idVersionWithAffinityFromNew is empty for affinityGroupsInNew=[{}]", oldAffinityGroupsInNew);
+            return 0;
+        }
+
+        log.info("processNewQueue(): moveNewToReadyAndParked=[{}]", affinityGroupsToMoveFromNew);
+        var movedTasks = Objects.requireNonNull(moveNewToReadyAndParkedTime.recordCallable(
+                () -> taskRepository.moveNewToReadyAndParked(idVersionWithAffinityFromNew)
             )
         );
         if (movedTasks.isEmpty()) {
@@ -235,43 +263,74 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
     }
 
     private int processDeletedQueue(Set<Partition> activePartitions) throws Exception {
-        var taskIdVersions = readyToHardDeleteTime.record(() ->
+        var idVersionWithAffinityReadyToHardDelete = readyToHardDeleteTime.record(() ->
             taskRepository.readyToHardDelete(plannerSettings.getDeletedBatchSize())
         );
-        if (Objects.requireNonNull(taskIdVersions).isEmpty()) {
-            log.debug("processDeletedQueue(): taskIdVersions is empty");
+        if (Objects.requireNonNull(idVersionWithAffinityReadyToHardDelete).isEmpty()) {
+            log.debug("processDeletedQueue(): idVersionWithAffinityEntity is empty");
+            return 0;
+        }
+
+        var numMovedToReadyTasks = moveParkedToReady(idVersionWithAffinityReadyToHardDelete, activePartitions);
+
+        log.info("processDeletedQueue(): idVersionWithAffinityReadyToHardDelete=[{}]", idVersionWithAffinityReadyToHardDelete);
+        var idVersionToHardDelete = idVersionMapper.map(idVersionWithAffinityReadyToHardDelete);
+        var deletedTaskIdVersions = Objects.requireNonNull(deleteByIdVersionTime.recordCallable(
+            () -> taskRepository.deleteByIdVersion(idVersionToHardDelete))
+        );
+        var conflictedTaskIdVersions = Sets.difference(Sets.newHashSet(idVersionToHardDelete), Sets.newHashSet(deletedTaskIdVersions));
+        if (!conflictedTaskIdVersions.isEmpty()) {
+            log.warn("processDeletedQueue(): CONFLICTED conflictedTaskIdVersions=[{}]", conflictedTaskIdVersions);
+        }
+
+        return numMovedToReadyTasks;
+    }
+
+    private int moveParkedToReady(Set<IdVersionWithAffinityEntity> readyToHardDelete, Set<Partition> activePartitions) throws Exception {
+        var affinityGroupWithAffinity = readyToHardDelete.stream()
+            .filter(entity -> StringUtils.isNotBlank(entity.getAffinity()))
+            .map(entity -> new AffinityGroupAndAffinity(entity.getAffinityGroup(), entity.getAffinity()))
+            .collect(Collectors.toSet());
+        if (affinityGroupWithAffinity.isEmpty()) {
+            log.debug("moveParkedToReady(): affinityGroupWithAffinity is empty");
+            return 0;
+        }
+
+        var parkedToReady = Objects.requireNonNull(readyToMoveFromParkedToReadyTime.recordCallable(
+                () -> taskRepository.readyToMoveFromParkedToReady(affinityGroupWithAffinity)
+            )
+        );
+        if (parkedToReady.isEmpty()) {
+            log.debug("moveParkedToReady(): parkedToReady is empty");
             return 0;
         }
 
         var movedToReadyTasks = Objects.requireNonNull(moveParkedToReadyTime.recordCallable(
-                () -> taskRepository.moveParkedToReady(taskIdVersions)
+                () -> taskRepository.moveParkedToReady(parkedToReady)
             )
         );
-
-        if (!movedToReadyTasks.isEmpty()) {
-            virtualQueueStatService.updateMoved(movedToReadyTasks);
-            log.info("processDeletedQueue(): movedTasksDescription=[{}]", movedTasksToDescription(movedToReadyTasks));
-
-            var partitionsFromParked = movedToReadyTasks.stream()
-                .map(taskMapper::mapToPartition)
-                .collect(Collectors.toSet());
-            log.info("processDeletedQueue(): partitionsFromParked=[{}]", partitionsFromParked);
-            activePartitions.addAll(partitionsFromParked);
+        if (movedToReadyTasks.isEmpty()) {
+            log.warn("moveParkedToReady(): movedToReadyTasks is empty, suspect to concurrent planner is run!!!");
+            return 0;
+        }
+        if (!Objects.equals(parkedToReady.size(), movedToReadyTasks.size())) {
+            log.warn(
+                "moveParkedToReady(): parkedToReady.size=[{}] != movedToReadyTasks.size=[{}], suspect to concurrent planner is run!!!",
+                parkedToReady.size(),
+                movedToReadyTasks.size()
+            );
         }
 
-        log.info("processDeletedQueue(): taskIdVersions=[{}]", taskIdVersions);
-        var deletedTaskIdVersions = Objects.requireNonNull(deleteByIdVersionTime.recordCallable(
-            () -> taskRepository.deleteByIdVersion(sort(taskIdVersions)))
-        );
-        var conflictedTaskIdVersions = Sets.difference(taskIdVersions, Sets.newHashSet(deletedTaskIdVersions));
-        if (!conflictedTaskIdVersions.isEmpty()) {
-            log.error("processDeletedQueue(): CONFLICTED conflictedTaskIdVersions=[{}]", conflictedTaskIdVersions);
-        }
+        virtualQueueStatService.updateMoved(movedToReadyTasks);
+        log.info("moveParkedToReady(): movedTasksDescription=[{}]", movedTasksToDescription(movedToReadyTasks));
+
+        var partitionsFromParked = movedToReadyTasks.stream()
+            .map(taskMapper::mapToPartition)
+            .collect(Collectors.toSet());
+        log.info("moveParkedToReady(): partitionsFromParked=[{}]", partitionsFromParked);
+        activePartitions.addAll(partitionsFromParked);
+
         return movedToReadyTasks.size();
-    }
-
-    private Collection<IdVersionEntity> sort(Set<IdVersionEntity> taskIdVersions) {
-        return taskIdVersions.stream().sorted(IdVersionEntity.COMPARATOR).toList();
     }
 
     private Set<AffinityGroupStat> calcAffinityGroupsToMoveFromNew(Set<AffinityGroupStat> affinityGroupStats) {
@@ -288,7 +347,7 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
                     toRemove.add(source);
                     continue;
                 }
-                var affinityGroupName = source.getAffinityGroupName();
+                var affinityGroupName = source.getAffinityGroup();
                 var sink = affinityGroupStatsByAffinityGroup.computeIfAbsent(
                     affinityGroupName,
                     key -> new AffinityGroupStat(key, 0)
@@ -326,12 +385,11 @@ public class VirtualQueueManagerPlannerImpl extends AbstractPlannerImpl {
         affinityGroupsInNew.clear();
         affinityGroupsInNew.addAll(affinityGroupInNewStats.stream()
             .map(affinityGroupStat -> AffinityGroupWrapper.builder()
-                .affinityGroup(affinityGroupStat.getAffinityGroupName())
+                .affinityGroup(affinityGroupStat.getAffinityGroup())
                 .build()
             )
             .collect(Collectors.toSet())
         );
-
     }
 
     private String movedTasksToDescription(List<ShortTaskEntity> movedTasks) {

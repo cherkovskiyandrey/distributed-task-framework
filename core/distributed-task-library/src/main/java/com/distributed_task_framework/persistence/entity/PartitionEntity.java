@@ -14,7 +14,6 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 
-import java.util.Comparator;
 import java.util.UUID;
 
 @Table("_____dtf_partitions")
@@ -25,11 +24,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder(toBuilder = true)
 public class PartitionEntity {
-    public static final Comparator<PartitionEntity> COMPARATOR = Comparator
-        .comparing(PartitionEntity::getAffinityGroup, Comparator.nullsFirst(String::compareTo))
-        .thenComparing(PartitionEntity::getTaskName, Comparator.nullsFirst(String::compareTo))
-        .thenComparing(PartitionEntity::getTimeBucket, Comparator.nullsFirst(Long::compareTo));
-
     public static final BeanPropertyRowMapper<PartitionEntity> PARTITION_ROW_MAPPER =
         new BeanPropertyRowMapper<>(PartitionEntity.class);
 

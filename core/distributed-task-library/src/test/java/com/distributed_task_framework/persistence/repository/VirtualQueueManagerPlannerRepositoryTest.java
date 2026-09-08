@@ -1,9 +1,10 @@
 package com.distributed_task_framework.persistence.repository;
 
+import com.distributed_task_framework.TaskPopulateAndVerify;
+import com.distributed_task_framework.model.AffinityGroupAndAffinity;
 import com.distributed_task_framework.model.AffinityGroupStat;
 import com.distributed_task_framework.model.AffinityGroupWrapper;
-import com.distributed_task_framework.TaskPopulateAndVerify;
-import com.distributed_task_framework.persistence.entity.IdVersionEntity;
+import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -17,6 +18,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,6 +28,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.distributed_task_framework.TaskPopulateAndVerify.getAffinityGroup;
+import static java.time.LocalDateTime.now;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
@@ -56,7 +59,7 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
         assertThat(maxCreatedDateOpt)
             .isPresent()
             .get()
-            .isEqualTo(LocalDateTime.now(clock));
+            .isEqualTo(now(clock));
     }
 
     @Test
@@ -92,7 +95,7 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
 
         //do
         setFixedTime(checkPoint.toSeconds());
-        var affinityGroupWrappers = repository.affinityGroupsInNewVirtualQueue(LocalDateTime.now(clock), overlap);
+        var affinityGroupWrappers = repository.affinityGroupsInNewVirtualQueue(now(clock), overlap);
 
         //verify
         List<AffinityGroupWrapper> expectedResult = List.of(
@@ -116,8 +119,8 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
             )
         );
 
-        //220/10(groups) = 20 tasks in each
-        taskPopulateAndVerify.populate(0, 220, VirtualQueue.NEW, populationSpecs);
+        //200/10(groups) = 20 tasks in each
+        taskPopulateAndVerify.populate(0, 200, VirtualQueue.NEW, populationSpecs);
 
         Set<AffinityGroupWrapper> affinityGroupWrappers = populationSpecs.stream()
             .map(populationSpec -> new AffinityGroupWrapper(populationSpec.getAffinityGroup()))
@@ -130,45 +133,60 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
 
         //verify
         Map<String, Integer> affinityGroupToNumber = affinityGroupStats.stream()
-            .filter(affinityGroupStat -> affinityGroupStat.getAffinityGroupName() != null)
+            .filter(affinityGroupStat -> affinityGroupStat.getAffinityGroup() != null)
             .collect(Collectors.groupingBy(
-                AffinityGroupStat::getAffinityGroupName,
+                AffinityGroupStat::getAffinityGroup,
                 Collectors.summingInt(AffinityGroupStat::getNumber)
             ));
 
         IntStream.range(0, 6)
             .forEach(group -> assertThat(affinityGroupToNumber.getOrDefault(getAffinityGroup(group), 0)).isEqualTo(limit));
+
         IntStream.range(7, 10)
             .forEach(group -> assertThat(affinityGroupToNumber.getOrDefault(getAffinityGroup(group), 0)).isEqualTo(limit));
-        assertThat(affinityGroupStats).anyMatch(affinityGroupStat -> affinityGroupStat.getAffinityGroupName() == null);
+
+        assertThat(affinityGroupStats).anyMatch(affinityGroupStat -> affinityGroupStat.getAffinityGroup() == null);
+
         assertThat(Lists.newArrayList(affinityGroupStats))
             .allMatch(affinityGroupStat -> limit == affinityGroupStat.getNumber());
     }
 
     @Test
-    void shouldMoveNewToReady() {
+    void shouldGetTasksFromNew() {
         //when
-        final int limit = 6;
-        //setFixedTime();
-        List<TaskPopulateAndVerify.PopulationSpec> populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-            Range.closedOpen(0, 2), TaskPopulateAndVerify.GenerationSpec.one(),
-            Range.closedOpen(2, 4), TaskPopulateAndVerify.GenerationSpec.oneWithoutAffinity(),
-            Range.closedOpen(4, 6), TaskPopulateAndVerify.GenerationSpec.one()
-        ));
+        final int limit = 5;
+        var populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
+                Range.closedOpen(0, 2), TaskPopulateAndVerify.GenerationSpec.one(),
+                Range.closedOpen(2, 4), TaskPopulateAndVerify.GenerationSpec.oneWithoutAffinity(),
+                Range.closedOpen(4, 6), TaskPopulateAndVerify.GenerationSpec.one(),
+                Range.closedOpen(6, 7), TaskPopulateAndVerify.GenerationSpec.oneWithFixedWorkflow(LocalDateTime.now(clock))
+            )
+        );
         taskPopulateAndVerify.populate(0, 1, VirtualQueue.READY, populationSpecs);
         taskPopulateAndVerify.populate(1, 2, VirtualQueue.PARKED, populationSpecs);
 
         taskPopulateAndVerify.populate(2, 3, VirtualQueue.READY, populationSpecs);
         taskPopulateAndVerify.populate(3, 4, VirtualQueue.PARKED, populationSpecs);
 
-        var newTaskEntities = taskPopulateAndVerify.populate(0, 100, VirtualQueue.NEW, populationSpecs);
-
-        //setFixedTime(1_000); //>taskPopulate.populate(100...
+        //7 groups => 70/7 => 10 tasks in each group
+        var newTaskEntities = taskPopulateAndVerify.populate(0, 70, VirtualQueue.NEW, populationSpecs);
 
         //do
-        var movedShortTaskEntities = repository.moveNewToReady(toAffinityGroupStat(populationSpecs, limit));
+        var idVersionWithVirtualQueues = repository.getTasksFromNew(toAffinityGroupStat(populationSpecs, limit));
 
         //verify
+        var movedShortTaskEntities = idVersionWithVirtualQueues.stream()
+            .map(idVersionWithVirtualQueue -> taskRepository.findById(idVersionWithVirtualQueue.getId())
+                .map(taskEntity -> taskEntity.toBuilder()
+                    .virtualQueue(idVersionWithVirtualQueue.getVirtualQueue())
+                    .build()
+                )
+                .orElseThrow()
+            )
+            .map(taskRepository::saveOrUpdate)
+            .map(taskMapper::mapToShort)
+            .toList();
+
         TaskPopulateAndVerify.VerifyVirtualQueueContext baseVerifyCtx = TaskPopulateAndVerify.VerifyVirtualQueueContext.builder()
             .populationSpecRange(Range.closedOpen(0, 2)) // group range
             .expectedVirtualQueueByRange(Map.of(
@@ -202,39 +220,59 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
             ))
             .build()
         );
+
+        taskPopulateAndVerify.verifyVirtualQueue(baseVerifyCtx.toBuilder()
+            .populationSpecRange(Range.closedOpen(6, 7)) // group range
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 10), // all task because of workflowId is the same
+                TaskPopulateAndVerify.ExpectedVirtualQueue.moved(VirtualQueue.READY)
+            ))
+            .build()
+        );
     }
 
     @Test
-    void shouldMoveParkedToReady() {
+    void shouldMoveNewToReadyAndParked() {
         //when
-        final int limit = 11;
-        setFixedTime();
-        //total=10 affinityGroups
-        List<TaskPopulateAndVerify.PopulationSpec> populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
+        var populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
                 Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.one()
             )
         );
-        taskPopulateAndVerify.populate(0, 2, VirtualQueue.READY, populationSpecs);
-        //100/10(populationSpecs) = 10 tasks for each group
-        var parkedTaskEntities = taskPopulateAndVerify.populate(0, 100, VirtualQueue.PARKED, populationSpecs);
-        var inDeletedPartOne = taskPopulateAndVerify.populate(0, 10, VirtualQueue.DELETED, populationSpecs);
+        var parkedTaskEntities = taskPopulateAndVerify.populate(0, 10, VirtualQueue.NEW, populationSpecs);
 
-        List<TaskPopulateAndVerify.PopulationSpec> populationSpecWithoutAffinity = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
-            Range.closedOpen(0, 1), TaskPopulateAndVerify.GenerationSpec.oneWithoutAffinity()
-        ));
-        var stillDeletedTaskEntities = taskPopulateAndVerify.populate(0, 1, VirtualQueue.DELETED, populationSpecWithoutAffinity);
-
-        setFixedTime(1_000); //>taskPopulate.populate(100...
-
-        //do
-        var idVersionEntities = Stream.concat(inDeletedPartOne.stream(), stillDeletedTaskEntities.stream())
-            .map(taskEntity -> IdVersionEntity.builder()
-                .id(taskEntity.getId())
-                .version(taskEntity.getVersion())
+        var shouldMovedToReadyIdVersion = parkedTaskEntities.stream()
+            .limit(4)
+            .map(taskEntity -> taskEntity.toBuilder()
+                .virtualQueue(VirtualQueue.READY)
                 .build()
             )
-            .toList();
-        var movedShortTaskEntities = repository.moveParkedToReady(idVersionEntities);
+            .map(idVersionMapper::mapToIdVersionWithVirtualQueue);
+        var shouldMovedToParkedIdVersion = parkedTaskEntities.stream()
+            .skip(4)
+            .limit(4)
+            .map(taskEntity -> taskEntity.toBuilder()
+                .virtualQueue(VirtualQueue.PARKED)
+                .build()
+            )
+            .map(idVersionMapper::mapToIdVersionWithVirtualQueue);
+        var shouldNotMovedIdVersions = parkedTaskEntities.stream()
+            .skip(8)
+            .map(taskEntity -> taskEntity.toBuilder()
+                .version(taskEntity.getVersion() + 1)
+                .virtualQueue(VirtualQueue.READY)
+                .build()
+            )
+            .map(idVersionMapper::mapToIdVersionWithVirtualQueue);
+        var newToReadyAndParkedRequest = Stream.concat(
+            Stream.concat(
+                shouldMovedToReadyIdVersion,
+                shouldMovedToParkedIdVersion
+            ),
+            shouldNotMovedIdVersions
+        ).toList();
+
+        //do
+        var movedShortTaskEntities = repository.moveNewToReadyAndParked(newToReadyAndParkedRequest);
 
         //verify
         TaskPopulateAndVerify.VerifyVirtualQueueContext baseVerifyCtx = TaskPopulateAndVerify.VerifyVirtualQueueContext.builder()
@@ -243,8 +281,114 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
             .movedShortTaskEntities(movedShortTaskEntities)
             .build();
 
+        var movedToReadyVerifyCtx = baseVerifyCtx.toBuilder()
+            .populationSpecRange(Range.closedOpen(0, 4)) //range of groups
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 1), //rage on tasks in each group
+                TaskPopulateAndVerify.ExpectedVirtualQueue.moved(VirtualQueue.READY)
+            ))
+            .build();
+        taskPopulateAndVerify.verifyVirtualQueue(movedToReadyVerifyCtx);
+
+        var movedToParkedVerifyCtx = baseVerifyCtx.toBuilder()
+            .populationSpecRange(Range.closedOpen(4, 8)) //range of groups
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 1), //rage on tasks in each group
+                TaskPopulateAndVerify.ExpectedVirtualQueue.moved(VirtualQueue.PARKED)
+            ))
+            .build();
+        taskPopulateAndVerify.verifyVirtualQueue(movedToParkedVerifyCtx);
+
+        var stillNewVerifyCtx = baseVerifyCtx.toBuilder()
+            .populationSpecRange(Range.closedOpen(8, 10)) //range of groups
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 1), //rage on tasks in each group
+                TaskPopulateAndVerify.ExpectedVirtualQueue.untouched(VirtualQueue.NEW)
+            ))
+            .build();
+        taskPopulateAndVerify.verifyVirtualQueue(stillNewVerifyCtx);
+    }
+
+    @Test
+    void shouldReadyToHardDelete() {
+        //when
+        setFixedTime(1_000);
+        //total=10 affinityGroups
+        var populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
+                Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.one(),
+                Range.closedOpen(10, 20), TaskPopulateAndVerify.GenerationSpec.oneWithoutAffinity()
+            )
+        );
+        //20/20(populationSpecs) = 1 tasks for each group
+        var inDeletedTaskEntities = taskPopulateAndVerify.populate(0, 20, VirtualQueue.DELETED, populationSpecs);
+        taskPopulateAndVerify.populate(0, 20, VirtualQueue.READY, populationSpecs);
+        taskPopulateAndVerify.populate(0, 20, VirtualQueue.PARKED, populationSpecs);
+
+        setFixedTime(2_000);
+
+        //do
+        var idVersionWithAffinityEntities = repository.readyToHardDelete(15);
+
+        //verify
+        var expectedIdVersionWithAffinity = inDeletedTaskEntities.stream()
+            .sorted(Comparator.comparing(TaskEntity::getDeletedAt))
+            .limit(15)
+            .map(taskEntity -> idVersionMapper.map(taskEntity))
+            .toList();
+        assertThat(idVersionWithAffinityEntities).containsExactlyInAnyOrderElementsOf(expectedIdVersionWithAffinity);
+    }
+
+    @Test
+    void shouldReadyToMoveFromParkedToReady() {
+        //when
+        setFixedTime(1_000);
+        //total=10 affinityGroups
+        List<TaskPopulateAndVerify.PopulationSpec> populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
+                Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.one(),
+                Range.closedOpen(10, 12), TaskPopulateAndVerify.GenerationSpec.oneWithFixedWorkflow(now(clock))
+            ) //total: 12 groups
+        );
+
+        taskPopulateAndVerify.populate(0, 2, VirtualQueue.READY, populationSpecs);
+        taskPopulateAndVerify.populate(10, 11, VirtualQueue.READY, populationSpecs);
+        //120/12(populationSpecs) = 10 tasks for each group
+        var parkedTaskEntities = taskPopulateAndVerify.populate(0, 120, VirtualQueue.PARKED, populationSpecs);
+        var inDeletedTaskEntities = taskPopulateAndVerify.populate(0, 12, VirtualQueue.DELETED, populationSpecs);
+
+        var affinityGroupAndAffinityInDeleted = inDeletedTaskEntities.stream()
+            .map(taskEntity -> new AffinityGroupAndAffinity(taskEntity.getAffinityGroup(), taskEntity.getAffinity()))
+            .toList();
+
+        setFixedTime(2_000);
+
+        //do
+        var idVersionEntities = repository.readyToMoveFromParkedToReady(affinityGroupAndAffinityInDeleted);
+
+        //verify
+        var movedShortTaskEntities = idVersionEntities.stream()
+            .map(idVersion -> taskRepository.findById(idVersion.getId()).orElseThrow())
+            .map(taskEntity -> taskEntity.toBuilder().virtualQueue(VirtualQueue.READY).build())
+            .map(taskRepository::saveOrUpdate)
+            .map(taskMapper::mapToShort)
+            .toList();
+
+        TaskPopulateAndVerify.VerifyVirtualQueueContext baseVerifyCtx = TaskPopulateAndVerify.VerifyVirtualQueueContext.builder()
+            .populationSpecs(populationSpecs)
+            .affectedTaskEntities(parkedTaskEntities)
+            .movedShortTaskEntities(movedShortTaskEntities)
+            .build();
+
         TaskPopulateAndVerify.VerifyVirtualQueueContext stillParkedVerifyCtx = baseVerifyCtx.toBuilder()
             .populationSpecRange(Range.closedOpen(0, 2)) //range of groups
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 10), //rage on tasks in each group
+                TaskPopulateAndVerify.ExpectedVirtualQueue.untouched(VirtualQueue.PARKED)
+            ))
+            .build();
+        taskPopulateAndVerify.verifyVirtualQueue(stillParkedVerifyCtx);
+
+        stillParkedVerifyCtx = baseVerifyCtx.toBuilder()
+            .populationSpecRange(Range.closedOpen(10, 11)) //range of groups
             .expectedVirtualQueueByRange(Map.of(
                 Range.closedOpen(0, 10), //rage on tasks in each group
                 TaskPopulateAndVerify.ExpectedVirtualQueue.untouched(VirtualQueue.PARKED)
@@ -264,22 +408,71 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
             .build();
         taskPopulateAndVerify.verifyVirtualQueue(movedToReadyVerifyCtx);
 
-        TaskPopulateAndVerify.VerifyVirtualQueueContext stillDeletedVerifyCtx = baseVerifyCtx.toBuilder()
-            .populationSpecs(populationSpecWithoutAffinity)
-            .affectedTaskEntities(stillDeletedTaskEntities)
-            .populationSpecRange(Range.closedOpen(0, 1)) //range of groups
+        TaskPopulateAndVerify.VerifyVirtualQueueContext movedWithSameWorkflowIdToReadyVerifyCtx = baseVerifyCtx.toBuilder()
+            .populationSpecRange(Range.closedOpen(11, 12)) //range of groups
             .expectedVirtualQueueByRange(Map.of(
-                Range.closedOpen(0, 1),
-                TaskPopulateAndVerify.ExpectedVirtualQueue.untouched(VirtualQueue.DELETED)
+                Range.closedOpen(0, 10), //rage on tasks in each group
+                TaskPopulateAndVerify.ExpectedVirtualQueue.moved(VirtualQueue.READY)
             ))
             .build();
-        taskPopulateAndVerify.verifyVirtualQueue(stillDeletedVerifyCtx);
+        taskPopulateAndVerify.verifyVirtualQueue(movedWithSameWorkflowIdToReadyVerifyCtx);
+    }
+
+    @Test
+    void shouldMoveParkedToReady() {
+        //when
+        setFixedTime(1_000);
+        //total=10 affinityGroups
+        var populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
+                Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.one()
+            )
+        );
+        var parkedTaskEntities = taskPopulateAndVerify.populate(0, 10, VirtualQueue.PARKED, populationSpecs);
+
+        var shouldMovedIdVersions = parkedTaskEntities.stream()
+            .limit(5)
+            .map(idVersionMapper::mapToIdVersion);
+        var shouldNotMovedIdVersions = parkedTaskEntities.stream()
+            .skip(5)
+            .map(taskEntity -> taskEntity.toBuilder().version(taskEntity.getVersion() + 1).build())
+            .map(idVersionMapper::mapToIdVersion);
+        var parkedToReadyRequest = Stream.concat(shouldMovedIdVersions, shouldNotMovedIdVersions).toList();
+
+        setFixedTime(2_000);
+
+        //do
+        var movedShortTaskEntities = repository.moveParkedToReady(parkedToReadyRequest);
+
+        //verify
+        TaskPopulateAndVerify.VerifyVirtualQueueContext baseVerifyCtx = TaskPopulateAndVerify.VerifyVirtualQueueContext.builder()
+            .populationSpecs(populationSpecs)
+            .affectedTaskEntities(parkedTaskEntities)
+            .movedShortTaskEntities(movedShortTaskEntities)
+            .build();
+
+        TaskPopulateAndVerify.VerifyVirtualQueueContext movedVerifyCtx = baseVerifyCtx.toBuilder()
+            .populationSpecRange(Range.closedOpen(0, 5)) //range of groups
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 1), //rage on tasks in each group
+                TaskPopulateAndVerify.ExpectedVirtualQueue.moved(VirtualQueue.READY)
+            ))
+            .build();
+        taskPopulateAndVerify.verifyVirtualQueue(movedVerifyCtx);
+
+        TaskPopulateAndVerify.VerifyVirtualQueueContext stillParkedVerifyCtx = baseVerifyCtx.toBuilder()
+            .populationSpecRange(Range.closedOpen(5, 10)) //range of groups
+            .expectedVirtualQueueByRange(Map.of(
+                Range.closedOpen(0, 1), //rage on tasks in each group
+                TaskPopulateAndVerify.ExpectedVirtualQueue.untouched(VirtualQueue.PARKED)
+            ))
+            .build();
+        taskPopulateAndVerify.verifyVirtualQueue(stillParkedVerifyCtx);
     }
 
     private Set<AffinityGroupStat> toAffinityGroupStat(List<TaskPopulateAndVerify.PopulationSpec> affinityGroupAndAffinities, int limit) {
         return affinityGroupAndAffinities.stream()
             .map(populationSpec -> AffinityGroupStat.builder()
-                .affinityGroupName(populationSpec.getAffinityGroup())
+                .affinityGroup(populationSpec.getAffinityGroup())
                 .number(limit)
                 .build()
             )

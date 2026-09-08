@@ -1,5 +1,6 @@
 package com.distributed_task_framework;
 
+import com.distributed_task_framework.mapper.IdVersionMapper;
 import com.distributed_task_framework.mapper.PartitionMapper;
 import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.NodeLoading;
@@ -133,6 +134,8 @@ public abstract class BaseSpringIntegrationTest {
     TaskSerializer taskSerializer;
     @Autowired
     TaskMapper taskMapper;
+    @Autowired
+    IdVersionMapper idVersionMapper;
     @Autowired
     PartitionMapper partitionMapper;
     @SpyBean
