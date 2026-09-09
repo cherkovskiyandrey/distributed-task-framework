@@ -383,14 +383,22 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         SELECT t.id, t.version
         FROM free_afg_af_wid f
         CROSS JOIN LATERAL (
-            SELECT id, version
+            SELECT id, version, affinity_group, affinity
             FROM _____dtf_tasks
-            WHERE affinity_group = f.affinity_group
-            AND affinity         = f.affinity
-            AND virtual_queue    = 'PARKED'
-            AND workflow_created_date_utc = f.workflow_created_date_utc 
-            AND workflow_id      = f.workflow_id
+            WHERE 
+                virtual_queue    = 'PARKED'
+                AND workflow_id  = f.workflow_id
+            -- OFFSET 0 is a planner fence (blocks subquery pull-up and qual pushdown).
+            -- Without it affinity_group/affinity become Index Cond, the planner picks
+            -- _____dtf_tasks_parked_ag_a_wcdu_wid_idx and range-scans the whole (afg, aff)
+            -- pair because of the rows=1 misestimate on correlated columns: 90 ms vs 7 ms
+            -- on 10k PARKED per pair. With the fence the only sargable predicate is
+            -- workflow_id -> _____dtf_tasks_wid_idx, cost is O(tasks in workflow).
+            OFFSET 0
         ) t
+        WHERE
+            t.affinity_group = f.affinity_group
+            AND t.affinity   = f.affinity
         ORDER BY t.id;
         """;
 
@@ -415,10 +423,9 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
         WITH to_update AS (
             SELECT id, version
             FROM _____dtf_tasks
-            WHERE (id, version) IN (
-                SELECT id, version
-                FROM UNNEST(:id::uuid[], :version::int[]) AS t(id, version)
-            )
+            WHERE 
+                id = ANY(:id::uuid[])
+                AND virtual_queue = 'PARKED'::_____dtf_virtual_queue_type
             ORDER BY id
             FOR UPDATE
         )
@@ -441,13 +448,9 @@ public class VirtualQueueManagerPlannerRepositoryImpl implements VirtualQueueMan
     @Override
     public List<ShortTaskEntity> moveParkedToReady(Collection<IdVersionEntity> idVersionEntities) {
         List<UUID> ids = idVersionEntities.stream().map(IdVersionEntity::getId).toList();
-        List<Long> versions = idVersionEntities.stream().map(IdVersionEntity::getVersion).toList();
         return Lists.newArrayList(namedParameterJdbcTemplate.query(
                 MOVE_PARKED_TO_READY,
-                SqlParameters.of(
-                    IdVersionEntity.Fields.id, JdbcTools.UUIDsToStringArray(ids), Types.ARRAY,
-                    IdVersionEntity.Fields.version, JdbcTools.toLongArray(versions), Types.ARRAY
-                ),
+                SqlParameters.of(IdVersionEntity.Fields.id, JdbcTools.UUIDsToStringArray(ids), Types.ARRAY),
                 ShortTaskEntity.SHORT_TASK_ROW_MAPPER
             )
         );

@@ -345,15 +345,18 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
         //total=10 affinityGroups
         List<TaskPopulateAndVerify.PopulationSpec> populationSpecs = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
                 Range.closedOpen(0, 10), TaskPopulateAndVerify.GenerationSpec.one(),
-                Range.closedOpen(10, 12), TaskPopulateAndVerify.GenerationSpec.oneWithFixedWorkflow(now(clock))
+                // in case when tasks are created in task context by means of executionContext.withNewMessage
+                Range.closedOpen(10, 12), TaskPopulateAndVerify.GenerationSpec.oneWithFixedWorkflow(now(clock)),
+                // in case when several tasks are created not in task context via ExecutionContext.withAffinityGroup + executionContext.withNewMessage
+                Range.closedOpen(12, 13), TaskPopulateAndVerify.GenerationSpec.oneWithFixedWorkflowAndDifferentTime()
             ) //total: 12 groups
         );
 
         taskPopulateAndVerify.populate(0, 2, VirtualQueue.READY, populationSpecs);
         taskPopulateAndVerify.populate(10, 11, VirtualQueue.READY, populationSpecs);
         //120/12(populationSpecs) = 10 tasks for each group
-        var parkedTaskEntities = taskPopulateAndVerify.populate(0, 120, VirtualQueue.PARKED, populationSpecs);
-        var inDeletedTaskEntities = taskPopulateAndVerify.populate(0, 12, VirtualQueue.DELETED, populationSpecs);
+        var parkedTaskEntities = taskPopulateAndVerify.populate(0, 130, VirtualQueue.PARKED, populationSpecs);
+        var inDeletedTaskEntities = taskPopulateAndVerify.populate(0, 14, VirtualQueue.DELETED, populationSpecs);
 
         var affinityGroupAndAffinityInDeleted = inDeletedTaskEntities.stream()
             .map(taskEntity -> new AffinityGroupAndAffinity(taskEntity.getAffinityGroup(), taskEntity.getAffinity()))
@@ -409,7 +412,7 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
         taskPopulateAndVerify.verifyVirtualQueue(movedToReadyVerifyCtx);
 
         TaskPopulateAndVerify.VerifyVirtualQueueContext movedWithSameWorkflowIdToReadyVerifyCtx = baseVerifyCtx.toBuilder()
-            .populationSpecRange(Range.closedOpen(11, 12)) //range of groups
+            .populationSpecRange(Range.closedOpen(11, 13)) //range of groups
             .expectedVirtualQueueByRange(Map.of(
                 Range.closedOpen(0, 10), //rage on tasks in each group
                 TaskPopulateAndVerify.ExpectedVirtualQueue.moved(VirtualQueue.READY)
@@ -430,11 +433,16 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
         var parkedTaskEntities = taskPopulateAndVerify.populate(0, 10, VirtualQueue.PARKED, populationSpecs);
 
         var shouldMovedIdVersions = parkedTaskEntities.stream()
-            .limit(5)
             .map(idVersionMapper::mapToIdVersion);
-        var shouldNotMovedIdVersions = parkedTaskEntities.stream()
+        var concurrentMovedEntities = parkedTaskEntities.stream()
             .skip(5)
-            .map(taskEntity -> taskEntity.toBuilder().version(taskEntity.getVersion() + 1).build())
+            .map(taskEntity -> taskEntity.toBuilder()
+                .virtualQueue(VirtualQueue.DELETED)
+                .build()
+            )
+            .toList();
+        concurrentMovedEntities.forEach(taskRepository::saveOrUpdate);
+        var shouldNotMovedIdVersions = concurrentMovedEntities.stream()
             .map(idVersionMapper::mapToIdVersion);
         var parkedToReadyRequest = Stream.concat(shouldMovedIdVersions, shouldNotMovedIdVersions).toList();
 
@@ -463,7 +471,7 @@ class VirtualQueueManagerPlannerRepositoryTest extends BaseRepositoryTest {
             .populationSpecRange(Range.closedOpen(5, 10)) //range of groups
             .expectedVirtualQueueByRange(Map.of(
                 Range.closedOpen(0, 1), //rage on tasks in each group
-                TaskPopulateAndVerify.ExpectedVirtualQueue.untouched(VirtualQueue.PARKED)
+                TaskPopulateAndVerify.ExpectedVirtualQueue.untouched(VirtualQueue.DELETED)
             ))
             .build();
         taskPopulateAndVerify.verifyVirtualQueue(stillParkedVerifyCtx);
