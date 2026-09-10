@@ -335,6 +335,23 @@ public class TaskPopulateAndVerify {
                 null
             );
         }
+
+        public static GenerationSpec oneWithFixedWorkflowAndDifferentTime() {
+            return GenerationSpec.of(
+                true,
+                1,
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                UUID.randomUUID().toString(),
+                null,
+                null
+            );
+        }
     }
 
     public static String getTaskName(int id) {
