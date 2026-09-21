@@ -1,5 +1,6 @@
 package com.distributed_task_framework.saga.services.impl;
 
+import com.distributed_task_framework.model.Metadata;
 import com.distributed_task_framework.model.TaskDef;
 import com.distributed_task_framework.saga.functions.SagaConsumer;
 import com.distributed_task_framework.saga.functions.SagaFunction;
@@ -35,6 +36,8 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
     String affinityGroup;
     @Nullable
     String affinity;
+    @Nullable
+    Metadata metadata;
     PlatformTransactionManager transactionManager;
     SagaResolver sagaResolver;
     DistributedTaskService distributedTaskService;
@@ -98,6 +101,7 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
             .sagaSettings(sagaSettings)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
+            .metadata(metadata)
             .transactionManager(transactionManager)
             .sagaManager(sagaManager)
             .distributedTaskService(distributedTaskService)
@@ -159,6 +163,7 @@ public class SagaFlowEntryPointImpl implements SagaFlowEntryPoint {
             .sagaSettings(sagaSettings)
             .affinityGroup(affinityGroup)
             .affinity(affinity)
+            .metadata(metadata)
             .transactionManager(transactionManager)
             .sagaManager(sagaManager)
             .distributedTaskService(distributedTaskService)

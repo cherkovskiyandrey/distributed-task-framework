@@ -2,6 +2,7 @@ package com.distributed_task_framework.service.impl.workers;
 
 import com.distributed_task_framework.mapper.TaskMapper;
 import com.distributed_task_framework.model.RegisteredTask;
+import com.distributed_task_framework.service.TaskInterceptorProvider;
 import com.distributed_task_framework.service.TaskSerializer;
 import io.micrometer.core.instrument.Tag;
 import lombok.AccessLevel;
@@ -46,7 +47,8 @@ public class LocalExactlyOnceWorker extends LocalAtLeastOnceWorker implements Ta
                                   CommonSettings commonSettings,
                                   TaskLinkManager taskLinkManager,
                                   DistributedTaskMetricHelper distributedTaskMetricHelper,
-                                  Clock clock) {
+                                  Clock clock,
+                                  TaskInterceptorProvider taskInterceptorProvider) {
         super(
                 clusterProvider,
                 workerContextManager,
@@ -60,8 +62,9 @@ public class LocalExactlyOnceWorker extends LocalAtLeastOnceWorker implements Ta
                 taskMapper,
                 commonSettings,
                 taskLinkManager,
-            distributedTaskMetricHelper,
-                clock
+                distributedTaskMetricHelper,
+                clock,
+                taskInterceptorProvider
         );
     }
 

@@ -1,5 +1,9 @@
 package com.distributed_task_framework.autoconfigure;
 
+import com.distributed_task_framework.interceptor.CommonTaskCreationInterceptor;
+import com.distributed_task_framework.interceptor.CommonTaskExecutionInterceptor;
+import com.distributed_task_framework.interceptor.TaskCreationInterceptor;
+import com.distributed_task_framework.interceptor.TaskExecutionInterceptor;
 import com.distributed_task_framework.model.ExecutionContext;
 import com.distributed_task_framework.task.Task;
 import com.google.common.collect.Maps;
@@ -15,6 +19,7 @@ import org.springframework.validation.annotation.Validated;
 
 import java.net.URL;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 @Validated
@@ -283,6 +288,24 @@ public class DistributedTaskProperties {
          * {@link InterruptedException} will be risen in {@link Task#execute(ExecutionContext)}
          */
         Duration timeout; // @TaskTimeout
+        /**
+         * Creation interceptors of the task, combined with default-properties and deduplicated.
+         */
+        List<Class<? extends TaskCreationInterceptor>> creationInterceptors; // @TaskCreationInterceptors
+        /**
+         * Execution interceptors of the task, combined with default-properties and deduplicated.
+         */
+        List<Class<? extends TaskExecutionInterceptor>> executionInterceptors; // @TaskExecutionInterceptors
+        /**
+         * Common creation interceptors excluded for the task, composed of annotations and yaml per-task, deduplicated.
+         * It is prohibited to set exclusions in default-properties.
+         */
+        List<Class<? extends CommonTaskCreationInterceptor>> excludedCommonCreationInterceptors; // @TaskCreationInterceptors
+        /**
+         * Common execution interceptors excluded for the task, composed of annotations and yaml per-task, deduplicated.
+         * It is prohibited to set exclusions in default-properties.
+         */
+        List<Class<? extends CommonTaskExecutionInterceptor>> excludedCommonExecutionInterceptors; // @TaskExecutionInterceptors
     }
 
     @Data
