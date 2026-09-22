@@ -39,3 +39,7 @@ jobs:
 
     - name: Build with Gradle
       run: ./gradlew build
+
+    # Guards the publishing path: delomboked sources must still compile.
+    - name: Build with delombok
+      run: ./gradlew assemble -Pdelombok=true
