@@ -13,6 +13,9 @@ description = "The task processing framework with saga supporting"
 var libraries = subprojects.findAll { !it.name.contains('application') }
 var apps = subprojects.findAll { it.name.contains('application') }
 
+// Opt-in delombok mode, see the block in allprojects below and .github/workflows.
+var delombokEnabled = Boolean.parseBoolean((project.findProperty('delombok') ?: 'false') as String)
+
 allprojects {
     group = 'io.github.cherkovskiyandrey'
     version = project.properties['version']
@@ -59,6 +62,101 @@ allprojects {
         toolchain {
             languageVersion = JavaLanguageVersion.of(17)
         }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+
+    // Delombok, opt-in via -Pdelombok=true (see issue #16). When enabled, compileJava and
+    // sourcesJar consume the very same delombok output, so the LineNumberTable of the published
+    // bytecode matches the published sources and debugging through attached sources works.
+    // Running delombok only for the sources jar would not help: the two would still diverge.
+    if (delombokEnabled && libraries.contains(project)) {
+        configurations {
+            lombokTool {
+                canBeConsumed = false
+                canBeResolved = true
+            }
+        }
+
+        dependencies {
+            lombokTool libs.org.projectlombok.lombok
+        }
+
+        var delombokDir = layout.buildDirectory.dir('delombok/main')
+        var mainJava = sourceSets.main.java
+        var compileClasspath = configurations.named('compileClasspath')
+
+        var delombokTask = tasks.register('delombok', JavaExec) {
+            group = 'build'
+            description = 'Applies delombok to the main sources'
+
+            inputs.files(mainJava.sourceDirectories.asFileTree.matching { include '**/*.java' })
+                    .withPropertyName('mainJava')
+                    .withPathSensitivity(PathSensitivity.RELATIVE)
+                    .skipWhenEmpty()
+                    .ignoreEmptyDirectories()
+            inputs.files(compileClasspath)
+                    .withPropertyName('compileClasspath')
+                    .withNormalizer(ClasspathNormalizer)
+            outputs.dir(delombokDir).withPropertyName('delomboked')
+            outputs.cacheIf { true }
+
+            classpath = files(configurations.named('lombokTool'))
+            mainClass = 'lombok.launch.Main'
+
+            argumentProviders.add({ ->
+                var arguments = [
+                        'delombok',
+                        '--encoding=UTF-8',
+                        // Only java files, resources are taken from the source set directly.
+                        '--nocopy',
+                        // The default header carries a timestamp, which would rewrite every file on
+                        // every run and defeat incremental compilation.
+                        '--format=generateDelombokComment:skip',
+                        '--format=javaLangAsFQN:skip',
+                        '--format=suppressWarnings:skip',
+                        '--format=danceAroundIdeChecks:skip',
+                        // Lombok does not add @ConstructorProperties at compile time either, and it
+                        // would silently change how Jackson picks a creator.
+                        '--format=constructorProperties:skip',
+                        '--format=indent:4',
+                        '--target=' + delombokDir.get().asFile.absolutePath,
+                ]
+                var compileClasspathPath = compileClasspath.get().asPath
+                if (compileClasspathPath) {
+                    arguments << '--classpath=' + compileClasspathPath
+                }
+                arguments + mainJava.srcDirs.findAll { it.directory }*.absolutePath
+            } as CommandLineArgumentProvider)
+
+            // Delombok overwrites files, but never drops the ones whose source is gone.
+            doFirst {
+                delombokDir.get().asFile.deleteDir()
+            }
+        }
+
+        // Only compileJava: compileTestJava keeps reading the original test sources.
+        // src/main/java stays the source root of the source set, so the IDEA import is unaffected.
+        tasks.named('compileJava', JavaCompile) {
+            dependsOn delombokTask
+            source = fileTree(delombokDir) { include '**/*.java' }
+        }
+
+        // Registered before withSourcesJar(): Gradle reuses an already existing sourcesJar task
+        // instead of registering its own, and still wires it into the sourcesElements variant.
+        tasks.register('sourcesJar', Jar) {
+            group = 'build'
+            description = 'Assembles a jar archive containing the delomboked main sources'
+            archiveClassifier = 'sources'
+            from delombokTask
+            from sourceSets.main.resources
+        }
+        tasks.named('assemble') { dependsOn 'sourcesJar' }
+    }
+
+    java {
 //        withJavadocJar()
         withSourcesJar()
     }
