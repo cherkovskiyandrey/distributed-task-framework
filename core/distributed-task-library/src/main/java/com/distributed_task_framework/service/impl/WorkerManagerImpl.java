@@ -178,7 +178,7 @@ public class WorkerManagerImpl implements WorkerManager, DistributedTaskServiceL
         int currentActiveTasks = activeTasks.size();
         int freeCapacity = Math.max(workerManagerSettings.getMaxParallelTasksInNode() - currentActiveTasks, 0);
         if (freeCapacity == 0) {
-            log.info("manageTasks(): there isn't free workers");
+            log.debug("manageTasks(): there isn't free workers");
             return 0;
         }
 
@@ -250,7 +250,10 @@ public class WorkerManagerImpl implements WorkerManager, DistributedTaskServiceL
                 .build())
             .map(taskMapper::mapToShort)
             .collect(Collectors.toList());
-        taskRepository.updateAll(unknownShortTasks);
+        // in order to decrease loading to postgresql
+        if (!unknownShortTasks.isEmpty()) {
+            taskRepository.updateAll(unknownShortTasks);
+        }
     }
 
     private void cleanExpiredTasks() {
@@ -263,11 +266,13 @@ public class WorkerManagerImpl implements WorkerManager, DistributedTaskServiceL
             .filter(taskId -> !interruptedTasks.contains(taskId))
             .collect(Collectors.toSet());
         Set<TaskId> notExpiredTaskIds = Sets.newHashSet(Sets.difference(activeTasks.keySet(), expiredTaskIds));
-        Set<TaskId> canceledTaskIds = Sets.newHashSet(Sets.difference(
-                taskRepository.filterCanceled(notExpiredTaskIds),
-                interruptedTasks
-            )
-        );
+        Set<TaskId> canceledTaskIds = notExpiredTaskIds.isEmpty() ?
+            Set.of() :
+            Sets.newHashSet(Sets.difference(
+                    taskRepository.filterCanceled(notExpiredTaskIds),
+                    interruptedTasks
+                )
+            );
 
         Set<TaskId> taskIdsToInterrupt = ImmutableSet.<TaskId>builder()
             .addAll(expiredTaskIds)

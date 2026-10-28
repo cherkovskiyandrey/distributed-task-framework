@@ -33,6 +33,7 @@ public class TaskWorkerRepositoryImpl implements TaskWorkerRepository {
         this.commonSettings = commonSettings;
     }
 
+    //language=postgresql
     private static final String SELECT_NEXT_ASSIGNED_TASKS = """
         SELECT *
         FROM _____dtf_tasks

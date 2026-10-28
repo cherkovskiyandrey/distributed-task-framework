@@ -121,6 +121,10 @@ public class DistributedTaskProperties {
          */
         Duration partitionTrackingTimeWindow;
         /**
+         * Time interval between real compaction of partitions aside of the frequency of "compact" method.
+         */
+        Duration partitionCompactInterval;
+        /**
          * The limit of cpu loading for nodes.
          * If node reach this limit, planner will not consider this node to plan.
          * Range from 0.0-1.0.

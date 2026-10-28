@@ -6,9 +6,9 @@ import com.distributed_task_framework.persistence.repository.PartitionRepository
 import com.distributed_task_framework.persistence.repository.PartitionTrackerRepository;
 import com.distributed_task_framework.service.internal.PartitionTracker;
 import com.distributed_task_framework.settings.CommonSettings;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -18,9 +18,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PartitionTrackerImpl implements PartitionTracker {
     PlatformTransactionManager transactionManager;
@@ -29,6 +30,24 @@ public class PartitionTrackerImpl implements PartitionTracker {
     PartitionMapper partitionMapper;
     CommonSettings commonSettings;
     Clock clock;
+    AtomicLong previousGcTickTimeWindow;
+    AtomicReference<Instant> lastCompactInvocation;
+
+    public PartitionTrackerImpl(PlatformTransactionManager transactionManager,
+                                PartitionTrackerRepository partitionTrackerRepository,
+                                PartitionRepository partitionRepository,
+                                PartitionMapper partitionMapper,
+                                CommonSettings commonSettings,
+                                Clock clock) {
+        this.transactionManager = transactionManager;
+        this.partitionTrackerRepository = partitionTrackerRepository;
+        this.partitionRepository = partitionRepository;
+        this.partitionMapper = partitionMapper;
+        this.commonSettings = commonSettings;
+        this.clock = clock;
+        this.previousGcTickTimeWindow = new AtomicLong(0L);
+        this.lastCompactInvocation = new AtomicReference<>(Instant.EPOCH);
+    }
 
     @Override
     public void reinit() {
@@ -36,6 +55,8 @@ public class PartitionTrackerImpl implements PartitionTracker {
         var partitionEntities = partitionTrackerRepository.activePartitions();
         var entities = partitionMapper.asEntities(partitionEntities, currentTimeWindow());
         partitionRepository.saveAsNew(entities);
+        lastCompactInvocation.set(Instant.EPOCH);
+        previousGcTickTimeWindow.set(0L);
         log.info("reinit(): partitionEntities=[{}]", partitionEntities);
     }
 
@@ -66,30 +87,41 @@ public class PartitionTrackerImpl implements PartitionTracker {
 
     @Override
     public void gcIfNecessary() {
+        long currentTimeWindow = currentTimeWindow();
+        if (previousGcTickTimeWindow.get() == currentTimeWindow) {
+            return;
+        }
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 
         transactionTemplate.executeWithoutResult(status -> {
-            var previousPartitionEntities = partitionRepository.findAllBeforeOrIn(currentTimeWindow() - 2);
-            if (previousPartitionEntities.isEmpty()) {
-                return;
-            }
+                var previousPartitionEntities = partitionRepository.findAllBeforeOrIn(currentTimeWindow - 2);
+                if (previousPartitionEntities.isEmpty()) {
+                    return;
+                }
 
-            var previousPartitions = partitionMapper.fromEntities(previousPartitionEntities);
-            var movedPartitions = partitionTrackerRepository.filterInReadyVirtualQueue(previousPartitions);
-            var removedPartitions = Sets.newHashSet(Sets.difference(previousPartitions, movedPartitions));
-            if (!removedPartitions.isEmpty()) {
-                log.info("gcIfNecessary(): removedPartitions=[{}]", removedPartitions);
+                var previousPartitions = partitionMapper.fromEntities(previousPartitionEntities);
+                var movedPartitions = partitionTrackerRepository.filterInReadyVirtualQueue(previousPartitions);
+                var removedPartitions = Sets.newHashSet(Sets.difference(previousPartitions, movedPartitions));
+                if (!removedPartitions.isEmpty()) {
+                    log.info("gcIfNecessary(): removedPartitions=[{}]", removedPartitions);
+                }
+                partitionRepository.deleteBatch(previousPartitionEntities);
+                track(movedPartitions);
             }
-            partitionRepository.deleteBatch(previousPartitionEntities);
-            track(movedPartitions);
-        });
+        );
+        previousGcTickTimeWindow.set(currentTimeWindow);
     }
 
     @Override
     public void compactIfNecessary() {
+        if (!lastCompactInvocation.get().isBefore(Instant.now(clock))) {
+            return;
+        }
         partitionRepository.compactInTimeWindow(currentTimeWindow());
+        var partitionCompactInterval = commonSettings.getPlannerSettings().getPartitionCompactInterval();
+        lastCompactInvocation.set(Instant.now(clock).plusMillis(partitionCompactInterval.toMillis()));
     }
 
     private Long currentTimeWindow() {
