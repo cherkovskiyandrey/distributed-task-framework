@@ -1,8 +1,8 @@
 package com.distributed_task_framework.service.impl;
 
-import com.distributed_task_framework.model.Partition;
 import com.distributed_task_framework.BaseSpringIntegrationTest;
 import com.distributed_task_framework.TaskPopulateAndVerify;
+import com.distributed_task_framework.model.Partition;
 import com.distributed_task_framework.persistence.entity.PartitionEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.service.internal.PartitionTracker;
@@ -92,6 +92,7 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
         //when
         setFixedTime(100);
         long currentTimeBucket = 100 / 5;
+        partitionTracker.reinit();
 
         var spec = taskPopulateAndVerify.makePopulationSpec(ImmutableMap.of(
                 Range.closedOpen(0, 1), oneWithTaskNameAndWithoutAffinity("exist_in_ready_queue"),
@@ -131,15 +132,78 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
     }
 
     @Test
+    void shouldGcIfNecessaryOnlyOnceInTimeWindow() {
+        //when
+        setFixedTime(100);
+        long currentTimeBucket = 100 / 5;
+        partitionTracker.reinit();
+
+        var expectedToDeleted = List.of(
+            createPartition("1", "1", currentTimeBucket - 2)
+        );
+        var expectedBeRemained = List.of(
+            createPartition("2", "2", currentTimeBucket - 1),
+            createPartition("3", "3", currentTimeBucket)
+        );
+        partitionRepository.saveAll(expectedToDeleted);
+        partitionRepository.saveAll(expectedBeRemained);
+
+        //do
+        partitionTracker.gcIfNecessary();
+
+        //verify
+        var expectedPartitions = ImmutableList.<PartitionEntity>builder()
+            .addAll(expectedBeRemained)
+            .build();
+        verifyRegisteredPartition(partitionMapper.fromEntities(expectedPartitions));
+
+        //when
+        //syntetick case in order to check guard in gcIfNecessary() in currentTimeWindow
+        expectedToDeleted = List.of(
+            createPartition("100", "100", currentTimeBucket - 2)
+        );
+        partitionRepository.saveAll(expectedToDeleted);
+
+        //do
+        partitionTracker.gcIfNecessary();
+
+        //verify
+        expectedPartitions = ImmutableList.<PartitionEntity>builder()
+            .addAll(expectedBeRemained)
+            .addAll(expectedToDeleted)
+            .build();
+        verifyRegisteredPartition(partitionMapper.fromEntities(expectedPartitions));
+
+        //when
+        setFixedTime(100 + 6);
+
+        //do
+        partitionTracker.gcIfNecessary();
+
+        //verify
+        expectedBeRemained = List.of(
+            createPartition("3", "3", currentTimeBucket)
+        );
+        expectedPartitions = ImmutableList.<PartitionEntity>builder()
+            .addAll(expectedBeRemained)
+            .build();
+        verifyRegisteredPartition(partitionMapper.fromEntities(expectedPartitions));
+    }
+
+    @Test
     void shouldCompactIfNecessary() {
         //when
-        long currentTimeBucket = 2;
+        setFixedTime(100);
+        long currentTimeBucket = 100 / 5;
+        partitionTracker.reinit();
+
         var expectedToBeRemained = List.of(
             createPartition(null, "1", currentTimeBucket - 1),
             createPartition("1", "2", currentTimeBucket - 1),
             createPartition(null, "1", currentTimeBucket - 1),
             createPartition("1", "2", currentTimeBucket - 1),
 
+            // original
             createPartition(null, "1", currentTimeBucket),
             createPartition("1", "2", currentTimeBucket)
         );
@@ -158,13 +222,48 @@ class PartitionTrackerImplTest extends BaseSpringIntegrationTest {
         partitionTracker.compactIfNecessary();
 
         //verify
-        var expectedPartitions = ImmutableList.<PartitionEntity>builder()
-            .addAll(expectedToBeRemained)
-            .addAll(expectedBeDeleted)
-            .build();
-        verifyRegisteredPartition(partitionMapper.fromEntities(expectedPartitions));
+        verifyRegisteredPartition(partitionMapper.fromEntities(expectedToBeRemained));
     }
 
+    //todo
+    @Test
+    void shouldCompactIfNecessaryOnceInTimeWindow() {
+        //when
+        setFixedTime(100);
+        long currentTimeBucket = 100 / 5;
+        partitionTracker.reinit();
+
+        var expectedToBeRemained = List.of(
+            // original
+            createPartition("1", "2", currentTimeBucket)
+        );
+        var expectedBeDeleted = List.of(
+            createPartition("1", "2", currentTimeBucket)
+        );
+        partitionRepository.saveAll(expectedToBeRemained);
+        partitionRepository.saveAll(expectedBeDeleted);
+
+        //do
+        partitionTracker.compactIfNecessary();
+
+        //verify
+        verifyRegisteredPartition(partitionMapper.fromEntities(expectedToBeRemained));
+
+        //when
+        setFixedTime(100 + 1);
+        expectedToBeRemained = List.of(
+            // original
+            createPartition("1", "2", currentTimeBucket),
+            createPartition("1", "2", currentTimeBucket)
+        );
+        partitionRepository.saveAll(expectedToBeRemained);
+
+        //do
+        partitionTracker.compactIfNecessary();
+
+        //verify
+        verifyRegisteredPartition(partitionMapper.fromEntities(expectedToBeRemained));
+    }
 
     private void verifyRegisteredPartitionEntities(Collection<PartitionEntity> expectedPartitions) {
         Assertions.assertThat(partitionRepository.filterExisted(expectedPartitions))

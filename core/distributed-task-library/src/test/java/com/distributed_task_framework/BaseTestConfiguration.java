@@ -291,6 +291,7 @@ public class BaseTestConfiguration {
                 .batchSize(100)
                 .affinityGroupScannerTimeOverlap(Duration.ofSeconds(1))
                 .partitionTrackingTimeWindow(Duration.ofSeconds(5))
+                .partitionCompactInterval(Duration.ofSeconds(2))
                 .planFactor(2.F)
                 .build()
             )

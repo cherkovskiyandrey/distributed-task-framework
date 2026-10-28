@@ -127,7 +127,7 @@ public class PartitionExtendedRepositoryImpl implements PartitionExtendedReposit
         );
     }
 
-
+    //language=postgresql
     private static final String COMPACT_IN_TIME_BUCKET = """
         WITH unique_ids AS (
             SELECT DISTINCT on (affinity_group, task_name, time_bucket)
