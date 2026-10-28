@@ -13,6 +13,28 @@ description = "The task processing framework with saga supporting"
 var libraries = subprojects.findAll { !it.name.contains('application') }
 var apps = subprojects.findAll { it.name.contains('application') }
 
+apply plugin: grgitPluginId
+apply plugin: jreleaserPluginId
+
+// Single source of the published version: tag on HEAD (leading "v" stripped),
+// otherwise <branch>-<timestamp>-<sha8>. Shared by every publication and by JReleaser.
+var releaseVersion = { ->
+    var currentTag = grgit.tag.list().find {
+        it.commit.id == grgit.head().getId() && it.name ==~ /v?\d+\.\d+\.\d+.*/
+    }
+    if (currentTag != null) {
+        var ver = currentTag.name
+        return ver.startsWith("v") ? ver.substring(1) : ver
+    }
+    return System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
+            "-" + new Date().format('yyyyMMdd_HHmmss') +
+            "-" + grgit.head().getId().substring(0, 8)
+}()
+
+// Every library stages into this ONE directory, so JReleaser uploads a single bundle
+// (one Maven Central deployment + one validation instead of one per module).
+var stagingDir = layout.buildDirectory.dir("staging-deploy")
+
 allprojects {
     group = 'io.github.cherkovskiyandrey'
     version = project.properties['version']
@@ -81,9 +103,6 @@ allprojects {
 
 configure(libraries) { project_ ->
 
-    apply plugin: grgitPluginId
-    apply plugin: jreleaserPluginId
-
     bootJar {
         enabled = false
     }
@@ -102,7 +121,7 @@ configure(libraries) { project_ ->
     publishing {
         repositories {
             maven {
-                setUrl(layout.buildDirectory.dir("staging-deploy"))
+                setUrl(stagingDir)
             }
             mavenLocal()
         }
@@ -110,23 +129,7 @@ configure(libraries) { project_ ->
             maven(MavenPublication) {
                 from components.java
 
-                var currentTag = grgit.tag.list().find {
-                    it.commit.id == grgit.head().getId()
-                }
-                if (currentTag != null) {
-                    var ver = currentTag.name
-                    if (ver.startsWith("v")) {
-                        ver = ver.substring(1)
-                    }
-                    version = ver
-                } else {
-                    version = System.getProperty("CI_COMMIT_BRANCH", grgit.getBranch().current().getName()).replaceAll("\\W", "_") +
-                            "-" +
-                            new Date().format('yyyyMMdd_HHmmss') +
-                            "-" +
-                            grgit.head().getId().substring(0, 8)
-                }
-
+                version = releaseVersion
                 groupId = "io.github.cherkovskiyandrey"
 
                 pom {
@@ -164,46 +167,6 @@ configure(libraries) { project_ ->
             }
         }
     }
-
-    // JReleaser configuration only in root project
-    jreleaser {
-        dryrun = false
-        project {
-            authors = ['Andrey Cherkovskiy']
-            license = 'Apache-2.0'
-            links {
-                homepage = 'https://github.com/cherkovskiyandrey/distributed-task-framework'
-            }
-            inceptionYear = '2022'
-        }
-        release {
-            github {
-                skipRelease = true
-                skipTag = true
-                sign = true
-                branch = "main"
-                branchPush = "main"
-                overwrite = true
-            }
-        }
-        signing {
-            active = 'ALWAYS'
-            armored = true
-        }
-        deploy {
-            maven {
-                mavenCentral {
-                    sonatype {
-                        active = 'ALWAYS'
-                        url = "https://central.sonatype.com/api/v1/publisher"
-                        stagingRepository(layout.buildDirectory.dir("staging-deploy").get().toString())
-                        setAuthorization("Basic")
-                        retryDelay = 60
-                    }
-                }
-            }
-        }
-    }
 }
 
 configure(apps) { project ->
@@ -218,6 +181,54 @@ configure(apps) { project ->
 
 publish {
     dependsOn libraries.publish
+}
+
+// JReleaser lives ONLY in the root project: one run, one bundle, one deployment.
+jreleaser {
+    dryrun = false
+    project {
+        version = releaseVersion
+        authors = ['Andrey Cherkovskiy']
+        license = 'Apache-2.0'
+        links {
+            homepage = 'https://github.com/cherkovskiyandrey/distributed-task-framework'
+        }
+        inceptionYear = '2022'
+    }
+    release {
+        github {
+            skipRelease = true
+            skipTag = true
+            sign = true
+            branch = "main"
+            branchPush = "main"
+            overwrite = true
+        }
+    }
+    signing {
+        active = 'ALWAYS'
+        armored = true
+    }
+    deploy {
+        maven {
+            mavenCentral {
+                sonatype {
+                    active = 'ALWAYS'
+                    url = "https://central.sonatype.com/api/v1/publisher"
+                    stagingRepository(stagingDir.get().toString())
+                    setAuthorization("Basic")
+                    // Portal validation is polled every retryDelay seconds, up to maxRetries times.
+                    retryDelay = 30
+                    maxRetries = 120
+                }
+            }
+        }
+    }
+}
+
+// `./gradlew jreleaserDeploy` is self-sufficient: stage everything first.
+tasks.named('jreleaserDeploy') {
+    dependsOn publish
 }
 
 build {
