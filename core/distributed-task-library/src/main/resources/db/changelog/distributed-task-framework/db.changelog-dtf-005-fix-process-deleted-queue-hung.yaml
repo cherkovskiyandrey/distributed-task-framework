@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: '5'
+      author: Cherkovskiy Andrey
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: db/changelog/distributed-task-framework/sql/005_dtf_fix_process_deleted_queue_hung.up.sql
+            encoding: UTF8
+      rollback:
+        - sqlFile:
+            dbms: postgresql
+            path: db/changelog/distributed-task-framework/sql/005_dtf_fix_process_deleted_queue_hung.down.sql
+            encoding: UTF8

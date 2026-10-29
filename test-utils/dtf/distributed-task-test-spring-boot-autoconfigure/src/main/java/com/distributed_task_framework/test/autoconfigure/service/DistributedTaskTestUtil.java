@@ -18,6 +18,21 @@ public interface DistributedTaskTestUtil {
     void reinitAndWait() throws InterruptedException, FailedCancellationException;
 
     /**
+     * Reset dtf after test and/or before new one.
+     * Contains next actions:
+     * <ol>
+     *     <li>Cancel all current tasks.</li>
+     *     <li>Wait for completion for all canceled tasks.</li>
+     *     <li>Wait for all tasks in {@link VirtualQueue} == {@link VirtualQueue#DELETED} are processed and removed</li>
+     * </ol>
+     * @param excludeList list of task definitions to skip reinit for
+     * @throws FailedCancellationException in case can't cancel any task
+     * @throws InterruptedException if any thread has interrupted the current thread.
+     * The interrupted status of the current thread is cleared when this exception is thrown
+     */
+    void reinitAndWait(List<TaskDef<?>> excludeList) throws InterruptedException, FailedCancellationException;
+
+    /**
      * See {@link DistributedTaskTestUtil#reinitAndWait(int, Duration, List)}
      */
     void reinitAndWait(int attemptsToCancel, Duration duration) throws InterruptedException, FailedCancellationException;

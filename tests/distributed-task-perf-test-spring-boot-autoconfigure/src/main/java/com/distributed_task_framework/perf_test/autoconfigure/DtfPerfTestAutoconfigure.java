@@ -1,6 +1,6 @@
 package com.distributed_task_framework.perf_test.autoconfigure;
 
-import com.distributed_task_framework.autoconfigure.DistributedTaskAutoconfigure;
+import com.distributed_task_framework.autoconfigure.DistributedTaskAutoConfiguration;
 import com.distributed_task_framework.perf_test.persistence.repository.StressTestSummaryRepository;
 import com.distributed_task_framework.service.DistributedTaskService;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -14,22 +14,16 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
-
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 
 @AutoConfiguration
 @ConditionalOnClass(DistributedTaskService.class)
 @ConditionalOnProperty(name = "distributed-task.enabled", havingValue = "true")
 @AutoConfigureAfter({
-    DistributedTaskAutoconfigure.class,
+    DistributedTaskAutoConfiguration.class,
 })
 @EnableJdbcRepositories(
-    basePackageClasses = StressTestSummaryRepository.class,
-    transactionManagerRef = DTF_TX_MANAGER,
-    jdbcOperationsRef = DTF_JDBC_OPS
+    basePackageClasses = StressTestSummaryRepository.class
 )
 public class DtfPerfTestAutoconfigure {
 

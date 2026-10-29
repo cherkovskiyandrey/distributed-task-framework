@@ -23,6 +23,7 @@ import java.util.UUID;
 public class NodeStateEntity {
     public static final BeanPropertyRowMapper<NodeStateEntity> NODE_STATE_ENTITY_BEAN_PROPERTY_ROW_MAPPER =
         new BeanPropertyRowMapper<>(NodeStateEntity.class);
+
     @Id
     UUID node;
     @Version

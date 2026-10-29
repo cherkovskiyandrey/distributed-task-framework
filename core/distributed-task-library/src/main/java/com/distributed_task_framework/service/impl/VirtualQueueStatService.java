@@ -7,11 +7,12 @@ import com.distributed_task_framework.model.PlannedTask;
 import com.distributed_task_framework.persistence.entity.ShortTaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.service.PlannerState;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
-import com.distributed_task_framework.service.internal.PlannerGroups;
-import com.distributed_task_framework.service.internal.PlannerService;
+import com.distributed_task_framework.service.internal.PlannerGroup;
 import com.distributed_task_framework.service.internal.TaskRegistryService;
 import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -25,8 +26,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.Nullable;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -48,7 +47,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class VirtualQueueStatService {
+public class VirtualQueueStatService implements DistributedTaskServiceLifecycle {
     @Getter
     @RequiredArgsConstructor
     public enum NodeLoading {
@@ -76,16 +75,16 @@ public class VirtualQueueStatService {
     List<Tag> commonManagerTags;
     List<Tag> commonPlannerTags;
     Timer aggregatedStatCalculationTimer;
-    PlannerService plannerService;
+    PlannerState plannerState;
 
-    public VirtualQueueStatService(PlannerService plannerService,
+    public VirtualQueueStatService(PlannerState plannerState,
                                    CommonSettings commonSettings,
                                    TaskRegistryService taskRegistryService,
                                    TaskRepository taskRepository,
                                    TaskMapper taskMapper,
                                    DistributedTaskMetricHelper distributedTaskMetricHelper,
                                    MeterRegistry meterRegistry) {
-        this.plannerService = plannerService;
+        this.plannerState = plannerState;
         this.commonSettings = commonSettings;
         this.taskRegistryService = taskRegistryService;
         this.taskRepository = taskRepository;
@@ -93,7 +92,7 @@ public class VirtualQueueStatService {
         this.distributedTaskMetricHelper = distributedTaskMetricHelper;
         this.meterRegistry = meterRegistry;
         this.aggregatedStatRef = new AtomicReference<>(ImmutableList.of());
-        this.overloadedNodeToMeter = Maps.newHashMap();
+        this.overloadedNodeToMeter = Maps.newConcurrentMap();
         this.overloadedNodesRef = new AtomicReference<>(Set.of());
         this.aggregatedStatCalculationTimer = distributedTaskMetricHelper.timer("aggregatedStatCalculation", "time");
         this.allTasksGaugeName = distributedTaskMetricHelper.buildName("planner", "task", "all");
@@ -101,8 +100,8 @@ public class VirtualQueueStatService {
         this.movedCounterName = distributedTaskMetricHelper.buildName("planner", "task", "moved");
         this.plannedCounterName = distributedTaskMetricHelper.buildName("planner", "task", "planned");
         this.overloadedNodesGaugeName = distributedTaskMetricHelper.buildName("planner", "nodes", "overloaded");
-        this.commonManagerTags = List.of(Tag.of("group", PlannerGroups.VQB_MANAGER.getName()));
-        this.commonPlannerTags = List.of(Tag.of("group", PlannerGroups.DEFAULT.getName()));
+        this.commonManagerTags = List.of(Tag.of("group", PlannerGroup.VQB_MANAGER.getName()));
+        this.commonPlannerTags = List.of(Tag.of("group", PlannerGroup.DEFAULT.getName()));
         this.watchdogExecutorService = Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder()
                 .setDaemon(false)
@@ -115,8 +114,8 @@ public class VirtualQueueStatService {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         watchdogExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::calculateAggregatedStat),
             commonSettings.getStatSettings().getCalcInitialDelayMs(),
@@ -125,11 +124,9 @@ public class VirtualQueueStatService {
         );
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): start of shutdown stat calculator");
         watchdogExecutorService.shutdownNow();
         watchdogExecutorService.awaitTermination(1, TimeUnit.MINUTES);
@@ -138,7 +135,7 @@ public class VirtualQueueStatService {
 
     @VisibleForTesting
     void calculateAggregatedStat() {
-        if (plannerService.isActive()) {
+        if (plannerState.isActive(PlannerGroup.VQB_MANAGER)) {
             calculateAggregatedStatForActiveState();
             return;
         }

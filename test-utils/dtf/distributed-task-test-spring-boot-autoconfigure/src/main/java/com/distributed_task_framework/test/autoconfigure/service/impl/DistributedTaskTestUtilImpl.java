@@ -48,6 +48,11 @@ public class DistributedTaskTestUtilImpl implements DistributedTaskTestUtil {
     }
 
     @Override
+    public void reinitAndWait(List<TaskDef<?>> excludeList) throws InterruptedException, FailedCancellationException {
+        reinitAndWait(DEFAULT_ATTEMPTS, DEFAULT_DURATION, excludeList);
+    }
+
+    @Override
     public void reinitAndWait(int attemptsToCancel, Duration duration) throws InterruptedException {
         reinitAndWait(attemptsToCancel, duration, List.of());
     }

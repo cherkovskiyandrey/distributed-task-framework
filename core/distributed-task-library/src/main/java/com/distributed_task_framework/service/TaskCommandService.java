@@ -204,7 +204,7 @@ public interface TaskCommandService {
     /**
      * Cancel certain task execution by id.
      * Only if task hasn't been executed yet.
-     * When invoked from task itself real scheduling will be postponed until task is in progress.
+     * When invoked from task itself real canceling will be postponed until task is in progress.
      *
      * @param taskId
      * @return
@@ -213,7 +213,7 @@ public interface TaskCommandService {
 
     /**
      * The same as {@link TaskCommandService#cancelTaskExecution(TaskId)} but when invoked from
-     * task then is implemented immediately without waiting for the end of current task.
+     * task then is applied immediately without waiting for the end of current task.
      * Only one exception: current task.
      *
      * @param taskId

@@ -26,6 +26,7 @@ import java.util.UUID;
 @Builder(toBuilder = true)
 public class TaskEntity {
     public static final BeanPropertyRowMapper<TaskEntity> TASK_ROW_MAPPER = new BeanPropertyRowMapper<>(TaskEntity.class);
+
     @Id
     UUID id;
     String taskName;

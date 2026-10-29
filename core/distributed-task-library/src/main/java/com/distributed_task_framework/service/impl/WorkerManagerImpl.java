@@ -13,6 +13,7 @@ import com.distributed_task_framework.service.internal.TaskWorkerFactory;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import com.distributed_task_framework.settings.TaskSettings;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -24,8 +25,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -53,7 +52,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class WorkerManagerImpl implements WorkerManager {
+public class WorkerManagerImpl implements WorkerManager, DistributedTaskServiceLifecycle {
     private record ActiveTask(
         TaskEntity taskEntity,
         Future<Void> future,
@@ -121,16 +120,14 @@ public class WorkerManagerImpl implements WorkerManager {
         );
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         workerManagerExecutorService.submit(ExecutorUtils.wrapRepeatableRunnable(this::manageLoop));
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
         log.info("shutdown(): shutdown started");
         workerManagerExecutorService.shutdownNow();
         workersExecutorService.shutdown();
@@ -154,7 +151,7 @@ public class WorkerManagerImpl implements WorkerManager {
                     log.info("manageLoop(): has been interrupted.");
                     return;
                 }
-            } catch (Exception exception) {
+            } catch (Throwable exception) {
                 log.error("manageLoop(): manage error!", exception);
                 try {
                     TimeUnit.SECONDS.sleep(1);
@@ -181,7 +178,7 @@ public class WorkerManagerImpl implements WorkerManager {
         int currentActiveTasks = activeTasks.size();
         int freeCapacity = Math.max(workerManagerSettings.getMaxParallelTasksInNode() - currentActiveTasks, 0);
         if (freeCapacity == 0) {
-            log.info("manageTasks(): there isn't free workers");
+            log.debug("manageTasks(): there isn't free workers");
             return 0;
         }
 
@@ -253,7 +250,10 @@ public class WorkerManagerImpl implements WorkerManager {
                 .build())
             .map(taskMapper::mapToShort)
             .collect(Collectors.toList());
-        taskRepository.updateAll(unknownShortTasks);
+        // in order to decrease loading to postgresql
+        if (!unknownShortTasks.isEmpty()) {
+            taskRepository.updateAll(unknownShortTasks);
+        }
     }
 
     private void cleanExpiredTasks() {
@@ -266,11 +266,13 @@ public class WorkerManagerImpl implements WorkerManager {
             .filter(taskId -> !interruptedTasks.contains(taskId))
             .collect(Collectors.toSet());
         Set<TaskId> notExpiredTaskIds = Sets.newHashSet(Sets.difference(activeTasks.keySet(), expiredTaskIds));
-        Set<TaskId> canceledTaskIds = Sets.newHashSet(Sets.difference(
-                taskRepository.filterCanceled(notExpiredTaskIds),
-                interruptedTasks
-            )
-        );
+        Set<TaskId> canceledTaskIds = notExpiredTaskIds.isEmpty() ?
+            Set.of() :
+            Sets.newHashSet(Sets.difference(
+                    taskRepository.filterCanceled(notExpiredTaskIds),
+                    interruptedTasks
+                )
+            );
 
         Set<TaskId> taskIdsToInterrupt = ImmutableSet.<TaskId>builder()
             .addAll(expiredTaskIds)

@@ -18,70 +18,46 @@ spring:
 distributed-task:
   enabled: true
   common:
-    app-name: local-test-app
-    completion:
-      handler-initial-delay: PT1S
-      handler-fixed-delay: PT1S
-      default-task-timeout: PT1M
-      default-workflow-timeout: PT1M
-    registry:
-      update-initial-delay-ms: 5000
-      update-fixed-delay-ms: 5000
-      max-inactivity-interval-ms: 16000
-      cache-expiration-ms: 5000
-    planner:
-      watchdog-initial-delay-ms: 5000
-      watchdog-fixed-delay-ms: 5000
-      max-parallel-tasks-in-cluster-default: 100
-      batch-size: 100
-      polling-delay:
-        0: 10
-    worker-manager:
-      max-parallel-tasks-in-node: 100
-      manage-delay:
-        0: 10
-
-  task-properties-group:
-    default-properties:
-      execution-guarantees: AT_LEAST_ONCE
-      dlt-enabled: true
-      retry:
-        backoff:
-          initial-delay: PT10S
-          delay-period: PT5S
-          max-retries: 1000
-          max-delay: PT1H
-        fixed:
-          delay: PT1S
-          max-interval: PT5S
-          max-number: 5
-        retry-mode: FIXED
-      max-parallel-in-cluster: 100
-      timeout: PT10S
-
+    app-name: "saga-test"
   saga:
     enabled: true
+    # Common properties for library.
     common:
+      # Cache expiration for internal purpose
       cache-expiration: PT30S
+      # Fixed delay to scan deprecation sagas: completed and expired.
       deprecated-saga-scan-fixed-delay: PT10S
+      # The size of batch of expired saga entities in db to handle (remove) in one tick.
       expired-saga-batch-size-to-remove: 1000
+    # Properties to configure saga statistics.
     saga-stat-properties:
+      # Top N saga names to print in stat.
       top-n-sagas: 5
+      # Initial delay between calculation of saga statistics.
       calc-initial-delay: PT1S
+      # Delay between calculation of saga statistics.
       calc-fixed-delay: PT10S
     # Whole saga configuration by name
     saga-properties-group:
+      # Default properties for any saga.
       default-saga-properties:
+        # Time between completion of saga and removing of its result from db.
         available-after-completion-timeout: PT1M
+        # After timeout expired, the whole saga will be canceled.
         expiration-timeout: PT10M
+        # If any revert operation fail, then stop execute reverting chain and complete saga.
+        stop-on-failed-any-revert: false
+      # Custom properties for particular saga by name.
       saga-properties-group:
         # Saga name
         test:
           expiration-timeout: PT3M
     # Configuration for saga methods
     saga-method-properties-group:
-      # Default configuration for all methods, override default configuration for tasks from task-properties-group#default-properties
+      # Default configuration for all methods,
+      # override default configuration for tasks from task-properties-group#default-properties
       default-saga-method-properties:
+        # @Transactional can be used instead
         execution-guarantees: AT_LEAST_ONCE
         retry:
           fixed:
@@ -94,7 +70,7 @@ distributed-task:
       # Customisation of configuration for dedicated saga method
       saga-method-properties:
         # Saga method name
-        createLocal:
+        addition_v0:
           retry:
             fixed:
               delay: PT1S

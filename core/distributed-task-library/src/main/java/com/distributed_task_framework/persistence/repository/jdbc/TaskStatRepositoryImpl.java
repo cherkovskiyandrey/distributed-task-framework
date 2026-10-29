@@ -2,12 +2,12 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 
 import com.distributed_task_framework.model.AggregatedTaskStat;
 import com.distributed_task_framework.persistence.repository.TaskStatRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.JdbcTools;
 import com.distributed_task_framework.utils.SqlParameters;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
@@ -15,15 +15,13 @@ import java.sql.Types;
 import java.util.List;
 import java.util.Set;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class TaskStatRepositoryImpl implements TaskStatRepository {
     NamedParameterJdbcOperations dtfNamedParameterJdbcTemplate;
 
-    public TaskStatRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations dtfNamedParameterJdbcTemplate) {
-        this.dtfNamedParameterJdbcTemplate = dtfNamedParameterJdbcTemplate;
+    public TaskStatRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        this.dtfNamedParameterJdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
     }
 
     //language=postgresql
@@ -44,7 +42,7 @@ public class TaskStatRepositoryImpl implements TaskStatRepository {
     private static final BeanPropertyRowMapper<AggregatedTaskStat> AGGREGATED_TASK_STAT_ROW_MAPPER =
         new BeanPropertyRowMapper<>(AggregatedTaskStat.class);
 
-    //SUPPOSED USED INDEXES: don't use any indexes because of scan all history
+    //SUPPOSED USED INDEXES: _____dtf_tasks_s_idx or _____dtf_tasks_tn_afg_vq_edu_idx
     @Override
     public List<AggregatedTaskStat> getAggregatedTaskStat(Set<String> knownTaskNames) {
         return dtfNamedParameterJdbcTemplate.query(

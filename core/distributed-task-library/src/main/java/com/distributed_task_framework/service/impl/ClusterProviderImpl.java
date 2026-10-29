@@ -2,24 +2,24 @@ package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.model.Capabilities;
-import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
 import com.distributed_task_framework.model.NodeLoading;
 import com.distributed_task_framework.persistence.entity.CapabilityEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.repository.CapabilityRepository;
 import com.distributed_task_framework.persistence.repository.NodeStateRepository;
-import com.distributed_task_framework.utils.DistributedTaskCache;
-import com.distributed_task_framework.utils.DistributedTaskCacheManager;
-import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.settings.CommonSettings;
+import com.distributed_task_framework.utils.DistributedTaskCache;
+import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.DistributedTaskCacheSettings;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.distributed_task_framework.utils.ExecutorUtils;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ConcurrentHashMultiset;
+import com.google.common.collect.Multisets;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.sun.management.OperatingSystemMXBean;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class ClusterProviderImpl implements ClusterProvider {
+public class ClusterProviderImpl implements ClusterProvider, DistributedTaskServiceLifecycle {
     public static final double CPU_LOADING_UNDEFINED = -1.D;
     public static final double MIN_CPU_LOADING = 0.D;
 
@@ -58,7 +58,7 @@ public class ClusterProviderImpl implements ClusterProvider {
 
     UUID nodeId;
     CommonSettings commonSettings;
-    CapabilityRegisterProvider capabilityRegisterProvider;
+    ConcurrentHashMultiset<Capabilities> nodeCapabilities;
     NodeStateRepository nodeStateRepository;
     CapabilityRepository capabilityRepository;
     PlatformTransactionManager transactionManager;
@@ -72,7 +72,6 @@ public class ClusterProviderImpl implements ClusterProvider {
     Clock clock;
 
     public ClusterProviderImpl(CommonSettings commonSettings,
-                               CapabilityRegisterProvider capabilityRegisterProvider,
                                PlatformTransactionManager transactionManager,
                                DistributedTaskCacheManager cacheManager,
                                NodeStateMapper nodeStateMapper,
@@ -82,7 +81,7 @@ public class ClusterProviderImpl implements ClusterProvider {
                                Clock clock) {
         this.nodeId = UUID.randomUUID();
         this.commonSettings = commonSettings;
-        this.capabilityRegisterProvider = capabilityRegisterProvider;
+        this.nodeCapabilities = ConcurrentHashMultiset.create();
         this.transactionManager = transactionManager;
         this.nodesWithCapabilityCache = cacheManager.getOrCreateCache(
             CLUSTER_NODES_AND_CAPABILITIES_CACHE,
@@ -118,8 +117,8 @@ public class ClusterProviderImpl implements ClusterProvider {
         return result;
     }
 
-    @PostConstruct
-    public void init() {
+    @Override
+    public void start() {
         log.info("init(): nodeId=[{}]", nodeId);
         scheduledExecutorService.scheduleWithFixedDelay(
             ExecutorUtils.wrapRepeatableRunnable(this::watchdog),
@@ -127,6 +126,21 @@ public class ClusterProviderImpl implements ClusterProvider {
             commonSettings.getRegistrySettings().getUpdateFixedDelayMs(),
             TimeUnit.MILLISECONDS
         );
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Override
+    public void stop() throws Exception {
+        log.info("shutdown(): nodeId=[{}] shutdown started", nodeId);
+        scheduledExecutorService.shutdownNow();
+        scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
+        log.info("shutdown(): nodeId=[{}] shutdown completed", nodeId);
+    }
+
+    @Override
+    public void cleanup() {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.executeWithoutResult(status -> nodeStateRepository.deleteById(nodeId));
     }
 
     public void watchdog() {
@@ -188,15 +202,14 @@ public class ClusterProviderImpl implements ClusterProvider {
     @VisibleForTesting
     void updateCapabilities() {
         Set<CapabilityEntity> publishedCurrentCapabilities = capabilityRepository.findByNodeId(nodeId);
-        Set<CapabilityEntity> currentCapabilities = capabilityRegisterProvider.getAllCapabilityRegister().stream()
-            .flatMap(capabilityRegister -> capabilityRegister.capabilities().stream()
-                .filter(capability -> Capabilities.UNKNOWN != capability)
-                .map(capability -> CapabilityEntity.builder()
-                    .value(capability.toString())
-                    .nodeId(nodeId)
-                    .build()
-                )
-            ).collect(Collectors.toSet());
+        Set<CapabilityEntity> currentCapabilities = nodeCapabilities.stream()
+            .filter(capability -> Capabilities.UNKNOWN != capability)
+            .map(capability -> CapabilityEntity.builder()
+                .value(capability.toString())
+                .nodeId(nodeId)
+                .build()
+            )
+            .collect(Collectors.toSet());
         boolean hasToBeUpdated = publishedCurrentCapabilities.size() != currentCapabilities.size() ||
             Sets.intersection(publishedCurrentCapabilities, currentCapabilities).size() != currentCapabilities.size();
         if (hasToBeUpdated) {
@@ -220,25 +233,6 @@ public class ClusterProviderImpl implements ClusterProvider {
         }
     }
 
-    /**
-     * @noinspection ResultOfMethodCallIgnored
-     */
-    @PreDestroy
-    public void shutdown() throws InterruptedException {
-        log.info("shutdown(): nodeId=[{}] shutdown started", nodeId);
-        scheduledExecutorService.shutdownNow();
-        scheduledExecutorService.awaitTermination(1, TimeUnit.MINUTES);
-        unregisterItself();
-        log.info("shutdown(): nodeId=[{}] shutdown completed", nodeId);
-    }
-
-    private void unregisterItself() {
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.executeWithoutResult(status -> {
-            nodeStateRepository.deleteById(nodeId);
-        });
-    }
-
     @Override
     public UUID nodeId() {
         return nodeId;
@@ -258,6 +252,16 @@ public class ClusterProviderImpl implements ClusterProvider {
         return nodesWithCapabilities().keySet().stream()
             .map(nodeStateMapper::fromEntity)
             .toList();
+    }
+
+    @Override
+    public void registerCapabilities(EnumSet<Capabilities> capabilities) {
+        nodeCapabilities.addAll(capabilities);
+    }
+
+    @Override
+    public void unregisterCapabilities(EnumSet<Capabilities> capabilities) {
+        Multisets.removeOccurrences(nodeCapabilities, capabilities);
     }
 
     @Override

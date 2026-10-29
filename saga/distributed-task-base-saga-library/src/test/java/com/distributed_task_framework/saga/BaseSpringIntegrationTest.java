@@ -10,8 +10,8 @@ import com.distributed_task_framework.saga.services.impl.SagaResolverImpl;
 import com.distributed_task_framework.saga.services.impl.SagaStatService;
 import com.distributed_task_framework.saga.services.internal.SagaResolver;
 import com.distributed_task_framework.saga.services.internal.SagaTaskFactory;
+import com.distributed_task_framework.service.PlannerState;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
-import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.test.autoconfigure.service.DistributedTaskTestUtil;
 import com.distributed_task_framework.utils.MetricTestHelper;
 import com.distributed_task_framework.utils.Postgresql16Initializer;
@@ -96,8 +96,8 @@ public abstract class BaseSpringIntegrationTest {
     DistributedTaskMetricHelper distributedTaskMetricHelper;
     @Autowired
     MeterRegistry meterRegistry;
-    @SpyBean(name = "virtualQueueManagerPlanner")
-    PlannerService plannerService;
+    @SpyBean
+    PlannerState plannerState;
 
     @SneakyThrows
     @BeforeEach

@@ -220,10 +220,6 @@ public class ExtendedTaskGenerator {
     @SneakyThrows
     @Nullable
     private <T> TaskEntity createTaskEntity(TaskDef<T> taskDef, AbstractTaskModelSpec<T> abstractTaskModelSpec) {
-        if (!abstractTaskModelSpec.isSaveInstance()) {
-            return null;
-        }
-
         TaskEntity taskEntity = TaskEntity.builder()
             .taskName(taskDef.getTaskName())
             .id(UUID.randomUUID())
@@ -241,7 +237,11 @@ public class ExtendedTaskGenerator {
         taskEntity = abstractTaskModelSpec.getTaskEntityCustomizer() != null ?
             abstractTaskModelSpec.getTaskEntityCustomizer().apply(taskEntity) :
             taskEntity;
-        return taskRepository.saveOrUpdate(taskEntity);
+
+        if (abstractTaskModelSpec.isSaveInstance()) {
+            return taskRepository.saveOrUpdate(taskEntity);
+        }
+        return taskEntity;
     }
 
     @Nullable

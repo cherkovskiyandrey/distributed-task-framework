@@ -22,6 +22,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 
+import java.util.List;
+
+import static com.distributed_task_framework.saga.services.impl.SagaManagerImpl.INTERNAL_SAGA_MANAGER_TASK_DEF;
+
 @ActiveProfiles("test")
 @SpringBootTest(
     properties = {
@@ -68,7 +72,7 @@ public abstract class BaseSpringIntegrationTest {
     @AfterEach
     public void init() {
         Assertions.setMaxStackTraceElementsDisplayed(100);
-        distributedTaskTestUtil.reinitAndWait();
+        distributedTaskTestUtil.reinitAndWait(List.of(INTERNAL_SAGA_MANAGER_TASK_DEF));
         sagaRepository.deleteAll();
         dlsSagaContextRepository.deleteAll();
     }

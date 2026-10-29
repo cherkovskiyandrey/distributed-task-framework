@@ -73,7 +73,7 @@ public class DistributedTaskProperties {
          */
         Integer maxInactivityIntervalMs;
         /**
-         * Cache expiration in sec to for registered cluster information.
+         * Cache expiration in ms for registered cluster information.
          */
         Integer cacheExpirationMs;
         /**
@@ -120,6 +120,10 @@ public class DistributedTaskProperties {
          * Time window to track pairs of affinityGroup and taskName in ACTIVE virtual queue.
          */
         Duration partitionTrackingTimeWindow;
+        /**
+         * Time interval between real compaction of partitions aside of the frequency of "compact" method.
+         */
+        Duration partitionCompactInterval;
         /**
          * The limit of cpu loading for nodes.
          * If node reach this limit, planner will not consider this node to plan.

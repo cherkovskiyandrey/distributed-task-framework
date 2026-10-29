@@ -7,6 +7,7 @@ dependencies {
     api libs.jakarta.annotation.api
     api libs.caffeine
 
+    implementation libs.spring.boot.autoconfigure
     implementation libs.spring.boot
     implementation libs.spring.data.jdbc
 

@@ -111,7 +111,8 @@ class DeliveryManagerIntegrationTest extends BaseSpringIntegrationTest {
     @SneakyThrows
     @AfterEach
     public void destroy() {
-        deliveryManager.shutdown();
+        deliveryManager.stop();
+        deliveryManager.cleanup();
         executorService.shutdownNow();
         executorService.awaitTermination(1, TimeUnit.MINUTES);
         mockWebServer.shutdown();

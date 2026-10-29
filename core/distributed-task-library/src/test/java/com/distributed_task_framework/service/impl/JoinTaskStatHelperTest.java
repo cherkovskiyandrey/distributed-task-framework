@@ -1,6 +1,6 @@
 package com.distributed_task_framework.service.impl;
 
-import com.distributed_task_framework.service.internal.PlannerGroups;
+import com.distributed_task_framework.service.internal.PlannerGroup;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -38,8 +38,8 @@ class JoinTaskStatHelperTest extends BaseMetricTest {
         metricTestHelper.assertMetricToContain(
                 "planner.optLock.changed",
                 METER_BY_GROUP_AND_NAME,
-                Tuple.tuple(PlannerGroups.JOIN.getName(), "default", "task-1", 1),
-                Tuple.tuple(PlannerGroups.JOIN.getName(), "test-grp-1", "task-2", 1)
+                Tuple.tuple(PlannerGroup.JOIN.getName(), "default", "task-1", 1),
+                Tuple.tuple(PlannerGroup.JOIN.getName(), "test-grp-1", "task-2", 1)
         );
     }
 
@@ -58,8 +58,8 @@ class JoinTaskStatHelperTest extends BaseMetricTest {
         metricTestHelper.assertMetricToContain(
                 "planner.task.planned",
                 METER_BY_GROUP_AND_NAME,
-                Tuple.tuple(PlannerGroups.JOIN.getName(), "default", "task-1", 1),
-                Tuple.tuple(PlannerGroups.JOIN.getName(), "test-grp-1", "task-2", 1)
+                Tuple.tuple(PlannerGroup.JOIN.getName(), "default", "task-1", 1),
+                Tuple.tuple(PlannerGroup.JOIN.getName(), "test-grp-1", "task-2", 1)
         );
     }
 }

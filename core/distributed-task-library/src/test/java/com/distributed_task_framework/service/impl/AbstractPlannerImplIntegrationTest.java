@@ -7,6 +7,8 @@ import com.distributed_task_framework.persistence.repository.NodeStateRepository
 import com.distributed_task_framework.persistence.repository.PlannerRepository;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
+import com.distributed_task_framework.service.internal.PlannerGroup;
+import com.distributed_task_framework.service.internal.PlannerStateRegistry;
 import com.distributed_task_framework.service.internal.WorkerManager;
 import com.distributed_task_framework.settings.CommonSettings;
 import lombok.AccessLevel;
@@ -52,6 +54,8 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
     Clock clock;
     @Autowired
     DistributedTaskMetricHelper distributedTaskMetricHelper;
+    @Autowired
+    PlannerStateRegistry plannerStateRegistry;
     AbstractPlannerImpl plannerService;
     ExecutorService executorService;
 
@@ -60,10 +64,11 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
         super.init();
         executorService = Executors.newSingleThreadExecutor();
         plannerService = Mockito.spy(new DummyPlanner(
-                commonSettings,
-                plannerRepository,
-                transactionManager,
-                clusterProvider,
+            commonSettings,
+            plannerRepository,
+            transactionManager,
+            clusterProvider,
+            plannerStateRegistry,
             distributedTaskMetricHelper
         ));
     }
@@ -72,7 +77,8 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
     @SneakyThrows
     @AfterEach
     void destroy() {
-        plannerService.shutdown();
+        plannerService.stop();
+        plannerService.cleanup();
         executorService.shutdownNow();
         executorService.awaitTermination(1, TimeUnit.MINUTES);
     }
@@ -88,9 +94,9 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
 
         //verify
         waitFor(() -> flag.get() > 0);
-        assertThat(plannerRepository.findByGroupName(DummyPlanner.GROUP_NAME)).isPresent()
-                .get()
-                .matches(plannerEntity -> plannerEntity.getNodeStateId().equals(clusterProvider.nodeId()));
+        assertThat(plannerRepository.findByGroupName(plannerService.plannerGroup().getName())).isPresent()
+            .get()
+            .matches(plannerEntity -> plannerEntity.getNodeStateId().equals(clusterProvider.nodeId()));
     }
 
     @Test
@@ -98,23 +104,23 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
         //when
         UUID foreignNodeId = UUID.randomUUID();
         nodeStateRepository.save(NodeStateEntity.builder()
-                .lastUpdateDateUtc(LocalDateTime.now(clock).plusHours(1))
-                .node(foreignNodeId)
-                .build()
+            .lastUpdateDateUtc(LocalDateTime.now(clock).plusHours(1))
+            .node(foreignNodeId)
+            .build()
         );
         plannerRepository.save(PlannerEntity.builder()
-                .groupName(DummyPlanner.GROUP_NAME)
-                .nodeStateId(foreignNodeId)
-                .build());
+            .groupName(plannerService.plannerGroup().getName())
+            .nodeStateId(foreignNodeId)
+            .build());
         waitForNodeIsRegistered();
 
         //do
         plannerService.watchdog();
 
         //verify
-        assertThat(plannerRepository.findByGroupName(DummyPlanner.GROUP_NAME)).isPresent()
-                .get()
-                .matches(plannerEntity -> plannerEntity.getNodeStateId().equals(foreignNodeId));
+        assertThat(plannerRepository.findByGroupName(plannerService.plannerGroup().getName())).isPresent()
+            .get()
+            .matches(plannerEntity -> plannerEntity.getNodeStateId().equals(foreignNodeId));
     }
 
     @Test
@@ -123,18 +129,18 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
         AtomicInteger flag = mockPlanningLoopInvocation();
         waitForNodeIsRegistered();
         plannerRepository.save(PlannerEntity.builder()
-                .groupName(DummyPlanner.GROUP_NAME)
-                .nodeStateId(clusterProvider.nodeId())
-                .build());
+            .groupName(plannerService.plannerGroup().getName())
+            .nodeStateId(clusterProvider.nodeId())
+            .build());
 
         //do
         plannerService.watchdog();
 
         //verify
         waitFor(() -> flag.get() > 0);
-        assertThat(plannerRepository.findByGroupName(DummyPlanner.GROUP_NAME)).isPresent()
-                .get()
-                .matches(plannerEntity -> plannerEntity.getNodeStateId().equals(clusterProvider.nodeId()));
+        assertThat(plannerRepository.findByGroupName(plannerService.plannerGroup().getName())).isPresent()
+            .get()
+            .matches(plannerEntity -> plannerEntity.getNodeStateId().equals(clusterProvider.nodeId()));
     }
 
     @Test
@@ -148,14 +154,14 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
         plannerRepository.deleteAll();
         UUID foreignNodeId = UUID.randomUUID();
         nodeStateRepository.save(NodeStateEntity.builder()
-                .lastUpdateDateUtc(LocalDateTime.now(clock).plusHours(1))
-                .node(foreignNodeId)
-                .build()
+            .lastUpdateDateUtc(LocalDateTime.now(clock).plusHours(1))
+            .node(foreignNodeId)
+            .build()
         );
         plannerRepository.save(PlannerEntity.builder()
-                .groupName(DummyPlanner.GROUP_NAME)
-                .nodeStateId(foreignNodeId)
-                .build());
+            .groupName(plannerService.plannerGroup().getName())
+            .nodeStateId(foreignNodeId)
+            .build());
 
         //do
         plannerService.watchdog();
@@ -172,7 +178,7 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
         plannerService.watchdog();
         waitFor(() -> deliveryLoopSignals.getStartSignal().get() > 0);
 
-        ((DummyPlanner)plannerService).setActive(false);
+        ((DummyPlanner) plannerService).setActive(false);
 
         //do
         plannerService.watchdog();
@@ -192,9 +198,9 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
 
     private DeliveryLoopSignals mockInfinityDeliveryLoopInvocation() {
         DeliveryLoopSignals deliveryLoopSignals = DeliveryLoopSignals.builder()
-                .startSignal(new AtomicInteger(0))
-                .stopSignal(new AtomicInteger(0))
-                .build();
+            .startSignal(new AtomicInteger(0))
+            .stopSignal(new AtomicInteger(0))
+            .build();
         doAnswer(invocation -> {
             try {
                 deliveryLoopSignals.getStartSignal().incrementAndGet();
@@ -210,7 +216,6 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
     }
 
     private static class DummyPlanner extends AbstractPlannerImpl {
-        private static final String GROUP_NAME = "dummy group";
         private static final String NAME = "dummy";
 
         @Setter
@@ -221,8 +226,16 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
                             PlannerRepository plannerRepository,
                             PlatformTransactionManager transactionManager,
                             ClusterProvider clusterProvider,
+                            PlannerStateRegistry plannerStateRegistry,
                             DistributedTaskMetricHelper distributedTaskMetricHelper) {
-            super(commonSettings, plannerRepository, transactionManager, clusterProvider, distributedTaskMetricHelper);
+            super(
+                commonSettings,
+                plannerRepository,
+                transactionManager,
+                clusterProvider,
+                plannerStateRegistry,
+                distributedTaskMetricHelper
+            );
             this.active = true;
         }
 
@@ -237,8 +250,8 @@ class AbstractPlannerImplIntegrationTest extends BaseSpringIntegrationTest {
         }
 
         @Override
-        protected String groupName() {
-            return GROUP_NAME;
+        protected PlannerGroup plannerGroup() {
+            return PlannerGroup.TEST_GROUP_NAME;
         }
 
         @Override

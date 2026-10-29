@@ -8,45 +8,50 @@ import com.distributed_task_framework.saga.autoconfigure.services.SagaProperties
 import com.distributed_task_framework.saga.autoconfigure.utils.ReflectionHelper;
 import com.distributed_task_framework.saga.autoconfigure.utils.SagaNamingUtils;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
+import com.distributed_task_framework.utils.DistributedTaskServiceLifecycle;
 import com.google.common.collect.Maps;
-import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.util.ReflectionUtils;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Map;
-import java.util.Set;
 
+/**
+ * Don't implement BeanPostProcessor.
+ * It leads to early creating of dependencies graph of service and MeterRegistry too.
+ * As result a major of metrics will not be created. Usually injecting of MeterRegistry too
+ * BeanPostProcessor is distinguished via {@link io.micrometer.core.instrument.binder.MeterBinder}
+ * But in this case SagaBeanCollector is used to provide discovered saga beans.
+ */
 @Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
-    private static final Set<String> IGNORE_METHOD_NAMES = Set.of(
-        "equals",
-        "hashCode",
-        "toString",
-        "wait",
-        "notify",
-        "getClass",
-        "notifyAll",
-        "finalize",
-        "clone"
-    );
+public class SagaConfigurationDiscoveryProcessor implements
+    DistributedTaskServiceLifecycle,
+    ApplicationContextAware {
 
+    @NonFinal
+    ApplicationContext applicationContext;
     DistributionSagaService distributionSagaService;
     DistributedSagaProperties distributedSagaProperties;
     SagaPropertiesProcessor sagaPropertiesProcessor;
-    Map<Object, com.distributed_task_framework.saga.autoconfigure.utils.ReflectionHelper.ProxyObject> beansToProxyObject = Maps.newIdentityHashMap();
+    SagaBeanCollector sagaBeanCollector;
+    Map<Object, ReflectionHelper.ProxyObject> beansToProxyObject = Maps.newIdentityHashMap();
 
-    @PostConstruct
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
+    }
+
+    @Override
     public void init() {
         sagaPropertiesProcessor.registerConfiguredSagas(
             distributionSagaService,
@@ -54,18 +59,25 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
         );
     }
 
-    @SuppressWarnings("NullableProblems")
+    /**
+     * We register in this phase because only on this phase we have all singleton beans already created and initialised.
+     * If bean is lazy created after spring context is started - we can't handle it. This behavior is by design:
+     * it is dangerous to allow lazy beans, because can lead potentially to case when beans
+     * will not be initialised and as result this node will not be able to handle corresponded DTF tasks.
+     */
     @Override
-    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        registerSagaMethodIfExists(bean);
-        registerSagaRevertMethodIfExists(bean);
-        return bean;
+    public void start() {
+        sagaBeanCollector.getSagaBeanNames().forEach(
+            beanName -> {
+                var bean = applicationContext.getBean(beanName);
+                registerSagaMethodIfExists(bean);
+                registerSagaRevertMethodIfExists(bean);
+            }
+        );
     }
 
     private void registerSagaMethodIfExists(Object bean) {
-        Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
-            .filter(this::isNotIgnoredMethod)
-            .filter(method -> com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaMethod.class).isPresent())
+        SagaBeanCollector.findAnnotatedMethods(AopUtils.getTargetClass(bean), SagaMethod.class)
             .forEach(method -> {
                 var suffix = buildSuffix(bean);
                 var taskName = SagaNamingUtils.taskNameFor(method, suffix);
@@ -87,9 +99,7 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
     }
 
     private void registerSagaRevertMethodIfExists(Object bean) {
-        Arrays.stream(ReflectionUtils.getUniqueDeclaredMethods(AopUtils.getTargetClass(bean)))
-            .filter(this::isNotIgnoredMethod)
-            .filter(method -> com.distributed_task_framework.autoconfigure.utils.ReflectionHelper.findAnnotation(method, SagaRevertMethod.class).isPresent())
+        SagaBeanCollector.findAnnotatedMethods(AopUtils.getTargetClass(bean), SagaRevertMethod.class)
             .forEach(method -> {
                 var suffix = buildSuffix(bean);
                 var revertTaskName = SagaNamingUtils.taskNameFor(method, suffix);
@@ -108,11 +118,6 @@ public class SagaConfigurationDiscoveryProcessor implements BeanPostProcessor {
                     sagaMethodSettings
                 );
             });
-    }
-
-    private boolean isNotIgnoredMethod(Method method) {
-        return IGNORE_METHOD_NAMES.stream()
-            .noneMatch(methodName -> method.getName().contains(methodName));
     }
 
     private String buildSuffix(Object bean) {

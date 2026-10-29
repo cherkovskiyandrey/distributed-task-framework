@@ -3,24 +3,22 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 import com.distributed_task_framework.persistence.entity.CapabilityEntity;
 import com.distributed_task_framework.persistence.entity.NodeStateEntity;
 import com.distributed_task_framework.persistence.repository.NodeStateExtendedRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import org.apache.commons.lang3.tuple.Pair;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class NodeStateExtendedRepositoryImpl implements NodeStateExtendedRepository {
     NamedParameterJdbcOperations jdbcTemplate;
 
-    public NodeStateExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public NodeStateExtendedRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        this.jdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
     }
 
     //language=postgresql

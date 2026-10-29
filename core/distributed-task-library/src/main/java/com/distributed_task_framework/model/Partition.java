@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import jakarta.annotation.Nullable;
+import lombok.experimental.FieldNameConstants;
+
 import java.util.Comparator;
 import java.util.Objects;
 
@@ -16,6 +18,7 @@ import java.util.Objects;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @AllArgsConstructor
 @NoArgsConstructor
+@FieldNameConstants
 @Builder(toBuilder = true)
 public class Partition implements Comparable<Partition> {
     @Nullable

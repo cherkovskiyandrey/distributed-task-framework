@@ -2,23 +2,21 @@ package com.distributed_task_framework.persistence.repository.jdbc;
 
 import com.distributed_task_framework.persistence.entity.CapabilityEntity;
 import com.distributed_task_framework.persistence.repository.CapabilityExtendedRepository;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 
 import java.util.Set;
 import java.util.UUID;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CapabilityExtendedRepositoryImpl implements CapabilityExtendedRepository {
     NamedParameterJdbcOperations jdbcTemplate;
 
-    public CapabilityExtendedRepositoryImpl(@Qualifier(DTF_JDBC_OPS) NamedParameterJdbcOperations jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public CapabilityExtendedRepositoryImpl(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        this.jdbcTemplate = dtfJdbcInfrastructure.getNamedParameterJdbcOperations();
     }
 
 

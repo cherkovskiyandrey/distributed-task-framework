@@ -31,13 +31,13 @@ This is a document about the configuration properties in DTF autoconfiguration m
 
 |Key|Type|Description|Default value|Deprecation|
 |---|----|-----------|-------------|-----------|
-| retry-mode| java.lang.String| Sets default retry mode.| BACKOFF| | 
+| retry-mode| java.lang.String| Sets default retry mode.| FIXED| | 
 ### distributed-task.task-properties-group.default-properties.retry
 **Class:** `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Retry`
 
 |Key|Type|Description|Default value|Deprecation|
 |---|----|-----------|-------------|-----------|
-| retry-mode| java.lang.String| Sets default retry mode.| BACKOFF| | 
+| retry-mode| java.lang.String| Sets default retry mode.| FIXED| | 
 ### distributed-task.common.delivery-manager.retry.backoff
 **Class:** `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Backoff`
 
@@ -77,7 +77,8 @@ This is a document about the configuration properties in DTF autoconfiguration m
 
 |Key|Type|Description|Default value|Deprecation|
 |---|----|-----------|-------------|-----------|
-| distributed-task.enabled| java.lang.Boolean| If true, DTF will not be started.| false| | 
+| distributed-task.enabled| java.lang.Boolean| If false, DTF will not be started.| false| | 
+| distributed-task.liquibase.check-migrations| java.lang.Boolean| Check if all needed migrations are deployed to database.| true| | 
 ### distributed-task
 **Class:** `com.distributed_task_framework.autoconfigure.DistributedTaskProperties`
 
@@ -100,7 +101,7 @@ This is a document about the configuration properties in DTF autoconfiguration m
 
 |Key|Type|Description|Default value|Deprecation|
 |---|----|-----------|-------------|-----------|
-| cron| java.lang.String| Cron string.| | | 
+| cron| java.lang.String| Cron string or time duration string {@link Duration#parse(CharSequence)}| | | 
 | dlt-enabled| java.lang.Boolean| Has this task to be moved to dlt when eventually failed.| true| | 
 | execution-guarantees| java.lang.String| Execution guarantees.| AT_LEAST_ONCE| | 
 | max-parallel-in-cluster| java.lang.Integer| How many parallel tasks can be in the cluster. &#x27;-1&#x27; means undefined and depends on current cluster configuration.| -1| | 
@@ -111,10 +112,10 @@ This is a document about the configuration properties in DTF autoconfiguration m
 
 |Key|Type|Description|Default value|Deprecation|
 |---|----|-----------|-------------|-----------|
-| default-task-timeout| java.time.Duration| | | | 
-| default-workflow-timeout| java.time.Duration| | | | 
-| handler-fixed-delay| java.time.Duration| | | | 
-| handler-initial-delay| java.time.Duration| | | | 
+| default-task-timeout| java.time.Duration| Default timeout for waitCompletion(TaskId) when no timeout is passed.| PT1M| | 
+| default-workflow-timeout| java.time.Duration| Default timeout for waitCompletionAllWorkflow(s) when no timeout is passed.| PT1M| | 
+| handler-fixed-delay| java.time.Duration| Delay between polls of the completion handler, which resolves waitCompletion* calls.| PT1S| | 
+| handler-initial-delay| java.time.Duration| Initial delay before the completion handler starts polling for finished tasks and workflows.| PT1S| | 
 ### distributed-task.common.delivery-manager
 **Class:** `com.distributed_task_framework.autoconfigure.DistributedTaskProperties$DeliveryManager`
 
@@ -139,6 +140,7 @@ This is a document about the configuration properties in DTF autoconfiguration m
 | max-parallel-tasks-in-cluster-default| java.lang.Integer| How many parallel tasks can be in the cluster for unknown task on planner. -1 means unlimited.| -1| | 
 | new-batch-size| java.lang.Integer| Batch size to move tasks from NEW virtual queue.| 300| | 
 | node-cpu-loading-limit| java.lang.Double| The limit of cpu loading for nodes. If node reach this limit, planner will not consider this node to plan. Range from 0.0-1.0.| 0.95| | 
+| partition-compact-interval| java.time.Duration| Time interval between real compaction of partitions aside of the frequency of &quot;compact&quot; method.| PT10S| | 
 | partition-tracking-time-window| java.time.Duration| Time window to track pairs of affinityGroup and taskName in ACTIVE virtual queue.| PT1M| | 
 | plan-factor| java.lang.Float| Used to plan bigger than capacity in this factor times. In order to reduce potential delay between planner loop steps. Take into account that work only for unlimited tasks (maxParallelTasksInClusterDefault &#x3D; UNLIMITED_PARALLEL_TASKS and TaskSettings.maxParallelInCluster &#x3D; UNLIMITED_PARALLEL_TASKS)| 2.0| | 
 | polling-delay| java.util.Map&lt;java.lang.Integer,java.lang.Integer&gt;| Function describe delay between polling of db depends on last number of ready to plan tasks. Key is a number of tasks in last polling. Value is a delay in ms before next polling.| | | 
@@ -149,7 +151,7 @@ This is a document about the configuration properties in DTF autoconfiguration m
 
 |Key|Type|Description|Default value|Deprecation|
 |---|----|-----------|-------------|-----------|
-| cache-expiration-ms| java.lang.Integer| Cache expiration in sec to for registered cluster information.| 1000| | 
+| cache-expiration-ms| java.lang.Integer| Cache expiration in ms for registered cluster information.| 1000| | 
 | cpu-calculating-time-window| java.time.Duration| Duration of time cpu loading of current node is calculated in.| PT5M| | 
 | max-inactivity-interval-ms| java.lang.Integer| Max interval to unregister node when node doesn&#x27;t update status.| 20000| | 
 | update-fixed-delay-ms| java.lang.Integer| Delay between updates of node state in ms.| 4000| | 
@@ -170,5 +172,5 @@ This is a document about the configuration properties in DTF autoconfiguration m
 | max-parallel-tasks-in-node| java.lang.Integer| How many parallel tasks can be run on one node.| 100| | 
 
 
-This is a generated file, generated at: **2025-02-28T21:39:05.061697**
+This is a generated file, generated at: **2026-10-28T20:03:37.893280**
 

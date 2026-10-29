@@ -39,6 +39,12 @@ public class TestTaskModelCustomizerUtils {
             .build();
     }
 
+    public static Function<TaskEntity, TaskEntity> withVersion(long version) {
+        return taskEntity -> taskEntity.toBuilder()
+            .version(version)
+            .build();
+    }
+
     public static <T> TestTaskModelSpec<T> assigned(Class<T> cls) {
         return TestTaskModelSpec.builder(cls)
             .withSaveInstance()

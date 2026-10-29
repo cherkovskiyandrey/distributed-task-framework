@@ -160,6 +160,7 @@ public class SagaRevertTask extends BaseSagaTask implements Task<SagaPipeline> {
                 "scheduleNextRevertIfRequired(): revert chain has been completed for sagaPipelineContext with id=[{}]",
                 sagaPipeline.getSagaId()
             );
+            //todo: write to DLS (dead letter saga) too
             sagaManager.completeIfExists(sagaPipeline.getSagaId());
             return;
         }

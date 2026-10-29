@@ -1,0 +1,23 @@
+databaseChangeLog:
+  - changeSet:
+      id: test-init
+      author: CherkovskiyAndrey
+      context: ddl
+      changes:
+        - createTable:
+            tableName: test_data
+            columns:
+              - column:
+                  name: id
+                  type: int8
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: test_data_pk
+              - column:
+                  name: name
+                  type: character varying(255)
+                  constraints:
+                    nullable: false
+                    unique: true

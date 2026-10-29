@@ -1,6 +1,7 @@
 package com.distributed_task_framework;
 
 import com.distributed_task_framework.mapper.CommandMapper;
+import com.distributed_task_framework.mapper.IdVersionMapper;
 import com.distributed_task_framework.mapper.NodeStateMapper;
 import com.distributed_task_framework.mapper.PartitionMapper;
 import com.distributed_task_framework.mapper.TaskMapper;
@@ -21,18 +22,21 @@ import com.distributed_task_framework.persistence.repository.RemoteCommandReposi
 import com.distributed_task_framework.persistence.repository.TaskLinkRepository;
 import com.distributed_task_framework.persistence.repository.TaskMessageRepository;
 import com.distributed_task_framework.persistence.repository.TaskRepository;
+import com.distributed_task_framework.persistence.repository.jdbc.TaskRepositoryHelper;
 import com.distributed_task_framework.service.DistributedTaskService;
+import com.distributed_task_framework.service.PlannerState;
 import com.distributed_task_framework.service.TaskSerializer;
 import com.distributed_task_framework.service.impl.ClusterProviderImpl;
 import com.distributed_task_framework.service.impl.CompletionServiceImpl;
 import com.distributed_task_framework.service.impl.CronService;
+import com.distributed_task_framework.service.impl.DistributedTaskMetricHelperImpl;
 import com.distributed_task_framework.service.impl.DistributedTaskServiceImpl;
 import com.distributed_task_framework.service.impl.InternalTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.JoinTaskStatHelper;
 import com.distributed_task_framework.service.impl.JsonTaskSerializerImpl;
 import com.distributed_task_framework.service.impl.LocalTaskCommandServiceImpl;
-import com.distributed_task_framework.service.impl.DistributedTaskMetricHelperImpl;
 import com.distributed_task_framework.service.impl.PartitionTrackerImpl;
+import com.distributed_task_framework.service.impl.PlannerStateImpl;
 import com.distributed_task_framework.service.impl.RemoteTaskCommandServiceImpl;
 import com.distributed_task_framework.service.impl.TaskCommandStatServiceImpl;
 import com.distributed_task_framework.service.impl.TaskLinkManagerImpl;
@@ -44,14 +48,11 @@ import com.distributed_task_framework.service.impl.WorkerContextManagerImpl;
 import com.distributed_task_framework.service.impl.WorkerManagerImpl;
 import com.distributed_task_framework.service.impl.workers.LocalAtLeastOnceWorker;
 import com.distributed_task_framework.service.impl.workers.LocalExactlyOnceWorker;
-import com.distributed_task_framework.service.internal.CapabilityRegister;
-import com.distributed_task_framework.service.internal.CapabilityRegisterProvider;
 import com.distributed_task_framework.service.internal.ClusterProvider;
 import com.distributed_task_framework.service.internal.CompletionService;
-import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
+import com.distributed_task_framework.service.internal.InternalTaskCommandService;
 import com.distributed_task_framework.service.internal.PartitionTracker;
-import com.distributed_task_framework.service.internal.PlannerService;
 import com.distributed_task_framework.service.internal.TaskCommandStatService;
 import com.distributed_task_framework.service.internal.TaskCommandWithDetectorService;
 import com.distributed_task_framework.service.internal.TaskLinkManager;
@@ -67,7 +68,9 @@ import com.distributed_task_framework.settings.Retry;
 import com.distributed_task_framework.settings.RetryMode;
 import com.distributed_task_framework.settings.TaskSettings;
 import com.distributed_task_framework.utils.DistributedTaskCacheManager;
+import com.distributed_task_framework.utils.DistributedTaskLifecycleSpringConfiguration;
 import com.distributed_task_framework.utils.DistributedTaskNoCacheManager;
+import com.distributed_task_framework.utils.DtfJdbcInfrastructure;
 import com.distributed_task_framework.utils.TestClock;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -76,52 +79,75 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import lombok.experimental.FieldDefaults;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.auditing.DateTimeProvider;
+import org.springframework.data.jdbc.core.convert.DataAccessStrategy;
+import org.springframework.data.jdbc.core.convert.JdbcConverter;
+import org.springframework.data.jdbc.core.mapping.JdbcMappingContext;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
+import org.springframework.data.relational.core.dialect.Dialect;
 import org.springframework.data.relational.core.mapping.event.BeforeConvertCallback;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-import javax.sql.DataSource;
 import java.net.URL;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_JDBC_OPS;
-import static com.distributed_task_framework.persistence.repository.DtfRepositoryConstants.DTF_TX_MANAGER;
 import static com.distributed_task_framework.service.impl.ClusterProviderImpl.CPU_LOADING_UNDEFINED;
 import static org.mockito.Mockito.doReturn;
 
 @TestConfiguration
 @EnableJdbcAuditing
-@EnableJdbcRepositories(
-    basePackageClasses = NodeStateRepository.class,
-    transactionManagerRef = DTF_TX_MANAGER,
-    jdbcOperationsRef = DTF_JDBC_OPS
+@AutoConfigureAfter(
+    value = {
+        JdbcTemplateAutoConfiguration.class,
+        DataSourceTransactionManagerAutoConfiguration.class,
+        DistributedTaskLifecycleSpringConfiguration.class,
+    }
 )
+@EnableJdbcRepositories(
+    basePackageClasses = NodeStateRepository.class
+)
+@Import(DistributedTaskLifecycleSpringConfiguration.class)
 @EnableTransactionManagement
 public class BaseTestConfiguration {
+
+    @Bean
+    public DtfJdbcInfrastructure dtfJdbcInfrastructure(
+        PlatformTransactionManager platformTransactionManager,
+        NamedParameterJdbcOperations namedParameterJdbcOperations,
+        Dialect dialect,
+        DataAccessStrategy dataAccessStrategy,
+        JdbcConverter jdbcConverter,
+        JdbcMappingContext jdbcMappingContext
+    ) {
+        return new DtfJdbcInfrastructure(
+            platformTransactionManager,
+            namedParameterJdbcOperations,
+            dialect,
+            dataAccessStrategy,
+            jdbcMappingContext,
+            jdbcConverter
+        );
+    }
+
     @Bean
     public TestClock distributedTaskInternalClock() {
         return new TestClock();
@@ -239,6 +265,11 @@ public class BaseTestConfiguration {
     }
 
     @Bean
+    public IdVersionMapper idVersionMapper() {
+        return Mappers.getMapper(IdVersionMapper.class);
+    }
+
+    @Bean
     public PartitionMapper partitionMapper() {
         return Mappers.getMapper(PartitionMapper.class);
     }
@@ -260,6 +291,7 @@ public class BaseTestConfiguration {
                 .batchSize(100)
                 .affinityGroupScannerTimeOverlap(Duration.ofSeconds(1))
                 .partitionTrackingTimeWindow(Duration.ofSeconds(5))
+                .partitionCompactInterval(Duration.ofSeconds(2))
                 .planFactor(2.F)
                 .build()
             )
@@ -296,18 +328,6 @@ public class BaseTestConfiguration {
             .build();
     }
 
-    @Component
-    @RequiredArgsConstructor
-    @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-    public static class CapabilityRegisterProviderImpl implements CapabilityRegisterProvider {
-        List<CapabilityRegister> capabilityRegisters;
-
-        @Override
-        public Collection<CapabilityRegister> getAllCapabilityRegister() {
-            return capabilityRegisters;
-        }
-    }
-
     @Bean
     public OperatingSystemMXBean operatingSystemMXBean() {
         var operatingSystemMXBean = Mockito.mock(OperatingSystemMXBean.class);
@@ -317,9 +337,13 @@ public class BaseTestConfiguration {
     }
 
     @Bean
+    public TaskRepositoryHelper taskRepositoryHelper(DtfJdbcInfrastructure dtfJdbcInfrastructure) {
+        return new TaskRepositoryHelper(dtfJdbcInfrastructure);
+    }
+
+    @Bean
     public ClusterProvider clusterProvider(CommonSettings commonSettings,
-                                           @Lazy CapabilityRegisterProvider capabilityRegisterProvider,
-                                           PlatformTransactionManager transactionManager,
+                                           DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                            NodeStateMapper nodeStateMapper,
                                            DistributedTaskCacheManager cacheManager,
                                            NodeStateRepository nodeStateRepository,
@@ -328,8 +352,7 @@ public class BaseTestConfiguration {
                                            Clock clock) {
         return new ClusterProviderImpl(
             commonSettings,
-            capabilityRegisterProvider,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             cacheManager,
             nodeStateMapper,
             nodeStateRepository,
@@ -342,14 +365,14 @@ public class BaseTestConfiguration {
     @Bean
     public TaskRegistryService taskRegistryService(CommonSettings commonSettings,
                                                    RegisteredTaskRepository registeredTaskRepository,
-                                                   PlatformTransactionManager transactionManager,
+                                                   DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                    DistributedTaskCacheManager distributedTaskCacheManager,
                                                    ClusterProvider clusterProvider,
                                                    CronService cronService) {
         return new TaskRegistryServiceImpl(
             commonSettings,
             registeredTaskRepository,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             distributedTaskCacheManager,
             clusterProvider,
             cronService
@@ -398,20 +421,12 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    @Qualifier("fairGeneralTaskPlannerService")
-    public PlannerService fairGeneralTaskPlannerService() {
-        return Mockito.mock(PlannerService.class);
+    public PlannerStateImpl plannerStateRegistry() {
+        return new PlannerStateImpl();
     }
 
     @Bean
-    @Qualifier("virtualQueueManagerPlanner")
-    public PlannerService virtualQueueManagerPlanner() {
-        return Mockito.mock(PlannerService.class);
-    }
-
-    @Bean
-    public VirtualQueueStatService virtualQueueStatHelper(@Lazy @Qualifier("virtualQueueManagerPlanner")
-                                                          PlannerService plannerService,
+    public VirtualQueueStatService virtualQueueStatHelper(PlannerState plannerState,
                                                           CommonSettings commonSettings,
                                                           TaskRegistryService taskRegistryService,
                                                           TaskRepository taskRepository,
@@ -419,7 +434,7 @@ public class BaseTestConfiguration {
                                                           DistributedTaskMetricHelper distributedTaskMetricHelper,
                                                           MeterRegistry meterRegistry) {
         return new VirtualQueueStatService(
-            plannerService,
+            plannerState,
             commonSettings,
             taskRegistryService,
             taskRepository,
@@ -440,14 +455,14 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public PartitionTracker partitionTracker(PlatformTransactionManager platformTransactionManager,
+    public PartitionTracker partitionTracker(DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                              TaskRepository taskRepository,
                                              PartitionRepository partitionRepository,
                                              PartitionMapper partitionMapper,
                                              CommonSettings commonSettings,
                                              Clock clock) {
         return new PartitionTrackerImpl(
-            platformTransactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             taskRepository,
             partitionRepository,
             partitionMapper,
@@ -498,7 +513,7 @@ public class BaseTestConfiguration {
 
     @Bean
     public TaskCommandWithDetectorService localTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
-                                                                              PlatformTransactionManager transactionManager,
+                                                                              DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                                               TaskRepository taskRepository,
                                                                               TaskMapper taskMapper,
                                                                               TaskRegistryService taskRegistryService,
@@ -511,7 +526,7 @@ public class BaseTestConfiguration {
                                                                               Clock clock) {
         return new LocalTaskCommandServiceImpl(
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             taskRepository,
             taskMapper,
             taskRegistryService,
@@ -527,14 +542,14 @@ public class BaseTestConfiguration {
 
     @Bean
     public TaskCommandWithDetectorService remoteTaskCommandWithDetectorService(WorkerContextManager workerContextManager,
-                                                                               PlatformTransactionManager transactionManager,
+                                                                               DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                                                RemoteCommandRepository remoteCommandRepository,
                                                                                TaskSerializer taskSerializer,
                                                                                TaskRegistryService taskRegistryService,
                                                                                Clock clock) {
         return new RemoteTaskCommandServiceImpl(
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             remoteCommandRepository,
             taskSerializer,
             taskRegistryService,
@@ -557,7 +572,7 @@ public class BaseTestConfiguration {
     @Qualifier("localAtLeastOnceWorker")
     public LocalAtLeastOnceWorker localAtLeastOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
-                                                         PlatformTransactionManager transactionManager,
+                                                         DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                          InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
@@ -572,7 +587,7 @@ public class BaseTestConfiguration {
         return new LocalAtLeastOnceWorker(
             clusterProvider,
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             internalTaskCommandService,
             taskRepository,
             remoteCommandRepository,
@@ -591,7 +606,7 @@ public class BaseTestConfiguration {
     @Qualifier("localExactlyOnceWorker")
     public LocalExactlyOnceWorker localExactlyOnceWorker(ClusterProvider clusterProvider,
                                                          WorkerContextManager workerContextManager,
-                                                         PlatformTransactionManager transactionManager,
+                                                         DtfJdbcInfrastructure dtfJdbcInfrastructure,
                                                          InternalTaskCommandService internalTaskCommandService,
                                                          TaskRepository taskRepository,
                                                          RemoteCommandRepository remoteCommandRepository,
@@ -606,7 +621,7 @@ public class BaseTestConfiguration {
         return new LocalExactlyOnceWorker(
             clusterProvider,
             workerContextManager,
-            transactionManager,
+            dtfJdbcInfrastructure.getPlatformTransactionManager(),
             internalTaskCommandService,
             taskRepository,
             remoteCommandRepository,
@@ -645,16 +660,5 @@ public class BaseTestConfiguration {
             clock,
             distributedTaskMetricHelper
         );
-    }
-
-    @Bean
-    public NamedParameterJdbcOperations dtfNamedParameterJdbcOperations(DataSource dataSource) {
-        return new NamedParameterJdbcTemplate(dataSource);
-    }
-
-
-    @Bean
-    public DataSourceTransactionManager dtfTransactionManager(DataSource dtfDataSource) {
-        return new DataSourceTransactionManager(dtfDataSource);
     }
 }

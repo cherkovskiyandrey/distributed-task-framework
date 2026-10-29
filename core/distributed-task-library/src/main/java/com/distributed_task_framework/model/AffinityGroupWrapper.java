@@ -8,13 +8,16 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import jakarta.annotation.Nullable;
+import lombok.experimental.FieldNameConstants;
 
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @AllArgsConstructor
 @NoArgsConstructor
+@FieldNameConstants
 @Builder
 public class AffinityGroupWrapper {
+    public static final AffinityGroupWrapper EMPTY = new AffinityGroupWrapper(null);
     @Nullable
     String affinityGroup;
 }

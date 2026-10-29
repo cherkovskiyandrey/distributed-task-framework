@@ -1,6 +1,5 @@
 package com.distributed_task_framework.autoconfigure;
 
-import com.distributed_task_framework.autoconfigure.annotation.DtfDataSource;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -23,14 +22,6 @@ public class TaskSerializerConfiguration {
     public DataSource primaryDataSource() throws SQLException {
         final DataSource dataSource = mockDataSource();
         when(dataSource.toString()).thenReturn("primary");
-        return dataSource;
-    }
-
-    @Bean
-    @DtfDataSource
-    public DataSource dtfDataSource() throws SQLException {
-        final DataSource dataSource = mockDataSource();
-        when(dataSource.toString()).thenReturn("dtf");
         return dataSource;
     }
 

@@ -5,7 +5,6 @@ import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.TaskIdEntity;
 
 import java.util.Collection;
-import java.util.List;
 
 public interface TaskCommandStatService {
 
@@ -19,7 +18,7 @@ public interface TaskCommandStatService {
 
     void forceReschedule(TaskEntity taskEntity);
 
-    void forceRescheduleAll(List<TaskEntity> taskEntities);
+    void forceRescheduleAll(Collection<TaskEntity> taskEntities);
 
     void forceRescheduleAll(TaskDef<?> taskDef, int number);
 

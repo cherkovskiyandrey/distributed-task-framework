@@ -24,6 +24,7 @@ import java.util.UUID;
 public class CapabilityEntity {
     public static final BeanPropertyRowMapper<CapabilityEntity> CAPABILITY_ENTITY_BEAN_PROPERTY_ROW_MAPPER =
         new BeanPropertyRowMapper<>(CapabilityEntity.class);
+
     @Id
     @EqualsAndHashCode.Exclude
     UUID id;

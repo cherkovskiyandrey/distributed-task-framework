@@ -8,7 +8,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.service.internal.DistributedTaskMetricHelper;
-import com.distributed_task_framework.service.internal.PlannerGroups;
+import com.distributed_task_framework.service.internal.PlannerGroup;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,7 +27,7 @@ public class JoinTaskStatHelper {
 
     public JoinTaskStatHelper(DistributedTaskMetricHelper distributedTaskMetricHelper) {
         this.distributedTaskMetricHelper = distributedTaskMetricHelper;
-        this.commonTags = List.of(Tag.of("group", PlannerGroups.JOIN.getName()));
+        this.commonTags = List.of(Tag.of("group", PlannerGroup.JOIN.getName()));
         this.plannedCounterName = List.of("planner", "task", "planned");
         this.optLockChangedCounterName = List.of("planner", "optLock", "changed");
     }

@@ -19,6 +19,16 @@ public interface ClusterProvider {
 
     List<NodeLoading> currentNodeLoading();
 
+    /**
+     *  Any service/bean/component can declare own capabilities.
+     *  Which have be discovered by any node in cluster.
+     *
+     * @param capabilities
+     */
+    void registerCapabilities(EnumSet<Capabilities> capabilities);
+
+    void unregisterCapabilities(EnumSet<Capabilities> capabilities);
+
     Map<UUID, EnumSet<Capabilities>> clusterCapabilities();
 
     /**

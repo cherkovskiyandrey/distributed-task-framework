@@ -494,7 +494,9 @@ public class LocalAtLeastOnceWorker implements TaskWorker {
     private void handlePostponedCommands(WorkerContext currentContext) {
         LocalCommandHelper.collapseToBatchedCommands(currentContext.getLocalCommands())
             .forEach(command -> command.execute(internalTaskCommandService));
-        remoteCommandRepository.saveAll(currentContext.getRemoteCommandsToSend());
+        if (!currentContext.getRemoteCommandsToSend().isEmpty()) {
+            remoteCommandRepository.saveAll(currentContext.getRemoteCommandsToSend());
+        }
         for (var joinTaskMessage : currentContext.getTaskMessagesToSave().values()) {
             taskLinkManager.setJoinMessages(
                 currentContext.getCurrentTaskId(),

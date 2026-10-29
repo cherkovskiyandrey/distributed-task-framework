@@ -76,6 +76,7 @@ public class CommonSettings {
             )
             .affinityGroupScannerTimeOverlap(Duration.ofMinutes(1))
             .partitionTrackingTimeWindow(Duration.ofMinutes(1))
+            .partitionCompactInterval(Duration.ofSeconds(10))
             .nodeCpuLoadingLimit(0.95)
             .build();
     }
@@ -175,6 +176,10 @@ public class CommonSettings {
          * Time window to track pairs of affinityGroup and taskName in ACTIVE virtual queue
          */
         Duration partitionTrackingTimeWindow;
+        /**
+         * Time interval between real compaction of partitions aside of the frequency of "compact" method.
+         */
+        Duration partitionCompactInterval;
         /**
          * Function describe delay between polling of db depends on last number of ready to plan tasks.
          * key - number of tasks in last polling

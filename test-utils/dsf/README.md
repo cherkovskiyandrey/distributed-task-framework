@@ -1,156 +1,191 @@
-# Saga Test Utilities
+# Saga test utilities
 
-Test utilities for Distributed Task Framework Saga module that provide comprehensive support for testing distributed sagas.
+Spring Boot test support for applications built on the
+[Distributed Saga Framework](../../saga/README.md). It adds a `SagaTestUtil` bean on top of the
+[DTF test utilities](../dtf/README.md), so a test can reset sagas and their underlying tasks in one call.
 
 <!-- TOC -->
-* [Saga Test Utilities](#saga-test-utilities)
-  * [Introduction](#introduction)
-    * [Module Structure](#module-structure)
-    * [Features](#features)
-  * [Install](#install)
-  * [Quick Start](#quick-start)
-    * [Basic Saga Testing](#basic-saga-testing)
+* [Saga test utilities](#saga-test-utilities)
   * [Modules](#modules)
-    * [distributed-task-base-saga-test-spring-boot-autoconfigure](#distributed-task-base-saga-test-spring-boot-autoconfigure)
-      * [SagaTestUtil](#sagatestutil)
-      * [Test Configuration](#test-configuration)
-      * [Test Autoconfiguration](#test-autoconfiguration)
-  * [Testing Patterns](#testing-patterns)
-    * [Saga Isolation](#saga-isolation)
-  * [Best Practices](#best-practices)
+  * [Install](#install)
+  * [Activation](#activation)
+  * [Quick start](#quick-start)
+  * [SagaTestUtil](#sagatestutil)
+  * [Recipes](#recipes)
+    * [Testing the happy path](#testing-the-happy-path)
+    * [Testing compensation](#testing-compensation)
+    * [Testing cancellation](#testing-cancellation)
+    * [Speeding up retries](#speeding-up-retries)
+  * [License](#license)
 <!-- TOC -->
 
-## Introduction
+## Modules
 
-Saga Test Utilities provide a spring boot testing framework for distributed sagas. The utilities extend DTF test capabilities with saga-specific cleanup, transaction management, and compensation testing.
-
-### Module Structure
-
-The saga test utilities consist of two main modules:
-
-1. **distributed-task-base-saga-test-spring-boot-autoconfigure** - Configuration for spring boot applications
-2. **distributed-task-base-saga-test-spring-boot-starter** - Spring Boot Starter module to use in test scope
-
-### Features
-
-- Saga isolation and cleanup utilities
-- Distributed transaction testing support
+| Module | Artifact | Contents |
+|---|---|---|
+| `distributed-task-base-saga-test-spring-boot-autoconfigure` | `io.github.cherkovskiyandrey:distributed-task-base-saga-test-spring-boot-autoconfigure` | `TestSagaAutoconfiguration`, `SagaTestUtil`. Depends on the DTF test autoconfigure module. |
+| `distributed-task-base-saga-test-spring-boot-starter` | `io.github.cherkovskiyandrey:distributed-task-base-saga-test-spring-boot-starter` | Starter: the module above + `spring-boot-starter`. This is what you add to a project. |
 
 ## Install
 
-Add the saga test utilities to your test dependencies:
-
 ```groovy
-testImplementation 'io.github.cherkovskiyandrey:distributed-task-base-saga-test-spring-boot-starter'
+testImplementation 'io.github.cherkovskiyandrey:distributed-task-base-saga-test-spring-boot-starter:2.0.0-rc.2'
 ```
 
-## Quick Start
+```xml
+<dependency>
+    <groupId>io.github.cherkovskiyandrey</groupId>
+    <artifactId>distributed-task-base-saga-test-spring-boot-starter</artifactId>
+    <version>2.0.0-rc.2</version>
+    <scope>test</scope>
+</dependency>
+```
 
-### Basic Saga Testing
+The DTF test starter comes transitively; you do not need to add it separately.
+
+## Activation
+
+`TestSagaAutoconfiguration` is active when all of the following hold:
+
+1. the Spring profile `test` is active;
+2. `distributed-task.enabled=true`;
+3. `distributed-task.saga.enabled=true`;
+4. the saga starter is on the classpath.
+
+All DTF test optimisations (fast planner and worker settings, mocked cluster provider, cron tasks on demand) come
+from the DTF test autoconfiguration, which is activated by the same profile. See
+[../dtf/README.md](../dtf/README.md#what-the-test-autoconfiguration-changes).
+
+## Quick start
 
 ```java
-@SpringBootTest
 @ActiveProfiles("test")
-public class MySagaTest {
+@SpringBootTest(properties = {
+    "distributed-task.enabled=true",
+    "distributed-task.saga.enabled=true",
+    "distributed-task.common.app-name=test"
+})
+class OrderSagaTest {
 
     @Autowired
-    private DistributionSagaService distributionSagaService;
-
+    OrderSagaService orderSagaService;
     @Autowired
-    private SagaTestUtil sagaTestUtil;
+    SagaTestUtil sagaTestUtil;
+    @Autowired
+    OrderRepository orderRepository;
 
     @BeforeEach
-    public void init() {
-        // Clean up any existing saga data
+    void reset() throws Exception {
         sagaTestUtil.reinitAndWait();
     }
-    
+
     @Test
-    public void testMySaga() throws Exception {
-        // Execute saga
-        var actualPayment = sagaService
-            .createWithAffinity("order-processing", "order", request.getOrderId())
-            .registerToRun(
-                orderService::createOrder,
-                orderService::revertCreateOrder,
-                request
-            )
-            .thenRun(
-                orderService::processPayment,
-                orderService::refundPayment
-            )
-            .start()
-            .get();
-        
-        assertThat(actualPayment).isEqualTo(expectedPayment);
+    void shouldPlaceOrder() throws Exception {
+        OrderRequest request = new OrderRequest(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("10.00"));
+
+        OrderConfirmation confirmation = orderSagaService.placeOrder(request)
+            .get(Duration.ofSeconds(30))
+            .orElseThrow();
+
+        assertThat(confirmation.orderId()).isEqualTo(request.orderId());
+        assertThat(orderRepository.findById(request.orderId())).isPresent();
     }
 }
 ```
 
-## Modules
+The test Liquibase master must include both changelogs:
 
-### distributed-task-base-saga-test-spring-boot-autoconfigure
+```yaml
+databaseChangeLog:
+  - include:
+      file: db/changelog/distributed-task-framework/db.changelog-aggregator.yaml
+  - include:
+      file: db/changelog/distributed-task-base-saga/db.changelog-aggregator.yaml
+```
 
-The core saga testing module providing essential utilities for saga testing.
-
-#### SagaTestUtil
-
-Main utility class for saga test management, extends `DistributedTaskTestUtil`:
+## SagaTestUtil
 
 ```java
 public interface SagaTestUtil {
-    
     void reinitAndWait() throws InterruptedException;
-    
     void reinitAndWait(int attemptsToCancel, Duration duration) throws InterruptedException;
 }
 ```
 
-**Key features:**
-- Automatically cleans up both tasks and saga data
-- Ensures complete test isolation
-- Handles saga state cleanup during `reinitAndWait()`
+`reinitAndWait` does three things:
 
-#### Test Autoconfiguration
+1. calls `DistributedTaskTestUtil.reinitAndWait(...)` with the internal saga manager task excluded, so every saga
+   step and revert task is cancelled and awaited while the housekeeping task keeps running;
+2. deletes all rows from `_____dtf_saga`;
+3. deletes all rows from `_____dtf_saga_dls`.
 
-`TestSagaAutoconfiguration` provides:
-- `SagaTestUtil` bean registration
-- Integration with DTF test configuration
-- Saga service beans for testing
+After it returns, `getFlow(trackId)` for any previously started saga throws `SagaNotFoundException`. Defaults are
+10 cancellation attempts and a 1 minute wait; `FailedCancellationException` is thrown when tasks cannot be
+stopped in time.
 
-## Testing Patterns
+`SagaTestUtil` is a separate bean; `DistributedTaskTestUtil` is still available if you need the task-level reset
+on its own.
 
-### Saga Isolation
+## Recipes
 
-Always clean up before and after saga tests:
+### Testing the happy path
+
+Use `get(Duration)` on the returned flow; with test settings a short saga completes in well under a second.
+Assert both the returned result and the side effects of every step.
+
+### Testing compensation
+
+Make a step fail deterministically (a test double for the external service, or a flag in the input), then assert
+that `get()` throws and that the compensations ran:
 
 ```java
-@BeforeEach
-void setUp() {
-    sagaTestUtil.reinitAndWait();
-}
+@Test
+void shouldCompensateWhenPaymentFails() {
+    paymentGateway.failNextChargeWith(new InsufficientFundsException());
+    OrderRequest request = newRequest();
 
-@AfterEach
-void tearDown() {
-    sagaTestUtil.reinitAndWait();
+    SagaFlow<OrderConfirmation> flow = orderSagaService.placeOrder(request);
+
+    assertThatThrownBy(() -> flow.get(Duration.ofSeconds(30)))
+        .isInstanceOf(SagaExecutionException.class)
+        .satisfies(e -> assertThat(((SagaExecutionException) e)
+            .isCauseRelatedTo(InsufficientFundsException.class)).isTrue());
+    assertThat(orderRepository.findById(request.orderId())).isEmpty(); // deleteOrder ran
+    assertThat(paymentGateway.refunds()).isEmpty();                     // refundPayment ran with receipt == null
 }
 ```
 
+`get()` returns only after the whole revert chain has finished, so no extra waiting is needed before asserting
+on compensation side effects.
 
-## Best Practices
+### Testing cancellation
 
-1. **Always use SagaTestUtil** - Ensures both tasks and saga data are cleaned up
-2. **Test both success and failure paths** - Verify compensations work correctly
-3. **Use appropriate timeouts** - Sagas may take longer than regular tasks
-4. **Mock external dependencies** - Use test doubles for external services
-5. **Test saga versioning** - Verify saga evolution works correctly
-6. **Clean up resources** - Ensure compensations properly clean up resources
-7. **Test concurrent sagas** - Verify saga isolation under concurrent execution
-8. **Validate business invariants** - Check that business rules are maintained
+Block a step on a latch, start the saga, call `cancel(true)` on the flow, release the latch and assert that
+`get()` throws `SagaCancellationException` and that the compensations of the completed steps ran. For `cancel(false)`
+assert `SagaNotFoundException` and that nothing was compensated.
+
+### Speeding up retries
+
+Saga steps retry with the DTF default policy (10 s fixed delay). In tests that exercise retries, shorten it:
+
+```yaml
+distributed-task:
+  saga:
+    saga-method-properties-group:
+      default-saga-method-properties:
+        retry:
+          retry-mode: FIXED
+          fixed:
+            delay: PT0.1S
+            max-number: 3
+```
+
+and keep `expiration-timeout` well above the longest test, otherwise the saga is shut down without compensation
+and `get()` throws `SagaNotFoundException`.
 
 ## License
 
-Copyright 2025 Cherkovskiy Andrey
+Copyright 2022 Cherkovskiy Andrey
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -163,12 +198,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
-## Disclaimer
-
-**(En)**
-All information and source code are provided AS-IS, without express or implied warranties.
-Use of the source code or parts of it is at your sole discretion and risk.
-Cherkovskiy Andrey takes reasonable measures to ensure the relevance of the information posted in this repository,
-but it does not assume responsibility for maintaining or updating this repository or its parts outside the framework
-established by the company independently and without notifying third parties.

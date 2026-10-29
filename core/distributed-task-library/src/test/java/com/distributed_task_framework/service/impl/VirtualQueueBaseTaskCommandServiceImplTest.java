@@ -1,15 +1,16 @@
 package com.distributed_task_framework.service.impl;
 
 import com.distributed_task_framework.BaseSpringIntegrationTest;
+import com.distributed_task_framework.exception.BatchUpdateException;
 import com.distributed_task_framework.model.Partition;
 import com.distributed_task_framework.model.WorkerContext;
 import com.distributed_task_framework.persistence.entity.TaskEntity;
 import com.distributed_task_framework.persistence.entity.VirtualQueue;
+import com.distributed_task_framework.task.TestTaskModelSpec;
 import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.distributed_task_framework.task.TestTaskModelCustomizerUtils.withVersion;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doReturn;
 
 @Slf4j
@@ -255,17 +259,34 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
         //when
         var canceledTaskModelOne = extendedTaskGenerator.generateDefaultAndSave(String.class);
         var canceledTaskModelTwo = extendedTaskGenerator.generateDefaultAndSave(String.class);
+        var unknownTaskModel = extendedTaskGenerator.generateDefault(String.class);
+        var optLockTaskModel = extendedTaskGenerator.generate(TestTaskModelSpec.builder(String.class)
+            .taskEntityCustomizer(withVersion(10))
+            .withSaveInstance()
+            .build()
+        );
 
         //do
-        taskCommandService.finalizeAll(List.of(
-                canceledTaskModelOne.getTaskEntity(),
-                canceledTaskModelTwo.getTaskEntity()
+        assertThatThrownBy(() ->
+            taskCommandService.finalizeAll(List.of(
+                    canceledTaskModelOne.getTaskEntity(),
+                    canceledTaskModelTwo.getTaskEntity(),
+                    unknownTaskModel.getTaskEntity(),
+                    optLockTaskModel.getTaskEntity().toBuilder().version(9L).build()
+                )
             )
+        ).isInstanceOfSatisfying(
+            BatchUpdateException.class,
+            exception -> assertThat(exception)
+                .matches(ex -> ex.getUnknownTaskIds().contains(unknownTaskModel.getTaskId().getId()))
+                .matches(ex -> ex.getOptimisticLockTaskIds().contains(optLockTaskModel.getTaskId().getId()))
         );
 
         //verify
         verifyInQueue(canceledTaskModelOne.getTaskId().getId(), VirtualQueue.DELETED);
         verifyInQueue(canceledTaskModelTwo.getTaskId().getId(), VirtualQueue.DELETED);
+        verifyInQueue(optLockTaskModel.getTaskId().getId(), VirtualQueue.NEW);
+        assertThat(optLockTaskModel).isNotNull();
     }
 
     //todo: other methods from taskRepository
@@ -304,13 +325,13 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
     }
 
     private void verifyInQueue(Collection<UUID> taskIds, VirtualQueue virtualQueue) {
-        Assertions.assertThat(taskRepository.findAllById(taskIds))
+        assertThat(taskRepository.findAllById(taskIds))
             .hasSize(taskIds.size())
             .allMatch(taskEntity -> virtualQueue == taskEntity.getVirtualQueue());
     }
 
     private void verifyPartitionRepositoryIsEmpty() {
-        Assertions.assertThat(partitionRepository.findAll()).isEmpty();
+        assertThat(partitionRepository.findAll()).isEmpty();
     }
 
     private void verifyRegisteredPartition(@Nullable String affinityGroup, String taskName) {
@@ -318,7 +339,7 @@ class VirtualQueueBaseTaskCommandServiceImplTest extends BaseSpringIntegrationTe
             .affinityGroup(affinityGroup)
             .taskName(taskName)
             .build();
-        Assertions.assertThat(partitionRepository.findAll())
+        assertThat(partitionRepository.findAll())
             .map(partitionMapper::fromEntity)
             .singleElement()
             .isEqualTo(expectedPartition);
