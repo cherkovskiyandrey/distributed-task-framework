@@ -2,7 +2,8 @@
   "groups": [
     {
       "name": "distributed-task.common",
-      "description": "Common settings."
+      "description": "Common settings.",
+      "type": "com.distributed_task_framework.autoconfigure.DistributedTaskProperties$Common"
     },
     {
       "name": "distributed-task",
@@ -11,7 +12,8 @@
     },
     {
       "name": "distributed-task.liquibase",
-      "description": "Settings if liquibase is present on classpath."
+      "description": "Settings if liquibase is present on classpath.",
+      "type": "com.distributed_task_framework.autoconfigure.DistributedTaskLiquibaseAutoConfiguration"
     }
   ],
   "properties": [
@@ -23,7 +25,7 @@
     },
     {
       "name": "distributed-task.task-properties-group.default-properties.retry.retry-mode",
-      "defaultValue": "BACKOFF"
+      "defaultValue": "FIXED"
     },
     {
       "name": "distributed-task.task-properties-group.default-properties.retry.fixed.delay",
@@ -51,7 +53,7 @@
     },
     {
       "name": "distributed-task.common.delivery-manager.retry.retry-mode",
-      "defaultValue": "BACKOFF"
+      "defaultValue": "FIXED"
     },
     {
       "name": "distributed-task.common.delivery-manager.retry.fixed.delay",
@@ -202,6 +204,34 @@
       "type": "java.lang.Boolean",
       "description": "Check if all needed migrations are deployed to database.",
       "defaultValue": "true"
+    },
+    {
+      "name": "distributed-task.common.completion.handler-initial-delay",
+      "defaultValue": "PT1S",
+      "type": "java.time.Duration",
+      "description": "Initial delay before the completion handler starts polling for finished tasks and workflows."
+    },
+    {
+      "name": "distributed-task.common.completion.handler-fixed-delay",
+      "defaultValue": "PT1S",
+      "type": "java.time.Duration",
+      "description": "Delay between polls of the completion handler, which resolves waitCompletion* calls."
+    },
+    {
+      "name": "distributed-task.common.completion.default-task-timeout",
+      "defaultValue": "PT1M",
+      "type": "java.time.Duration",
+      "description": "Default timeout for waitCompletion(TaskId) when no timeout is passed."
+    },
+    {
+      "name": "distributed-task.common.completion.default-workflow-timeout",
+      "defaultValue": "PT1M",
+      "type": "java.time.Duration",
+      "description": "Default timeout for waitCompletionAllWorkflow(s) when no timeout is passed."
+    },
+    {
+      "name": "distributed-task.common.planner.partition-compact-interval",
+      "defaultValue": "PT10S"
     }
   ],
   "hints": [
@@ -232,6 +262,23 @@
         {
           "value": "EXACTLY_ONCE",
           "description": "Task will be marked as completed only if transaction succeeds. It spans transaction to task logic."
+        }
+      ]
+    },
+    {
+      "name": "distributed-task.common.delivery-manager.retry.retry-mode",
+      "values": [
+        {
+          "value": "OFF",
+          "description": "Disables retries."
+        },
+        {
+          "value": "FIXED",
+          "description": "Fixed interval retries."
+        },
+        {
+          "value": "BACKOFF",
+          "description": "Retries with increasing delay between attempts."
         }
       ]
     }

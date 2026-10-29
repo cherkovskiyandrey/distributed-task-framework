@@ -37,8 +37,20 @@ public class SagaExecutionException extends SagaException {
      */
     public boolean isTheSameBaseOnSimpleName(Class<? extends Throwable> exceptionCls) {
         return Objects.equals(
-                StringUtils.substringAfterLast(rootCauseType, "."),
-                exceptionCls.getSimpleName()
+            StringUtils.substringAfterLast(rootCauseType, "."),
+            exceptionCls.getSimpleName()
         );
+    }
+
+    /**
+     * Check {@link SagaExecutionException#getCause()} instance of 'exceptionCls' if present
+     * or is the same base on simple class name
+     *
+     * @param exceptionCls
+     * @return
+     */
+    public boolean isCauseRelatedTo(Class<? extends Throwable> exceptionCls) {
+        return (getCause() != null && exceptionCls.isAssignableFrom(getCause().getClass()))
+            || isTheSameBaseOnSimpleName(exceptionCls);
     }
 }
