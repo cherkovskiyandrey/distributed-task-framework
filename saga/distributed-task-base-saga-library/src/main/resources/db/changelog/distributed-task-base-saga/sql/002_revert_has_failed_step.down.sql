@@ -1,0 +1,1 @@
+ALTER TABLE "_____dtf_saga" DROP COLUMN "has_revert_failed_step";

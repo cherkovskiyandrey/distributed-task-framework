@@ -12,7 +12,14 @@ throughput is read from DTF's Micrometer metrics.
 | `distributed-task-perf-test-library` | tasks, Spring Data JDBC entities and repositories, `PerfTestService`, REST controller, Liquibase changelog for the result tables |
 | `distributed-task-perf-test-spring-boot-autoconfigure` | autoconfiguration of the library |
 | `distributed-task-perf-test-spring-boot-starter` | starter for the two modules above |
-| `distributed-task-perf-test-application` | runnable Spring Boot application with Swagger UI and a Prometheus endpoint |
+| `distributed-task-perf-test-application` | runnable Spring Boot application with Swagger UI and a Prometheus endpoint (not published) |
+
+The library, autoconfiguration and starter are published to Maven Central on purpose: add
+`io.github.cherkovskiyandrey:distributed-task-perf-test-spring-boot-starter` to your own Spring Boot application
+to get the DAG generator, the REST API and the result tables, and run the same load test against your
+infrastructure, your DTF configuration and your database. Include the changelog
+`db/changelog/dtf-perf-test/db.changelog-perf-test-init.yaml` from the library in your Liquibase master to create
+the result tables.
 
 ## The DAG
 

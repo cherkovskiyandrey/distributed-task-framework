@@ -35,14 +35,14 @@ on-demand cron tasks and a `DistributedTaskTestUtil` bean that resets DTF state 
 ## Install
 
 ```groovy
-testImplementation 'io.github.cherkovskiyandrey:distributed-task-test-spring-boot-starter:2.0.0-rc.2'
+testImplementation 'io.github.cherkovskiyandrey:distributed-task-test-spring-boot-starter:2.0.0'
 ```
 
 ```xml
 <dependency>
     <groupId>io.github.cherkovskiyandrey</groupId>
     <artifactId>distributed-task-test-spring-boot-starter</artifactId>
-    <version>2.0.0-rc.2</version>
+    <version>2.0.0</version>
     <scope>test</scope>
 </dependency>
 ```

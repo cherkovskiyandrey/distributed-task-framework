@@ -107,8 +107,7 @@ flowchart LR
 Gradle:
 
 ```groovy
-implementation 'io.github.cherkovskiyandrey:distributed-task-base-saga-spring-boot-starter:2.0.0-rc.2'
-runtimeOnly 'org.postgresql:postgresql'
+implementation 'io.github.cherkovskiyandrey:distributed-task-base-saga-spring-boot-starter:2.0.0'
 ```
 
 Maven:
@@ -117,13 +116,13 @@ Maven:
 <dependency>
     <groupId>io.github.cherkovskiyandrey</groupId>
     <artifactId>distributed-task-base-saga-spring-boot-starter</artifactId>
-    <version>2.0.0-rc.2</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
 The saga starter transitively brings the DTF starter (`distributed-task-spring-boot-starter`) and
-`liquibase-core`; you do not need to declare the DTF starter separately. Requirements are the same as for DTF:
-Java 17+, Spring Boot 3.3.x, PostgreSQL.
+`liquibase-core`; you do not need to declare the DTF starter separately. Requirements and the rest of the setup
+(PostgreSQL driver, data source) are the same as for DTF, see [Install](../core/README.md#install) there.
 
 ### Database migrations
 
@@ -137,9 +136,11 @@ databaseChangeLog:
       file: db/changelog/distributed-task-base-saga/db.changelog-aggregator.yaml
 ```
 
-The saga changelog creates two tables, `_____dtf_saga` and `_____dtf_saga_dls`. Raw SQL for other migration tools:
-`db/changelog/distributed-task-base-saga/sql/001_dtf_saga_init.up.sql` (and `.down.sql`) inside
-`distributed-task-base-saga-library`.
+The saga changelog creates two tables, `_____dtf_saga` and `_____dtf_saga_dls`. Raw SQL for other migration tools
+lives in `db/changelog/distributed-task-base-saga/sql/` inside `distributed-task-base-saga-library`
+(`001_dtf_saga_init.up.sql`, `002_revert_has_failed_step.up.sql`, each with a `.down.sql`). Both changesets are
+required: if you ran a `2.0.0-rc` with only `001` applied, `002` adds the `has_revert_failed_step` column to
+`_____dtf_saga`.
 
 ### Configuration
 
@@ -544,22 +545,22 @@ When a saga method throws:
 Steps registered without a revert are skipped during compensation. Compensation is never run for a step that has
 not started.
 
-**When a revert method throws**, its task is retried with the revert method's retry policy. If it still fails,
-DSF logs the error and by default **continues with the next revert**; the saga result remains the original forward
-exception. Set `stopOnFailedAnyRevert` to end the chain instead:
+**When a revert method throws**, its task is retried with the revert method's retry policy. If the last attempt
+fails too, DSF marks the saga as having a failed compensation and by default **continues with the next revert**;
+the saga result remains the original forward exception. Set `stopOnFailedAnyRevert` to end the chain at the first
+failed compensation instead (the reverts that already ran are kept, the remaining ones are skipped):
 
 ```java
 SagaSettings settings = SagaSettings.builder().stopOnFailedAnyRevert(true).build();
 sagaService.create("place-order", settings)...
 ```
 
-> Note on the current implementation: with `stopOnFailedAnyRevert = true` the saga is marked completed after the
-> **first revert task finishes, whether it failed or succeeded**. The flag therefore behaves as "run at most one
-> compensation step" rather than "stop on the first failed compensation". Keep that in mind until the behaviour
-> is aligned with the Javadoc.
-
-Failed compensations are not written to the dead letter saga table today; rely on logs and the
-`worker.final.completed.error` DTF metric with `task_name=_____SAGA_REVERT_*` to detect them.
+In both modes the saga is then marked completed, so `get()` / `waitCompletion()` return with the usual
+`SagaExecutionException`. In addition, a saga with at least one failed compensation is **copied to the dead letter
+saga table `_____dtf_saga_dls`** at completion, in the same transaction: its data may be partially compensated and
+needs an operator's attention. The `saga.action.revert-has-failed` counter is incremented once per failed
+compensation step; the DTF metric `worker.final.completed.error` with `task_name=_____SAGA_REVERT_*` and the
+`SagaRevertTask` error log carry the exception itself.
 
 ### Cancellation
 
@@ -661,7 +662,8 @@ Each saga method and each revert method runs as a DTF task with its own `SagaMet
 | `timeout` | off | per-attempt timeout |
 
 Dead letter table and cron are always off for saga tasks: a failed saga is reported through its result, not
-through the DLT.
+through the DTF DLT. Sagas with a failed compensation go to the saga's own dead letter table instead, see
+[Failure and compensation](#failure-and-compensation).
 
 ## Configuration reference
 
@@ -798,8 +800,9 @@ saga tasks as to any other task; saga method settings override the task defaults
   last step stores the saga result and marks the saga completed. Failures run through the revert tasks in the same
   way, backwards.
 - **Saga row.** `_____dtf_saga` holds one row per saga: `saga_id` (the track id), `name`, root task id,
-  `created / completed / expiration` timestamps, `canceled`, `result` and `exception_type`, and the last pipeline
-  snapshot. `_____dtf_saga_dls` receives sagas that expired before completing.
+  `created / completed / expiration` timestamps, `canceled`, `has_revert_failed_step`, `result` and
+  `exception_type`, and the last pipeline snapshot. `_____dtf_saga_dls` receives sagas that expired before
+  completing and sagas that completed with a failed compensation; rows there are never removed by DSF.
 - **Manager task.** DSF registers one internal DTF task, `INTERNAL_SAGA_MANAGER_TASK`, scheduled every
   `deprecated-saga-scan-fixed-delay` with cluster-wide parallelism 1. It deletes completed sagas whose availability
   window has passed and force-shuts-down expired ones.
@@ -819,6 +822,7 @@ All metrics go through the application's `MeterRegistry`.
 | `saga.action.cancel` | counter | `saga_name` | graceful cancellations requested |
 | `saga.action.manual-shutdown` | counter | `saga_name` | forced cancellations |
 | `saga.action.expired-shutdown` | counter | `saga_name` | sagas shut down by expiration and moved to DLS |
+| `saga.action.revert-has-failed` | counter | `saga_name` | compensation steps that failed on their last attempt; the saga is moved to DLS on completion |
 | `saga.action.removed` | counter | `saga_name` | completed sagas removed after the availability window |
 | `saga.timer.completed` | timer | `saga_name` | time from creation to completion |
 | `saga.state.all`, `saga.state.active`, `saga.state.completed`, `saga.state.completed_cleaning`, `saga.state.completed_not_cleaned`, `saga.state.expired`, `saga.state.expired_not_cleaned` | gauge | | sagas per state |
@@ -858,6 +862,11 @@ is set.
 
 **Compensation did not run.** Either the saga expired (`expirationTimeout`) and was moved to `_____dtf_saga_dls`,
 or `cancel(false)` was used, or the failed step and all previous ones were registered without reverts.
+
+**A row appeared in `_____dtf_saga_dls` for a completed saga.** One of its compensations failed on the last
+attempt (`saga.action.revert-has-failed` > 0, error in the `SagaRevertTask` log). With
+`stopOnFailedAnyRevert = false` the remaining reverts still ran, with `true` they were skipped. The data behind
+that saga has to be repaired by hand.
 
 ## Example application
 

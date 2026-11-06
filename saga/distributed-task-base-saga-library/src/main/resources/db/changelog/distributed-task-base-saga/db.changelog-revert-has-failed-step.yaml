@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: '2'
+      author: Cherkovskiy Andrey
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: db/changelog/distributed-task-base-saga/sql/002_revert_has_failed_step.up.sql
+            encoding: UTF8
+      rollback:
+        - sqlFile:
+            dbms: postgresql
+            path: db/changelog/distributed-task-base-saga/sql/002_revert_has_failed_step.down.sql
+            encoding: UTF8

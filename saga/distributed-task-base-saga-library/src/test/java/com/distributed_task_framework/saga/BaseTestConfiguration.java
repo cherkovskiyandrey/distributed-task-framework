@@ -41,8 +41,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import java.time.Clock;
 import java.time.Duration;
 
-import static com.distributed_task_framework.autoconfigure.DistributedTaskAutoConfiguration.VIRTUAL_QUEUE_MANAGER_PLANNER_NAME;
-
 
 @Configuration
 @EnableJdbcAuditing

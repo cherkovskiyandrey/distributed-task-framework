@@ -33,7 +33,7 @@ transactions with compensation.
 | **DSF, Distributed Saga Framework** | Builds sagas (chains of business methods with compensating methods) on DTF: `create(...).registerToRun(...).thenRun(...).start()`. Persistence, retries, cancellation, expiration and versioning for rolling deployments included. | [saga/README.md](saga/README.md) |
 | **Test utilities** | Spring Boot test starters with fast settings, a mocked cluster, cron tasks on demand and `reinitAndWait()` helpers to reset DTF / DSF state between tests. | [test-utils/dtf/README.md](test-utils/dtf/README.md), [test-utils/dsf/README.md](test-utils/dsf/README.md) |
 | **Examples** | Two runnable Spring Boot applications exercising the DTF and the saga API through REST. | [examples/](examples) |
-| **Perf tests** | A load-test application that generates a fan-out / fan-in DAG of tasks and checks delivery correctness under load. | [tests/README.md](tests/README.md) |
+| **Perf tests** | A load-test library and application that generate a fan-out / fan-in DAG of tasks and check delivery correctness under load. Published, so you can reuse it for your own performance tests. | [tests/README.md](tests/README.md) |
 
 ## Why
 
@@ -95,9 +95,9 @@ OrderConfirmation result = placeOrder(request).get(Duration.ofMinutes(1)).orElse
 1. Add the starter (and a PostgreSQL driver plus Liquibase, which are not transitive):
 
    ```groovy
-   implementation 'io.github.cherkovskiyandrey:distributed-task-spring-boot-starter:2.0.0-rc.2'
+   implementation 'io.github.cherkovskiyandrey:distributed-task-spring-boot-starter:2.0.0'
    // for sagas instead (brings the DTF starter transitively):
-   // implementation 'io.github.cherkovskiyandrey:distributed-task-base-saga-spring-boot-starter:2.0.0-rc.2'
+   // implementation 'io.github.cherkovskiyandrey:distributed-task-base-saga-spring-boot-starter:2.0.0'
    runtimeOnly 'org.postgresql:postgresql'
    implementation 'org.liquibase:liquibase-core'
    ```
@@ -145,7 +145,7 @@ the module name.
 | `distributed-task-base-saga-test-spring-boot-starter` | DSF test support (includes the DTF test starter) | **yes**, `testImplementation` |
 | `distributed-task-base-saga-test-spring-boot-autoconfigure` | `SagaTestUtil` | via the test starter |
 | `common-utils`, `common-spring-utils` | shared internals: lifecycle, caches, metrics helper, `DtfJdbcInfrastructure` | transitively |
-| `distributed-task-perf-test-*` | load-test library, autoconfiguration and starter | no, internal |
+| `distributed-task-perf-test-starter` (+ `-library`, `-autoconfigure`) | load-test DAG, REST API and result tables, published so you can build your own performance test on top of it | optional, see [tests/README.md](tests/README.md) |
 
 ## Repository layout
 
@@ -168,8 +168,7 @@ tests/        performance test library and application          -> tests/README.
 
 | Version | Notes |
 |---|---|
-| `2.0.0-rc.2` | current. Unified service lifecycle, pluggable `DtfJdbcInfrastructure`, Liquibase migration check, planner fixes for large tables, saga fixes. Requires schema migration 005. Breaking: `@DtfDataSource` and `DtfRepositoryConstants` removed, see [Migration from 1.x](core/README.md#migration-from-1x). |
-| `2.0.0-rc.1` | first release with the saga framework. |
+| `2.0.0` | current. Saga framework (DSF), unified service lifecycle, pluggable `DtfJdbcInfrastructure`, Liquibase migration check, planner fixes for large tables. Requires schema migrations 003, 004 and 005. Breaking: workflow cancellation API, default retry policy (`BACKOFF` → `FIXED`), `@DtfDataSource` and `DtfRepositoryConstants` removed, see [Migration from 1.x](core/README.md#migration-from-1x). Pre-releases `2.0.0-rc.1` and `2.0.0-rc.2` are superseded by it. |
 | `1.0.0` | first stable DTF release. |
 
 Release notes: [GitHub releases](https://github.com/cherkovskiyandrey/distributed-task-framework/releases).

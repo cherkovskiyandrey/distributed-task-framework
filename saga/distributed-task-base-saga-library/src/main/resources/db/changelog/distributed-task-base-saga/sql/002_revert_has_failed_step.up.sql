@@ -1,0 +1,1 @@
+ALTER TABLE "_____dtf_saga" ADD COLUMN "has_revert_failed_step" BOOLEAN DEFAULT FALSE NOT NULL;

@@ -118,7 +118,7 @@ public class SagaRevertTask extends BaseSagaTask implements Task<SagaPipeline> {
             );
         }
 
-        scheduleNextRevertIfRequired(saga, sagaPipeline, executionContext);
+        scheduleNextOrComplete(executionContext, sagaPipeline, SagaAction::getSagaRevertMethodTaskName);
     }
 
     @Override
@@ -142,7 +142,7 @@ public class SagaRevertTask extends BaseSagaTask implements Task<SagaPipeline> {
         );
 
         if (isLastAttempt) {
-            scheduleNextRevertIfRequired(
+            handleFailedLastAttempt(
                 sagaOpt.get(),
                 failedExecutionContext.getInputMessageOrThrow(),
                 failedExecutionContext
@@ -152,15 +152,15 @@ public class SagaRevertTask extends BaseSagaTask implements Task<SagaPipeline> {
         return isLastAttempt;
     }
 
-    private void scheduleNextRevertIfRequired(Saga saga,
-                                              SagaPipeline sagaPipeline,
-                                              ExecutionContext<SagaPipeline> executionContext) throws Exception {
-        if (!sagaPipeline.hasNext() || saga.isStopOnFailedAnyRevert()) {
+    private void handleFailedLastAttempt(Saga saga,
+                                         SagaPipeline sagaPipeline,
+                                         ExecutionContext<SagaPipeline> executionContext) throws Exception {
+        sagaManager.markRevertHasFailedStep(sagaPipeline.getSagaId());
+        if (saga.isStopOnFailedAnyRevert()) {
             log.info(
-                "scheduleNextRevertIfRequired(): revert chain has been completed for sagaPipelineContext with id=[{}]",
+                "handleFailedLastAttempt(): revert chain has been interrupted because of stopOnFailedAnyRevert=true for sagaPipelineContext with id=[{}]",
                 sagaPipeline.getSagaId()
             );
-            //todo: write to DLS (dead letter saga) too
             sagaManager.completeIfExists(sagaPipeline.getSagaId());
             return;
         }

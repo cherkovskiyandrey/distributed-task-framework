@@ -162,7 +162,7 @@ exists as an experimental, outbox-based feature (see [Remote tasks](#remote-task
 Gradle:
 
 ```groovy
-implementation 'io.github.cherkovskiyandrey:distributed-task-spring-boot-starter:2.0.0-rc.2'
+implementation 'io.github.cherkovskiyandrey:distributed-task-spring-boot-starter:2.0.0'
 
 // not transitive, bring your own:
 runtimeOnly 'org.postgresql:postgresql'
@@ -175,7 +175,7 @@ Maven:
 <dependency>
     <groupId>io.github.cherkovskiyandrey</groupId>
     <artifactId>distributed-task-spring-boot-starter</artifactId>
-    <version>2.0.0-rc.2</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
@@ -548,7 +548,7 @@ Outside a task both variants behave the same.
 void reschedule(TaskId taskId, Duration delay);
 void rescheduleByTaskDef(TaskDef<T> taskDef, Duration delay);   // all not-running tasks of this type
 
-boolean cancelTaskExecution(TaskId taskId);                     // only if not started yet
+boolean cancelTaskExecution(TaskId taskId);                     // one task: skipped if not started, interrupted if running
 boolean cancelAllTaskByTaskDef(TaskDef<T> taskDef);
 boolean cancelWorkflowByTaskId(TaskId taskId);                  // every task of the workflow
 boolean cancelAllWorkflowsByTaskId(List<TaskId> taskIds);
@@ -1393,14 +1393,11 @@ several data sources and no `@Primary`. Either mark the primary one or provide a
 **`InvalidOperationException: It is prohibited to wait for completion of task/workflow from other task`.** Do not
 block a worker thread on another task. Use a join task or schedule a follow-up task instead.
 
-**Tasks stay in `PARKED` forever (1.x / rc.1).** Fixed in `2.0.0-rc.2`, which also requires migration 005.
+**Tasks stay in `PARKED` forever (1.x and 2.0.0 release candidates).** Fixed in `2.0.0`, which also requires migration 005.
 
 **A task runs on a node that logs `Distributed task framework is disabled`.** That instance runs with
 `distributed-task.enabled=false`, so it never registers tasks and never executes anything; its calls to
 `DistributedTaskService` are no-ops.
-
-**Cron task is not running twice even though two instances scheduled it.** Expected: cron tasks are singletons per
-task name.
 
 **Useful thread names** when reading thread dumps: `dtf-watchdog-*` (heartbeat), `node-st-upd-*` (registry
 publisher), `shed-watch-*` (planner watchdogs), `planner-vqm-*` / `planner-vqbp-*` / `planner-jtp-*` (active
@@ -1408,26 +1405,83 @@ planners), `worker-mng-*`, `worker-*`, `tsk-completion`, `vq-stat`.
 
 ## Migration from 1.x
 
-`2.0.0` changes the Spring integration; task code and the `DistributedTaskService` API are unchanged.
+`2.0.0` adds the saga framework, stateful tasks, `waitCompletion*`, test starters and a new Spring integration.
+Task code (`Task`, `TaskDef`, `ExecutionContext`, scheduling) compiles unchanged except for the points below.
+Full list of changes: [release notes](https://github.com/cherkovskiyandrey/distributed-task-framework/releases).
 
-- **`@DtfDataSource`, `DtfDataSourceCondition` and `DtfRepositoryConstants` (`DTF_TX_MANAGER`, `DTF_JDBC_OPS`) are
-  removed.** DTF now follows the application's primary transaction manager and JDBC operations.
-  - Single data source: nothing to do.
-  - `@Transactional(transactionManager = DTF_TX_MANAGER)` → plain `@Transactional`.
-  - `@EnableJdbcRepositories(transactionManagerRef = ..., jdbcOperationsRef = ...)` → plain `@EnableJdbcRepositories`.
-  - `@DtfDataSource` → a `DtfJdbcInfrastructure` bean, see
-    [Dedicating a separate data source to DTF](#dedicating-a-separate-data-source-to-dtf).
-- **Lifecycle.** `@PostConstruct` / `@PreDestroy` were replaced by `DistributedTaskServiceLifecycle`. If you
-  extended DTF services or relied on DTF threads being alive during context creation, move that logic to `start()`.
-- **Internal API removed:** `PlannerService`, `CapabilityRegister`, `CapabilityRegisterProvider`. Planner activity
-  is exposed through the read-only `PlannerState.isActive(PlannerGroup)`.
-- **Test starter** autoconfiguration class renamed `DistributedTaskAutoconfigure → DistributedTaskAutoConfiguration`
-  (matters only for explicit `@ImportAutoConfiguration`).
-- **Schema:** apply migration 005. The new migration check will tell you if you forgot.
-- **Default retry policy is `FIXED`** (10 s, 6 attempts) and has been since 1.0; older documentation claimed
-  `BACKOFF`. Set `retry-mode` explicitly if you depend on backoff.
+**1. Platform.** Spring Boot 3.3.x (built against 3.3.5) and Java 17. 1.x was built against Spring Boot 3.1.
 
-Full release notes: [GitHub releases](https://github.com/cherkovskiyandrey/distributed-task-framework/releases).
+**2. Dependencies.** Artifact ids and the group `io.github.cherkovskiyandrey` are unchanged; bump the version.
+New optional artifacts: `distributed-task-base-saga-spring-boot-starter` (sagas),
+`distributed-task-test-spring-boot-starter` and `distributed-task-base-saga-test-spring-boot-starter` (tests).
+
+**3. Database.** Three new changesets are required: `003` (index for `waitCompletion*`), `004` (`local_state`
+column for stateful tasks) and `005` (partial indexes per virtual queue, fixes planner degradation on large
+tables). Include `db.changelog-aggregator.yaml` or add the three files to your master changelog, see
+[Database migrations](#database-migrations). The new startup check refuses to start the application while any DTF
+changeset is missing, so a forgotten migration cannot go unnoticed. On large production tables apply the index
+changes of `005` with `CONCURRENTLY`. Sagas need their own changelog in addition.
+
+**4. API changes that break compilation.**
+
+| 1.x | 2.0 |
+|---|---|
+| `cancelWorkflow(UUID workflowId)` | `cancelWorkflowByTaskId(TaskId taskId)` |
+| `cancelWorkflowImmediately(UUID workflowId)` | `cancelWorkflowByTaskIdImmediately(TaskId taskId)` |
+| | new: `cancelAllWorkflowsByTaskId(List<TaskId>)`, `cancelAllWorkflowsByTaskIdImmediately(List<TaskId>)` |
+| `cancelTaskExecution*`, `cancelAllTaskByTaskDef*` declared `throws Exception` | no checked exception; surrounding `try/catch` of checked exceptions becomes redundant |
+| `ExecutionContext.workflowName` | removed; use `workflowId`, or carry the name in the message |
+
+**5. Default retry policy changed.** 1.x retried failed tasks with `BACKOFF` (10 s, then doubling, up to 32
+attempts capped at 1 h). 2.0 defaults to `FIXED`: 10 s between attempts, 6 attempts, then the dead letter table.
+A task that used to be retried for hours now gives up after about a minute. To keep the 1.x behaviour:
+
+```yaml
+distributed-task:
+  task-properties-group:
+    default-properties:
+      retry:
+        retry-mode: BACKOFF
+```
+
+**6. Data source and transactions.** `@DtfDataSource`, `DtfDataSourceCondition` and `DtfRepositoryConstants`
+(`DTF_TX_MANAGER`, `DTF_JDBC_OPS`) are removed. DTF now follows the application's primary transaction manager and
+JDBC operations, so your `@Transactional` methods share a transaction with task scheduling.
+
+- Single data source: nothing to do.
+- `@Transactional(transactionManager = DTF_TX_MANAGER)` → plain `@Transactional`.
+- `@EnableJdbcRepositories(transactionManagerRef = ..., jdbcOperationsRef = ...)` → plain `@EnableJdbcRepositories`.
+- `@DtfDataSource` on a `DataSource` → a `DtfJdbcInfrastructure` bean, see
+  [Dedicating a separate data source to DTF](#dedicating-a-separate-data-source-to-dtf).
+
+**7. Autoconfiguration classes.** `DistributedTaskAutoconfigure` is renamed to `DistributedTaskAutoConfiguration`
+and split into `DistributedTaskSpringInfrastructureAutoconfiguration`, `DistributedTaskLiquibaseAutoConfiguration`
+and `DistributedTaskAutoConfiguration`. Only explicit `@ImportAutoConfiguration` / `@AutoConfigureAfter` usages
+are affected; the starter picks everything up automatically.
+
+**8. Lifecycle.** `@PostConstruct` / `@PreDestroy` inside DTF were replaced by the four-phase
+`DistributedTaskServiceLifecycle` (`init → start → stop → cleanup`). No DTF thread touches the database before the
+context is refreshed. If you extended DTF services or relied on DTF being active during bean creation (for example
+scheduling a task from a `@PostConstruct` method), move that logic to a `SmartLifecycle` or `ApplicationReadyEvent`
+handler. Cron tasks are now scheduled synchronously on start and a scheduling error fails application startup
+instead of being logged.
+
+**9. Internal API removed.** `PlannerService`, `CapabilityRegister`, `CapabilityRegisterProvider`. Planner
+activity is exposed through the read-only `PlannerState.isActive(PlannerGroup)`.
+
+**10. Behaviour worth knowing.**
+
+- `Task.execute()` has a default no-op body (so `StatefulTask` implementations override only the stateful
+  overload). A task class that forgets to implement it now compiles and silently does nothing.
+- Task annotations are resolved through AOP proxies, so a `@Transactional` task bean is configured from its
+  annotations as expected; in 1.x such annotations were silently ignored on proxied beans.
+- The default `TaskSerializer` registers Jackson modules found on the classpath (`findAndRegisterModules()`),
+  writes durations as ISO strings and tolerates self-references. Messages serialized by 1.x remain readable.
+- Cron settings accept an ISO-8601 duration (`PT10M`) in addition to a cron expression.
+
+**11. New features to consider.** `waitCompletion*` for synchronous flows and tests, `StatefulTask` for state
+between retries, `scheduleUnsafe` for tasks registered only on other nodes, the test starters with
+`reinitAndWait()`, and [sagas](../saga/README.md) for cross-service consistency.
 
 ## Examples
 

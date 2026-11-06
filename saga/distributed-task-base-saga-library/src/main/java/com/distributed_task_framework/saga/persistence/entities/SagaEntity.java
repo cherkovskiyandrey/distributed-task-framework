@@ -34,6 +34,7 @@ public class SagaEntity {
     LocalDateTime completedDateUtc;
     long availableAfterCompletionTimeoutSec;
     boolean stopOnFailedAnyRevert;
+    boolean hasRevertFailedStep;
     LocalDateTime expirationDateUtc;
     boolean canceled;
     @ToString.Exclude

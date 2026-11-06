@@ -204,10 +204,7 @@ public class SagaManagerImpl implements SagaManager, DistributedTaskServiceLifec
             sagaRepository.removeAll(sagaToShutdownIds);
 
             if (moveToDls) {
-                var dlsSagaContextEntities = sagaContextEntities.stream()
-                    .map(sagaMapper::mapToDls)
-                    .toList();
-                dlsSagaContextRepository.saveOrUpdateAll(dlsSagaContextEntities);
+                moveToDls(sagaContextEntities);
             }
 
             log.info("forceShutdown(): sagaToShutdownIds=[{}], sagaRootTasksIds=[{}]", sagaToShutdownIds, sagaRootTasksIds);
@@ -303,6 +300,19 @@ public class SagaManagerImpl implements SagaManager, DistributedTaskServiceLifec
     }
 
     @Override
+    public void markRevertHasFailedStep(UUID sagaId) {
+        log.info("markRevertHasFailedStep(): sagaId=[{}]", sagaId);
+        updateUnderLock(
+            sagaId,
+            sagaContextEntity -> sagaContextEntity.toBuilder()
+                .hasRevertFailedStep(true)
+                .build(),
+            sagaEntity -> getRevertHasFailedStepCounter(sagaEntity).increment(),
+            false
+        );
+    }
+
+    @Override
     public void completeIfExists(UUID sagaId) {
         log.info("completeIfExists(): sagaId=[{}]", sagaId);
         var now = LocalDateTime.now(clock);
@@ -313,6 +323,9 @@ public class SagaManagerImpl implements SagaManager, DistributedTaskServiceLifec
                 .expirationDateUtc(now.plusSeconds(sagaContextEntity.getAvailableAfterCompletionTimeoutSec()))
                 .build(),
             sagaEntity -> {
+                if (sagaEntity.isHasRevertFailedStep()) {
+                    moveToDls(List.of(sagaEntity));
+                }
                 getCompletedSagaCounter(sagaEntity).increment();
                 getCompletedTimer(sagaEntity).record(
                     Duration.between(sagaEntity.getCreatedDateUtc(), sagaEntity.getCompletedDateUtc())
@@ -390,6 +403,13 @@ public class SagaManagerImpl implements SagaManager, DistributedTaskServiceLifec
         );
     }
 
+    private void moveToDls(List<SagaEntity> sagaContextEntities) {
+        var dlsSagaContextEntities = sagaContextEntities.stream()
+            .map(sagaMapper::mapToDls)
+            .toList();
+        dlsSagaContextRepository.saveOrUpdateAll(dlsSagaContextEntities);
+    }
+
     private void updateUnderLock(UUID sagaId,
                                  Function<SagaEntity, SagaEntity> updateAction,
                                  boolean strictMode) throws SagaNotFoundException {
@@ -442,6 +462,13 @@ public class SagaManagerImpl implements SagaManager, DistributedTaskServiceLifec
     private Counter getCompletedSagaCounter(SagaEntity sagaEntity) {
         return metricHelper.counter(
             List.of("saga", "action", "completed"),
+            List.of(Tag.of("saga_name", sagaEntity.getName()))
+        );
+    }
+
+    private Counter getRevertHasFailedStepCounter(SagaEntity sagaEntity) {
+        return metricHelper.counter(
+            List.of("saga", "action", "revert-has-failed"),
             List.of(Tag.of("saga_name", sagaEntity.getName()))
         );
     }

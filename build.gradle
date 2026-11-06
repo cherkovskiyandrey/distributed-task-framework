@@ -109,6 +109,10 @@ configure(libraries) { project_ ->
 
     jar {
         enabled = true
+        // Spring Boot plugin marks the plain jar with the 'plain' classifier whenever bootJar exists.
+        // Libraries must publish an unclassified jar, otherwise Maven consumers cannot resolve them
+        // (Gradle consumers are fine through .module metadata).
+        archiveClassifier = ''
     }
 
     test {
