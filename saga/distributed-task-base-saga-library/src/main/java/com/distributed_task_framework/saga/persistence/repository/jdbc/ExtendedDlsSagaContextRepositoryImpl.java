@@ -30,7 +30,9 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             saga_id,
             name,
             created_date_utc,
+            completed_date_utc,
             available_after_completion_timeout_sec,
+            stop_on_failed_any_revert,
             expiration_date_utc,
             root_task_id,
             last_pipeline_context
@@ -38,7 +40,9 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
             :sagaId::uuid,
             :name,
             :createdDateUtc,
+            :completedDateUtc,
             :availableAfterCompletionTimeoutSec,
+            :stopOnFailedAnyRevert,
             :expirationDateUtc,
             :rootTaskId,
             :lastPipelineContext
@@ -47,7 +51,9 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
                 saga_id = excluded.saga_id,
                 name = excluded.name,
                 created_date_utc = excluded.created_date_utc,
+                completed_date_utc = excluded.completed_date_utc,
                 available_after_completion_timeout_sec = excluded.available_after_completion_timeout_sec,
+                stop_on_failed_any_revert = excluded.stop_on_failed_any_revert,
                 expiration_date_utc = excluded.expiration_date_utc,
                 root_task_id = excluded.root_task_id,
                 last_pipeline_context = excluded.last_pipeline_context
@@ -70,7 +76,9 @@ public class ExtendedDlsSagaContextRepositoryImpl implements ExtendedDlsSagaCont
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.sagaId, JdbcTools.asNullableString(dlsSagaEntity.getSagaId()), Types.VARCHAR);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.name, JdbcTools.asNullableString(dlsSagaEntity.getName()), Types.VARCHAR);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.createdDateUtc, dlsSagaEntity.getCreatedDateUtc(), Types.TIMESTAMP);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.completedDateUtc, dlsSagaEntity.getCompletedDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.availableAfterCompletionTimeoutSec, dlsSagaEntity.getAvailableAfterCompletionTimeoutSec(), Types.BIGINT);
+        mapSqlParameterSource.addValue(DlsSagaEntity.Fields.stopOnFailedAnyRevert, dlsSagaEntity.isStopOnFailedAnyRevert(), Types.BOOLEAN);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.expirationDateUtc, dlsSagaEntity.getExpirationDateUtc(), Types.TIMESTAMP);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.rootTaskId, dlsSagaEntity.getRootTaskId(), Types.BINARY);
         mapSqlParameterSource.addValue(DlsSagaEntity.Fields.lastPipelineContext, dlsSagaEntity.getLastPipelineContext(), Types.BINARY);

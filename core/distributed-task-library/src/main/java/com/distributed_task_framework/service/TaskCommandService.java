@@ -203,7 +203,8 @@ public interface TaskCommandService {
 
     /**
      * Cancel certain task execution by id.
-     * Only if task hasn't been executed yet.
+     * When task hasn't been executed yet, it will be skipped only on pre-execution phase in WorkerManager.
+     * If task is in progress, it's underlying thread will be interrupted. Task logic should be ready to handle this behavior.
      * When invoked from task itself real canceling will be postponed until task is in progress.
      *
      * @param taskId

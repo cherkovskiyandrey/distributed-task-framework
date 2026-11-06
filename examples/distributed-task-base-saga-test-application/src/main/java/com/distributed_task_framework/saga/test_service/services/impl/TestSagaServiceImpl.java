@@ -185,9 +185,8 @@ public class TestSagaServiceImpl implements TestSagaService {
     public void deleteLocal(TestDataDto input,
                             @Nullable SagaRevertableDto<TestDataEntity> output,
                             @Nullable SagaExecutionException sagaExecutionException) {
-        if (sagaExecutionException != null && (
-            sagaExecutionException.getCause() instanceof OptimisticLockingFailureException ||
-                sagaExecutionException.isTheSameBaseOnSimpleName(OptimisticLockingFailureException.class))) {
+        if (sagaExecutionException != null
+            && sagaExecutionException.isCauseRelatedTo(OptimisticLockingFailureException.class)) {
             log.warn("deleteLocal(): data has been changed");
             return;
         }
@@ -227,7 +226,7 @@ public class TestSagaServiceImpl implements TestSagaService {
 
     @SagaRevertMethod(name = "deleteOnRemoteServiceOne")
     public void deleteOnRemoteServiceOne(@Nullable SagaRevertableDto<TestDataEntity> parentInput,
-                                         TestDataDto input,
+                                         TestDataDto sagaInput,
                                          @Nullable RemoteOneDto output,
                                          @Nullable SagaExecutionException throwable) {
         if (output != null) {

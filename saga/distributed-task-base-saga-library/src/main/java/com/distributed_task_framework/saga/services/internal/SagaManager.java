@@ -88,6 +88,14 @@ public interface SagaManager {
     void trackIfExists(SagaPipeline sagaPipeline);
 
     /**
+     * Mark saga as having a revert step failed on its last attempt, if saga exists, otherwise - do nothing.
+     * Saga with this mark is moved to DLS on completion.
+     *
+     * @param sagaId saga id
+     */
+    void markRevertHasFailedStep(UUID sagaId);
+
+    /**
      * Save successful result if saga exists, otherwise - do nothing.
      *
      * @param sagaId

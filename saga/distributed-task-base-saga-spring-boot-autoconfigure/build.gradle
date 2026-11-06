@@ -1,3 +1,20 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+    dependencies {
+        classpath libs.spring.configuration.property.documenter.gradle.plugin
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+apply plugin: libs.plugins.property.documenter.get().pluginId
+
 dependencies {
     api project(':distributed-task-base-saga-library')
     api project(':distributed-task-spring-boot-starter')
@@ -22,3 +39,18 @@ dependencies {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
 }
+
+tasks.register('generateAdoc') {
+    dependsOn generatePropertyDocument {
+        documentName = "DSF Spring configuration properties"
+        documentDescription = "This is a document about the configuration properties in DSF (saga) autoconfiguration module"
+        type = "MARKDOWN"
+        metadataInput = file("build/classes/java/main/META-INF/spring-configuration-metadata.json")
+        outputFile = file("config-prop.md")
+        markdownCustomization {
+            unknownGroupLocalization = "distributed-task.saga"
+        }
+    }
+}
+
+compileJava.inputs.files(processResources)

@@ -83,6 +83,7 @@ public class SagaIntegrationTest extends BaseSpringIntegrationTest {
             Arguments.of(true, 400)
         );
     }
+
     @SneakyThrows
     @ParameterizedTest
     @MethodSource("shouldHandleWhenFailedInRevertSupplier")
@@ -96,7 +97,7 @@ public class SagaIntegrationTest extends BaseSpringIntegrationTest {
         );
 
         //do
-        assertThatThrownBy(() -> distributionSagaService.create(testSagaModel.getName())
+        var sagaFlow = distributionSagaService.create(testSagaModel.getName())
             .registerToRun(
                 testSagaModel.getBean()::sumAsFunction, //20
                 testSagaModel.getBean()::diffForFunction,
@@ -104,20 +105,26 @@ public class SagaIntegrationTest extends BaseSpringIntegrationTest {
             )
             .thenRun(
                 testSagaModel.getBean()::multiplyAsFunction, //400
-                testSagaModel.getBean()::divideForFunctionWithException
+                testSagaModel.getBean()::divideForFunctionWithException // go next | end
             )
             .thenRun(
-                testSagaModel.getBean()::multiplyAsFunctionWithException, //400*400
-                testSagaModel.getBean()::divideForFunctionWithExceptionHandling
+                testSagaModel.getBean()::sumAsFunction, //400+400=800
+                testSagaModel.getBean()::diffForFunction //400
             )
-            .start()
-            .get()
-        )
+            .thenRun(
+                testSagaModel.getBean()::multiplyAsFunctionWithException, //800*800
+                testSagaModel.getBean()::divideForFunctionWithExceptionHandling //800
+            )
+            .start();
+        var trackId = sagaFlow.trackId();
+
+        assertThatThrownBy(sagaFlow::get)
             .isInstanceOf(SagaExecutionException.class)
             .hasCauseInstanceOf(TestUserUncheckedException.class);
 
         //verify
         assertThat(testSagaException.getValue()).isEqualTo(expectedValue);
+        assertInDls(trackId);
     }
 
     @SneakyThrows

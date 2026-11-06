@@ -73,7 +73,7 @@ public class DistributedTaskProperties {
          */
         Integer maxInactivityIntervalMs;
         /**
-         * Cache expiration in sec to for registered cluster information.
+         * Cache expiration in ms for registered cluster information.
          */
         Integer cacheExpirationMs;
         /**

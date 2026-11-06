@@ -3,6 +3,7 @@ package com.distributed_task_framework.saga;
 import com.distributed_task_framework.saga.generator.TestSagaGenerator;
 import com.distributed_task_framework.saga.generator.TestSagaResolvingGenerator;
 import com.distributed_task_framework.saga.mappers.SagaMapper;
+import com.distributed_task_framework.saga.persistence.repository.DlsSagaContextRepository;
 import com.distributed_task_framework.saga.persistence.repository.SagaRepository;
 import com.distributed_task_framework.saga.services.DistributionSagaService;
 import com.distributed_task_framework.saga.services.impl.SagaManagerImpl;
@@ -40,11 +41,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import static com.distributed_task_framework.saga.services.impl.SagaManagerImpl.INTERNAL_SAGA_MANAGER_TASK_DEF;
 import static com.distributed_task_framework.test.autoconfigure.service.impl.DistributedTaskTestUtilImpl.DEFAULT_ATTEMPTS;
 import static com.distributed_task_framework.test.autoconfigure.service.impl.DistributedTaskTestUtilImpl.DEFAULT_DURATION;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 @Disabled
@@ -54,7 +57,7 @@ import static org.awaitility.Awaitility.await;
         "spring.datasource.hikari.minimum-idle=10",
         "distributed-task.enabled=true",
         "distributed-task.common.app-name=saga-test"
-        //other dtf params is default and from test-utils/distributed-task-test-spring-boot-autoconfigure/src/main/resources/application-dtf-test-utils.yml
+        //other dtf params is default and from test-utils/dtf/distributed-task-test-spring-boot-autoconfigure/src/main/resources/application-dtf-test-utils.yml
     }
 )
 @EnableAutoConfiguration
@@ -76,6 +79,8 @@ public abstract class BaseSpringIntegrationTest {
     DistributionSagaService distributionSagaService;
     @Autowired
     SagaRepository sagaRepository;
+    @Autowired
+    DlsSagaContextRepository dlsSagaContextRepository;
     @Autowired
     TestSagaGenerator testSagaGenerator;
     @Autowired
@@ -111,6 +116,7 @@ public abstract class BaseSpringIntegrationTest {
             List.of(INTERNAL_SAGA_MANAGER_TASK_DEF)
         );
         sagaRepository.deleteAll();
+        dlsSagaContextRepository.deleteAll();
         testSagaGenerator.reset();
         Mockito.reset(sagaTaskFactory);
     }
@@ -121,6 +127,10 @@ public abstract class BaseSpringIntegrationTest {
 
     protected void setFixedTime(long secAfterBeginOfEpoch) {
         clock.setClock(Clock.fixed(Instant.ofEpochSecond(secAfterBeginOfEpoch), ZoneId.of("UTC")));
+    }
+
+    protected void assertInDls(UUID sagaId) {
+        assertThat(dlsSagaContextRepository.existsById(sagaId)).isTrue();
     }
 
     protected void waitFor(Callable<Boolean> conditionEvaluator) {
