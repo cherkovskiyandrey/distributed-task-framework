@@ -35,14 +35,14 @@ public class TestSagaResolvingGenerator {
             ) :
             TestUtils.findFirstMethod(spec.getObject().getClass(), spec.getMethodName());
 
-        var taskDef = TaskDef.privateTaskDef(RandomStringUtils.random(10), SagaPipeline.class);
+        var taskDef = TaskDef.privateTaskDef(RandomStringUtils.randomAlphanumeric(10), SagaPipeline.class);
         var operand = SagaOperand.builder()
             .taskDef(taskDef)
             .targetObject(spec.getObject())
             .proxyWrappers(proxyList)
             .method(method)
             .build();
-        var operandName = RandomStringUtils.random(10);
+        var operandName = RandomStringUtils.randomAlphanumeric(10);
         if (spec.isRegister()) {
             sagaResolver.registerOperand(operandName, operand);
         }
