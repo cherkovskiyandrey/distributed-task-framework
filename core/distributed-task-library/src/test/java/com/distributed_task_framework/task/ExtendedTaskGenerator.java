@@ -197,7 +197,7 @@ public class ExtendedTaskGenerator {
     private <T> TaskDef<T> createTaskDef(AbstractTaskModelSpec<T> baseTaskDef) {
         return baseTaskDef.getTaskDef() != null ?
             baseTaskDef.getTaskDef() :
-            TaskDef.privateTaskDef("test-" + RandomStringUtils.random(10), baseTaskDef.getInputType());
+            TaskDef.privateTaskDef("test-" + RandomStringUtils.randomAlphanumeric(10), baseTaskDef.getInputType());
     }
 
 
