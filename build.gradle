@@ -115,6 +115,17 @@ configure(libraries) { project_ ->
         archiveClassifier = ''
     }
 
+    // Maven Central requires a -javadoc.jar for every artifact that ships classes.
+    java {
+        withJavadocJar()
+    }
+
+    javadoc {
+        options.encoding = 'UTF-8'
+        // Javadoc is published for completeness, not linted: doclint rejects legacy tags like </br>.
+        options.addStringOption('Xdoclint:none', '-quiet')
+    }
+
     test {
         maxHeapSize = "2048m"
         testLogging {
